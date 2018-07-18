@@ -26,7 +26,7 @@ MIT
  Scripts directory. 
  - **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts. 
 
-###Examples of usage:
+### Examples of usage:
  1. Configure a Site, Element, and related objects using the UI. Record the Site name (example, MySite)
  2. Extract the configuration using the `pull_site` script: `pull_site -S "MySite" --output MySite.yaml`
     ```bash
@@ -63,7 +63,7 @@ MIT
     DONE
     ```
  
-###Caveats and known issues:
+### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
  - Only supports CG SDK 5.0.1b1 or greater
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
