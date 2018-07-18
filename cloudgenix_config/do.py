@@ -1369,6 +1369,28 @@ def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id
     if debuglevel >= 3:
         local_debug("WANINTERFACE DIFF: {0}".format(find_diff(waninterface_change_check, waninterface_config)))
 
+    # check for network_id changes. These are not supported in current release.
+    api_network_id = waninterface_change_check.get("network_id")
+    config_network_id = waninterface_config.get("network_id")
+
+    if api_network_id != config_network_id:
+        api_name = waninterface_change_check.get('name')
+        config_name = waninterface_config.get('name')
+
+        if api_name != config_name:
+            error_text = "WAN Interface {0}->{1}(ID: {2}) config has changed 'network_id'. This is not supported. " \
+                         "To change the network_id, please remove the WAN Interface and re-create it with the new" \
+                         "network_id in a subsequent run.".format(api_name, config_name, waninterface_id)
+        else:
+            error_text = "WAN Interface {0}(ID: {1}) config has changed 'network_id'. This is not supported. " \
+                         "To change the network_id, please remove the WAN Interface and re-create it with the new " \
+                         "network_id in a subsequent run.".format(api_name, waninterface_id)
+        error_dict = {
+            "FROM CONFIG": waninterface_config,
+            "ON CONTROLLER": waninterface_change_check
+        }
+        throw_error(error_text, error_dict)
+
     # Update Waninterface.
     waninterface_resp2 = sdk.put.waninterfaces(site_id, waninterface_id, waninterface_config)
 
