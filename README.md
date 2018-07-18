@@ -33,7 +33,7 @@ MIT
     edwards-mbp-pro:cloudgenix_config aaron$ ./pull_site.py -S "MySite" --output MySite.yml 
     edwards-mbp-pro:cloudgenix_config aaron$ 
     ```
- 3. View, edit, make changes to the configuration file as needed. Example file at <https://github.com/CloudGenix/cloudgenix_config/example/MySite.yml>
+ 3. View, edit, make changes to the configuration file as needed. Example file at <https://github.com/CloudGenix/cloudgenix_config/blob/master/example/MySite.yml>
  4. Use `do_site.py` to apply the configuration, script will get site to that state.
     ```bash
     edwards-mbp-pro:cloudgenix_config aaron$ ./do_site.py ./MySite.yml
