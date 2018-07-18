@@ -930,7 +930,8 @@ def assign_modify_element(matching_element, site_id, config_element):
     element_id = element.get('id')
     element_site_id = element.get("site_id")
 
-    if element_site_id:
+    # 5.0.1 element_site_id is set to 1 instead of None when unassigned.
+    if element_site_id and element_site_id not in ['1', 1]:
         # element is already assigned.
 
         if element_site_id == site_id:
