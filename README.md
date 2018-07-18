@@ -78,6 +78,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.0.0** | **b2** | Bug fixes. |
 | **1.0.0** | **b1** | Initial Release. |
 
 
