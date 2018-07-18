@@ -2402,6 +2402,8 @@ def get_parent_child_dict(config_interfaces, id2n=None):
             child_if_map[config_interfaces_name] = [parent_if_name]
             used_parent_name_list.append(parent_if_name)
 
+        # Note, service_link parents can be configured, so they are not done here.
+
     return parent_if_map, child_if_map
 
 
@@ -4471,18 +4473,18 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                             del config_interfaces_defaults[default_bypasspair_name]
 
                 # get parent/child mappings for delete
-                config_child2parent, \
-                    config_parent2child = get_parent_child_dict(config_interfaces_defaults,
+                config_parent2child, \
+                    config_child2parent = get_parent_child_dict(config_interfaces_defaults,
                                                                 id2n=interfaces_id2n)
 
-                child_interfaces = config_child2parent.keys()
+                parent_interfaces = config_parent2child.keys()
                 # delete default interface configs for bypass members
                 for ifname in list(config_interfaces_defaults.keys()):
-                    if ifname in child_interfaces:
-                        local_debug("CHILD DELETE: {0}".format(ifname), child_interfaces)
-                        # this if is a member of a default bypass pair. Remove the config from the queue.
-                        # If bypass pair doesn't already exist, member port configs should be wiped
-                        # on create of bypasspair.
+                    if ifname in parent_interfaces:
+                        local_debug("PARENT DELETE: {0}".format(ifname), parent_interfaces)
+                        # this IF is a member of a default bypass pair. Remove the config from the queue.
+                        # If bypass pair doesn't already exist, member port configs dont need to be modified
+                        # as they will be wiped on create of bypasspair automatically by this script.
                         del config_interfaces_defaults[ifname]
                     elif ifname in skip_interface_list:
                         # this is an unconfigurable interface, remove it from default config.
@@ -4492,15 +4494,15 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # default interface configs should not be used if they will be a parent - they
                 # will be set appropriately on child creation.
                 # get parent/child mappings for delete
-                config_child2parent, \
-                    config_parent2child = get_parent_child_dict(config_interfaces,
+                config_parent2child, \
+                    config_child2parent = get_parent_child_dict(config_interfaces,
                                                                 id2n=interfaces_id2n)
 
                 # delete default interface configs for config parents
-                child_interfaces = config_child2parent.keys()
+                parent_interfaces = config_parent2child.keys()
                 for ifname in list(config_interfaces_defaults.keys()):
-                    if ifname in child_interfaces:
-                        local_debug("PARENT DELETE: {0}".format(ifname), child_interfaces)
+                    if ifname in parent_interfaces:
+                        local_debug("PARENT DELETE: {0}".format(ifname), parent_interfaces)
                         # this if is a parent of a user configured subif/bypasspair. Remove the config from the queue.
                         # If child if does not already exist, member port configs should be wiped
                         # on create of bypasspair.
@@ -4523,6 +4525,19 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 interfaces_bypasspairs_cache = get_api_interfaces_by_type(interfaces_cache, 'bypasspair')
                 leftover_bypasspairs = [entry['id'] for entry in interfaces_bypasspairs_cache if entry.get('id')]
 
+                # Remove configured interfaces's parents from delete queue.
+                # because if it is a parent, we don't want to try to delete it.
+                # Exception is currently service link, as parent for service link can be changed.
+                config_parent_interfaces = config_parent2child.keys()
+                for config_parent_interface in config_parent_interfaces:
+                    # try to get bypass if ID from the list of parent IF names
+                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id)
+                    if config_parent_interface_id:
+                        # if we find one, make sure it isn't in delete queue
+                        local_debug("PARENT BYPASS ID, REMOVING FROM DELETE QUEUE: ", config_parent_interface_id)
+                        leftover_bypasspairs = [entry for entry in leftover_bypasspairs if
+                                                entry != config_parent_interface_id]
+
                 # iterate through config, remove IDs of config-referenced Bypasspairs.
                 for config_interface_name, config_interface_value in config_bypasspairs.items():
                     # recombine object
@@ -4536,7 +4551,6 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
-
                     elif name_interface_id is not None:
                         # look up ID by name on existing interfaces.
                         interface_id = name_interface_id

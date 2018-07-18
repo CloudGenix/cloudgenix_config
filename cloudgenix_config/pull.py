@@ -542,8 +542,10 @@ def _pull_config_for_single_site(site_name_id):
         parent_id_list = []
         for interface in interfaces:
             parent_id = interface.get('parent')
-            if parent_id is not None:
-                # add to parent list
+            if_type = interface.get('type')
+            if parent_id is not None and if_type in ['subinterface', 'pppoe', 'port']:
+                # add to parent list if it is not a service link, as service link if configs can be modified.
+                # print("INTERFACE {0} is PARENT: {1}".format(parent_id, jdout(interface)))
                 parent_id_list.append(parent_id)
             bypasspair_config = interface.get('bypass_pair')
             if bypasspair_config is not None and isinstance(bypasspair_config, dict):
