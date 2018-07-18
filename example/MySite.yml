@@ -1,0 +1,511 @@
+---
+type: cloudgenix template
+version: 1.0
+# Created at 2018-07-18T15:48:19.568516Z
+# by aaron@cloudgenix.com
+sites v4.2:
+  MySite:
+    address:
+      city: Cape Canaveral
+      country: United States
+      post_code: '32920'
+      state: FL
+      street:
+      street2:
+    admin_state: active
+    description:
+    element_cluster_role: SPOKE
+    elements v2.1:
+      MySite Element:
+        admin_action:
+        allowed_roles:
+        - HUB
+        - SPOKE
+        cluster_insertion_mode:
+        cluster_member_id:
+        connected: true
+        deployment_op:
+        description:
+        interfaces v4.4:
+          '1':
+            admin_up: true
+            attached_lan_networks:
+            bound_interfaces:
+            bypass_pair:
+            description:
+            dhcp_relay:
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+              dhcp_config:
+                client_id:
+                hostname:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            mac_address:
+            mtu: 1500
+            nat_address:
+            nat_port: 0
+            network_context_id:
+            parent:
+            pppoe_config:
+            scope: local
+            service_link_config:
+            site_wan_interface_ids:
+            - Circuit to Comcast
+            sub_interface:
+            type: port
+            used_for: public
+          '23':
+            admin_up: true
+            attached_lan_networks:
+            - lan_network_id: NATIVE_VLAN
+              vlan_id: 0
+            bound_interfaces:
+            bypass_pair:
+              lan: '3'
+              lan_state_propagation: false
+              use_relay: false
+              wan: '2'
+            description:
+            dhcp_relay:
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+            mac_address:
+            mtu: 1500
+            nat_address:
+            nat_port: 0
+            network_context_id:
+            parent:
+            pppoe_config:
+            scope: local
+            service_link_config:
+            site_wan_interface_ids:
+            - Circuit to AT&T
+            sub_interface:
+            type: bypasspair
+            used_for: private_wan
+          '4':
+            admin_up: false
+            attached_lan_networks:
+            bound_interfaces:
+            bypass_pair:
+            description:
+            dhcp_relay:
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+            mac_address:
+            mtu: 1500
+            nat_address:
+            nat_port: 0
+            network_context_id:
+            parent:
+            pppoe_config:
+            scope: local
+            service_link_config:
+            site_wan_interface_ids:
+            sub_interface:
+            type: port
+            used_for: none
+          controller 1:
+            admin_up: true
+            attached_lan_networks:
+            bound_interfaces:
+            bypass_pair:
+            description:
+            dhcp_relay:
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+              dhcp_config:
+                client_id:
+                hostname:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            mac_address:
+            mtu: 1500
+            nat_address:
+            nat_port: 0
+            network_context_id:
+            parent:
+            pppoe_config:
+            scope: local
+            service_link_config:
+            site_wan_interface_ids:
+            sub_interface:
+            type: port
+            used_for: none
+        l3_direct_private_wan_forwarding: false
+        l3_lan_forwarding: false
+        model_name: ion 3102v
+        network_policysetstack_id:
+        ntp v2.0:
+        - description: Default NTP template created by super user.
+          name: default
+          ntp_servers:
+          - host: 0.cloudgenix.pool.ntp.org
+            max_poll: 10
+            min_poll: 9
+            version: 4
+          - host: 1.cloudgenix.pool.ntp.org
+            max_poll: 10
+            min_poll: 9
+            version: 4
+          - host: 2.cloudgenix.pool.ntp.org
+            max_poll: 10
+            min_poll: 9
+            version: 4
+          - host: 3.cloudgenix.pool.ntp.org
+            max_poll: 10
+            min_poll: 9
+            version: 4
+          - host: time.nist.gov
+            max_poll: 15
+            min_poll: 13
+            version: 4
+          source_interface_ids:
+          tags:
+        priority_policysetstack_id:
+        role: SPOKE
+        routing:
+          as_path_access_lists v2.0:
+            test3:
+              as_path_regex_list:
+              - as_path_regex: _53366_
+                order: 10
+                permit: true
+              auto_generated: false
+              description:
+              tags:
+          bgp:
+            global_config v2.0:
+              admin_distance: 20
+              adv_interval: 1
+              graceful_restart: true
+              hold_time: 90
+              keepalive_time: 30
+              local_as_num: '53366'
+              maximum_paths: 1
+              md5_secret:
+              multi_hop_limit: 1
+              peer_retry_time: 120
+              prefix_adv_type: aggregate-auto
+              prefixes_to_adv_to_wan:
+              router_id:
+              stalepath_time: 120
+            peers v2.0:
+              teaerz:
+                bgp_config:
+                  adv_interval: 1
+                  hold_time: 90
+                  keepalive_time: 30
+                  local_as_num: '333.4'
+                  md5_secret:
+                  multi_hop_limit: 1
+                  peer_retry_time: 120
+                description:
+                peer_ip: 1.2.3.6
+                peer_type: classic
+                remote_as_num: '11111'
+                route_map_in_id: toady2
+                route_map_out_id: test8
+                tags:
+                update_source:
+          ip_community_lists v2.0:
+            '20':
+              auto_generated: false
+              community_list:
+              - community_str: no-advertise
+                permit: true
+              - community_str: no-export
+                permit: false
+              description:
+              tags:
+          prefix_lists v2.0:
+            test-script-list2:
+              auto_generated: false
+              description: test
+              prefix_filter_list:
+              - ge: 0
+                le: 0
+                order: 1
+                permit: true
+                prefix: 4.8.8.0/24
+              tags:
+              - aaron
+              - made
+              - this
+          route_maps v2.0:
+            test8:
+              auto_generated: false
+              description:
+              route_map_entries:
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 10
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              tags:
+            toady:
+              auto_generated: false
+              description:
+              route_map_entries:
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 10
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id: test-script-list2
+                  tag: 0
+                order: 20
+                permit: false
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id: test-script-list2
+                  ip_prefix_list_id: test-script-list2
+                  tag: 0
+                order: 30
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop: 1.3.4.5
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry: '44'
+                match:
+                  as_path_id: test3
+                  community_list_id: '20'
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 40
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop: peer-address
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 50
+                permit: false
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 131
+                  tag: 0
+                  weight: 0
+              tags:
+            toady2:
+              auto_generated: false
+              description:
+              route_map_entries:
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 10
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id: test-script-list2
+                  tag: 0
+                order: 20
+                permit: false
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id: test-script-list2
+                  ip_prefix_list_id: test-script-list2
+                  tag: 0
+                order: 30
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop: 1.3.4.5
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry: '44'
+                match:
+                  as_path_id: test3
+                  community_list_id: '20'
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 40
+                permit: true
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop: peer-address
+                  local_preference: 0
+                  tag: 0
+                  weight: 0
+              - continue_entry:
+                match:
+                  as_path_id:
+                  community_list_id:
+                  ip_next_hop_id:
+                  ip_prefix_list_id:
+                  tag: 0
+                order: 50
+                permit: false
+                set:
+                  as_path_prepend:
+                  community:
+                  ip_next_hop:
+                  local_preference: 131
+                  tag: 0
+                  weight: 0
+              tags:
+          static v2.0:
+          - description:
+            destination_prefix: 1.2.3.4/32
+            network_context_id:
+            nexthops:
+            - admin_distance: 1
+              nexthop_interface_id:
+              nexthop_ip: 1.2.3.5
+              self: false
+            scope: local
+            tags:
+        serial_number: 8862b2df-bfad-491c-8f4d-bd908dd9c638
+        software_version: 5.0.1-b9
+        state: bound
+        tenant_id: '10006'
+        toolkit v2.2:
+          account_disable_interval: 5
+          inactive_interval: 15
+          otpkey_version: 1
+          retry_login_count: 5
+          ssh_enabled: true
+          ssh_outbound_enabled: false
+    lannetworks v3.0:
+      NATIVE_VLAN:
+        ipv4_config:
+          default_routers:
+          - 192.168.90.1/24
+          dhcp_relay:
+          dhcp_server:
+          prefixes:
+        network_context_id:
+        scope: global
+    location:
+      description:
+      latitude: 28.405799865722656
+      longitude: -80.60479736328125
+    network_policysetstack_id: '1528747434129'
+    policy_set_id:
+    priority_policysetstack_id: '1528837188511'
+    security_policyset_id:
+    service_binding: North America
+    waninterfaces v2.1:
+      Circuit to AT&T:
+        bfd_mode: aggressive
+        bw_config_mode: manual
+        bwc_enabled: true
+        description:
+        label_id: Metro Ethernet
+        link_bw_down: 1.5
+        link_bw_up: 1.5
+        lqm_enabled: true
+        network_id: AT&T
+      Circuit to Comcast:
+        bfd_mode: aggressive
+        bw_config_mode: manual
+        bwc_enabled: true
+        description:
+        label_id: Internet Cable
+        link_bw_down: 30.0
+        link_bw_up: 10.0
+        lqm_enabled: true
+        network_id: Comcast
+      Circuit to Megapath:
+        bfd_mode: aggressive
+        bw_config_mode: manual
+        bwc_enabled: true
+        description:
+        label_id: Internet DSL
+        link_bw_down: 30.0
+        link_bw_up: 10.0
+        lqm_enabled: true
+        network_id: Megapath
