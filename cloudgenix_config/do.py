@@ -343,8 +343,8 @@ def update_global_cache():
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
     # secuirity_policysets
-    secuirity_policysets_resp = sdk.get.securitypolicysets()
-    secuirity_policysets_cache, _ = extract_items(secuirity_policysets_resp, 'secuirity_policysets')
+    security_policysets_resp = sdk.get.securitypolicysets()
+    security_policysets_cache, _ = extract_items(security_policysets_resp, 'security_policysets')
 
     # network_policysetstack
     network_policysetstack_resp = sdk.get.networkpolicysetstacks()
@@ -1147,6 +1147,8 @@ def create_site(config_site):
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
+    name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
+    name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
