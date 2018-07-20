@@ -2,7 +2,7 @@
 type: cloudgenix template
 version: 1.0
 # Created at 2018-07-18T15:48:19.568516Z
-# by aaron@cloudgenix.com
+# by developers@cloudgenix.com
 sites v4.2:
   MySite:
     address:
