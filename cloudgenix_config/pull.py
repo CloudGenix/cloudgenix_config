@@ -551,10 +551,10 @@ def _pull_config_for_single_site(site_name_id):
             if bypasspair_config is not None and isinstance(bypasspair_config, dict):
                 wan_id = bypasspair_config.get('wan')
                 lan_id = bypasspair_config.get('lan')
-                if wan_id is not None:
+                if wan_id is not None and if_type in ['port']:
                     # add to parent list
                     parent_id_list.append(wan_id)
-                if lan_id is not None:
+                if lan_id is not None and if_type in ['port']:
                     # add to parent list
                     parent_id_list.append(lan_id)
 
