@@ -4,7 +4,7 @@ with open('README.md') as f:
     long_description = f.read()
 
 setup(name='cloudgenix_config',
-      version='1.0.0b2',
+      version='1.0.0b3',
       description='Configuration exporting and Continuous Integration (CI) capable configuration importing for the '
                   'CloudGenix Cloud Controller.',
       long_description=long_description,
@@ -20,8 +20,8 @@ setup(name='cloudgenix_config',
       packages=['cloudgenix_config'],
       entry_points={
             'console_scripts': [
-                  'do_site = cloudgenix_config:go',
-                  'pull_site = cloudgenix_config:go',
+                  'do_site = cloudgenix_config.do:go',
+                  'pull_site = cloudgenix_config.pull:go',
                   ]
       },
       classifiers=[
