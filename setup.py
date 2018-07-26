@@ -20,8 +20,8 @@ setup(name='cloudgenix_config',
       packages=['cloudgenix_config'],
       entry_points={
             'console_scripts': [
-                  'do_site = cloudgenix_config:go',
-                  'pull_site = cloudgenix_config:go',
+                  'do_site = cloudgenix_config.do:go',
+                  'pull_site = cloudgenix_config.pull:go',
                   ]
       },
       classifiers=[
