@@ -949,7 +949,7 @@ def _pull_config_for_single_site(site_name_id):
 
 
 def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=None, passed_strip_versions=None,
-                      passed_force_parents=None):
+                      passed_force_parents=None, no_header=None):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
@@ -958,6 +958,7 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
     :param passed_report_id: Optional - Report ID in YAML, default False
     :param passed_strip_versions: Optional - Remove API versions from YAML, default False
     :param passed_force_parents: Optional - Leave unconfigurable parent interfaces in configuration, default False.
+    :param no_header: Optional - bool, Remove metadata header from YAML file. True removes, False or None keep.
     :return: No return, directly writes YAML file to output_filename specified.
     """
     global ELEMENTS
@@ -1013,9 +1014,11 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
     # Got here, we got some site data.
     config_yml = open(output_filename, "w")
     config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
-    config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-    if cgx_session.email:
-        config_yml.write("# by {0}\n".format(cgx_session.email))
+    # write header by default, but skip if asked.
+    if not no_header:
+        config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+        if cgx_session.email:
+            config_yml.write("# by {0}\n".format(cgx_session.email))
     yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
     config_yml.close()
 
@@ -1052,6 +1055,8 @@ def go():
                               help='Output non-versioned configuration branches.',
                               default=False, action="store_true")
     config_group.add_argument("--force-parents", help="Force export of parent interface configurations.",
+                              default=False, action="store_true")
+    config_group.add_argument("--no-header", help="Skip export of Metadata header in config YAML.",
                               default=False, action="store_true")
     config_group.add_argument("--output", help="Output file name (default './config.yml')", type=str,
                               default="./config.yml")
@@ -1139,7 +1144,7 @@ def go():
                 user_password = None
 
     # pull the specified sites config
-    pull_config_sites(args['sites'], filename)
+    pull_config_sites(args['sites'], filename, no_header=args['no_header'])
 
     return
 
