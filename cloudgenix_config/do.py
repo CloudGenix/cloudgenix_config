@@ -1055,8 +1055,8 @@ def unbind_elements(element_id_list, site_id):
             intf_resp = sdk.get.interfaces(site_id, element_item_id)
 
             if not intf_resp.cgx_status:
-                throw_error("Could not get list of elements {0} interfaces: ".format(element_item_name),
-                            intf_resp.cgx_content)
+                throw_error("Could not get list of element {0} interfaces: ".format(element_item_name),
+                            intf_resp)
 
             intf_list = intf_resp.cgx_content.get('items', [])
 
@@ -1100,6 +1100,21 @@ def unbind_elements(element_id_list, site_id):
                         if not reconf_resp.cgx_status:
                             throw_error("Could not strip config from {0}: ".format(intf_name),
                                         reconf_resp.cgx_content)
+
+            # Remove static routes from device.
+            static_routes_resp = sdk.get.staticroutes(site_id, element_item_id)
+
+            if not static_routes_resp.cgx_status:
+                throw_error("Could not get list of element {0} static routes: ".format(element_item_name),
+                            static_routes_resp)
+
+            static_routes_list = static_routes_resp.cgx_content.get('items', [])
+
+            # Get a list of static routes bound to this element
+            delete_static_route_id_list = [x['id'] for x in static_routes_list if x.get('id')]
+
+            # Delete the routes
+            delete_staticroutes(delete_static_route_id_list, site_id, element_item_id)
 
             # prepare to unbind element.
             elem_template = copy.deepcopy(element_item)
