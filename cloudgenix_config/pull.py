@@ -538,6 +538,9 @@ def _pull_config_for_single_site(site_name_id):
         # update id_name_cache
         id_name_cache.update(build_lookup_dict(interfaces, key_val='id', value_val='name'))
 
+        # Create interface type lookup dict
+        if_id2type = build_lookup_dict(interfaces, key_val='id', value_val='type')
+
         # create a parent list
         parent_id_list = []
         for interface in interfaces:
@@ -549,13 +552,16 @@ def _pull_config_for_single_site(site_name_id):
                 parent_id_list.append(parent_id)
             bypasspair_config = interface.get('bypass_pair')
             if bypasspair_config is not None and isinstance(bypasspair_config, dict):
+                # jd(bypasspair_config)
                 wan_id = bypasspair_config.get('wan')
                 lan_id = bypasspair_config.get('lan')
-                if wan_id is not None and if_type in ['port']:
+                if wan_id is not None and if_id2type.get(wan_id) in ['port']:
                     # add to parent list
+                    # print("Adding WAN {0} to parent_id_list".format(wan_id))
                     parent_id_list.append(wan_id)
-                if lan_id is not None and if_type in ['port']:
+                if lan_id is not None and if_id2type.get(lan_id) in ['port']:
                     # add to parent list
+                    # print("Adding LAN {0} to parent_id_list".format(lan_id))
                     parent_id_list.append(lan_id)
 
         for interface in interfaces:
