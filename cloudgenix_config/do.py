@@ -3313,9 +3313,19 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
     # make a copy of bgp_peer to modify
     bgp_peer_template = copy.deepcopy(config_bgp_peer)
 
-    # replace flat names
-    name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
-    name_lookup_in_template(bgp_peer_template, 'route_map_out_id', routemaps_n2id)
+    # Get peer type
+    bgp_peer_type = config_bgp_peer.get('peer_type')
+    local_debug("BGP PEER TYPE: {0}".format(bgp_peer_type))
+
+    # if Core or Edge peer, set route_maps to None for creation. Route maps get auto-created.
+    if bgp_peer_type in ['core', 'edge']:
+        local_debug('CORE-EDGE PEER FOUND: {0}'.format(bgp_peer_type))
+        bgp_peer_template['route_map_in_id'] = None
+        bgp_peer_template['route_map_out_id'] = None
+    else:
+        # replace flat names
+        name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
+        name_lookup_in_template(bgp_peer_template, 'route_map_out_id', routemaps_n2id)
 
     local_debug("bgp_peer TEMPLATE: " + str(json.dumps(bgp_peer_template, indent=4)))
 
