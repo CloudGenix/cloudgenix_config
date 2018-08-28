@@ -566,6 +566,7 @@ def _pull_config_for_single_site(site_name_id):
 
         for interface in interfaces:
             interface_id = interface.get('id')
+            if_type = interface.get('type')
             if not FORCE_PARENTS and interface_id in parent_id_list:
                 # interface is a parent, skip
                 continue
@@ -575,7 +576,10 @@ def _pull_config_for_single_site(site_name_id):
             # Update ids to names for complex objects in interfaces first
             interface_template = copy.deepcopy(interface)
             swi_list = interface.get('site_wan_interface_ids', None)
-            if swi_list and isinstance(swi_list, list):
+            # TODO: Due to CGB-8874, SWIs may get incorrectly propagated to loopbacks. As a workaround, don't
+            # Process loopback SWIs (not valid for < 5.1.x).
+            # Remove the loopback check below when defect above fixed.
+            if swi_list and isinstance(swi_list, list) and if_type not in ['loopback']:
                 swi_template = []
                 for swi_id in swi_list:
                     swi_template.append(id_name_cache.get(swi_id, swi_id))
