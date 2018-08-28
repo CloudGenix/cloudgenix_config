@@ -47,6 +47,10 @@ else:
     text_type = str
     binary_type = bytes
 
+
+# Version for reference
+version = "1.0.0b4"
+
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
 __email__ = "developers@cloudgenix.com"
 __copyright__ = "Copyright (c) 2017, 2018 CloudGenix, Inc"

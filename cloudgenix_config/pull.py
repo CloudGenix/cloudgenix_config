@@ -584,6 +584,9 @@ def _pull_config_for_single_site(site_name_id):
                 for swi_id in swi_list:
                     swi_template.append(id_name_cache.get(swi_id, swi_id))
                 interface_template['site_wan_interface_ids'] = swi_template
+            # 2nd part of CGB-8874 workaround.
+            elif if_type in ['loopback']:
+                interface_template['site_wan_interface_ids'] = None
 
             att_ln_list = interface.get('attached_lan_networks', None)
             if att_ln_list and isinstance(att_ln_list, list):
