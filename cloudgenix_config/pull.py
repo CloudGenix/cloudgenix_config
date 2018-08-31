@@ -962,7 +962,7 @@ def _pull_config_for_single_site(site_name_id):
 
 
 def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=None, passed_strip_versions=None,
-                      passed_force_parents=None, no_header=None):
+                      passed_force_parents=None, no_header=None, return_result=False):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
@@ -972,7 +972,8 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
     :param passed_strip_versions: Optional - Remove API versions from YAML, default False
     :param passed_force_parents: Optional - Leave unconfigurable parent interfaces in configuration, default False.
     :param no_header: Optional - bool, Remove metadata header from YAML file. True removes, False or None keep.
-    :return: No return, directly writes YAML file to output_filename specified.
+    :param return_result: Optioanl - bool, If True, return the result as a Dict instead of writing out to YAML file.
+    :return: Default - directly writes YAML file to output_filename specified, no return.
     """
     global ELEMENTS
     global SITES
@@ -1025,18 +1026,27 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
                         "Exiting.".format("\n\t".join(sites.split(','))))
 
     # Got here, we got some site data.
-    config_yml = open(output_filename, "w")
-    config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
-    # write header by default, but skip if asked.
-    if not no_header:
-        config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-        if cgx_session.email:
-            config_yml.write("# by {0}\n".format(cgx_session.email))
-    yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
-    config_yml.close()
 
-    # jd(CONFIG)
-    # jd(id_name_cache)
+    # if not set to return_obj, write out YAML file.
+    if return_result:
+        # add headers to CONFIG.
+        CONFIG['type'] = "cloudgenix template"
+        CONFIG['version'] = "1.0"
+        return CONFIG
+    else:
+        config_yml = open(output_filename, "w")
+        config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+        # write header by default, but skip if asked.
+        if not no_header:
+            config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+            if cgx_session.email:
+                config_yml.write("# by {0}\n".format(cgx_session.email))
+        yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+        config_yml.close()
+
+        # jd(CONFIG)
+        # jd(id_name_cache)
+        return
 
 
 def go():
