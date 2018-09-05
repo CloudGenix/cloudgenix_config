@@ -108,13 +108,20 @@ skip_interface_list = [
 ]
 
 
+class CloudGenixConfigError(Exception):
+    """
+    Custom exception for errors when not exiting.
+    """
+    pass
+
+
 def throw_error(message, resp=None, cr=True):
     """
-    Non-recoverable error, write message to STDERR and exit.
+    Non-recoverable error, write message to STDERR and exit or raise exception
     :param message: Message text
     :param resp: Optional - CloudGenix SDK Response object
-    :param cr: Optional - Use (or not) Carrage Returns.
-    :return: No Return, exits program.
+    :param cr: Optional - Use (or not) Carriage Returns.
+    :return: No Return, throws exception.
     """
     output = "ERROR: " + str(message)
     if cr:
@@ -125,7 +132,7 @@ def throw_error(message, resp=None, cr=True):
         if cr:
             output2 += "\n"
         sys.stderr.write(output2)
-    sys.exit(1)
+    raise CloudGenixConfigError(message)
 
 
 def throw_warning(message, resp=None, cr=True):
@@ -133,7 +140,7 @@ def throw_warning(message, resp=None, cr=True):
     Recoverable Warning.
     :param message: Message text
     :param resp: Optional - CloudGenix SDK Response object
-    :param cr: Optional - Use (or not) Carrage Returns.
+    :param cr: Optional - Use (or not) Carriage Returns.
     :return: None
     """
     output = "WARNING: " + str(message)

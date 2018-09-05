@@ -54,7 +54,7 @@ from cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lowe
     config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
     list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
     order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-    nameable_interface_types, skip_interface_list
+    nameable_interface_types, skip_interface_list, CloudGenixConfigError
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -5965,5 +5965,9 @@ def go():
             if not sdk.tenant_id:
                 user_email = None
                 user_password = None
-
-    do_site(loaded_config, destroy)
+    # Do the real work
+    try:
+        do_site(loaded_config, destroy)
+    except CloudGenixConfigError:
+        # Exit silently if error hit.
+        sys.exit(1)
