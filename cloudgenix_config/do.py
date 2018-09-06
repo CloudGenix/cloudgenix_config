@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** v1.0.0b3
+**Version:** 1.0.0b4
 
 **Author:** CloudGenix
 
@@ -54,7 +54,7 @@ from cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lowe
     config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
     list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
     order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-    nameable_interface_types, skip_interface_list
+    nameable_interface_types, skip_interface_list, CloudGenixConfigError
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -1055,8 +1055,8 @@ def unbind_elements(element_id_list, site_id):
             intf_resp = sdk.get.interfaces(site_id, element_item_id)
 
             if not intf_resp.cgx_status:
-                throw_error("Could not get list of elements {0} interfaces: ".format(element_item_name),
-                            intf_resp.cgx_content)
+                throw_error("Could not get list of element {0} interfaces: ".format(element_item_name),
+                            intf_resp)
 
             intf_list = intf_resp.cgx_content.get('items', [])
 
@@ -1100,6 +1100,21 @@ def unbind_elements(element_id_list, site_id):
                         if not reconf_resp.cgx_status:
                             throw_error("Could not strip config from {0}: ".format(intf_name),
                                         reconf_resp.cgx_content)
+
+            # Remove static routes from device.
+            static_routes_resp = sdk.get.staticroutes(site_id, element_item_id)
+
+            if not static_routes_resp.cgx_status:
+                throw_error("Could not get list of element {0} static routes: ".format(element_item_name),
+                            static_routes_resp)
+
+            static_routes_list = static_routes_resp.cgx_content.get('items', [])
+
+            # Get a list of static routes bound to this element
+            delete_static_route_id_list = [x['id'] for x in static_routes_list if x.get('id')]
+
+            # Delete the routes
+            delete_staticroutes(delete_static_route_id_list, site_id, element_item_id)
 
             # prepare to unbind element.
             elem_template = copy.deepcopy(element_item)
@@ -2431,23 +2446,40 @@ def get_parent_child_dict(config_interfaces, id2n=None):
     return parent_if_map, child_if_map
 
 
-def get_bypass_id_from_name(bypass_name, interfaces_n2id):
+def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
     """
     Get Bypasspair Interface ID from explicit name. Handle reverse mappings, as name can be reversed.
     :param bypass_name: String to look up
     :param interfaces_n2id: Interfaces Name to ID Map
+    :param funny_n2id: Funny (incorrect, un-renamable) Interfaces Name to ID map
     :return: Bypasspair Interface ID, if found.
     """
+
+    # Make sure all possible IFs are accounted for in the name lookup.
+    comprehensive_bypasspair_names = copy.deepcopy(bypasspair_child_names)
+    # extend the list with the names in the n2id lists.
+    comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
+    if funny_n2id is not None:
+        comprehensive_bypasspair_names.extend(funny_n2id.keys())
+
     return_id = interfaces_n2id.get(bypass_name)
+    if return_id is None and funny_n2id is not None:
+        # check funny name cache
+        return_id = funny_n2id.get(bypass_name)
+
+    # still none, do some reverse checks.
     if return_id is None:
-        for part1 in bypasspair_child_names:
-            for part2 in bypasspair_child_names:
+        for part1 in comprehensive_bypasspair_names:
+            for part2 in comprehensive_bypasspair_names:
                 if part1 + part2 == bypass_name:
                     # check for reverse ID
                     id_check = interfaces_n2id.get(part2 + part1)
                     if id_check is not None:
                         return_id = id_check
                         local_debug("BYPASS REVERSE HIT: {0}: {1}".format(part2 + part1, return_id))
+    else:
+        # already matched, show hit
+        local_debug("BYPASS FORWARD HIT: {0}: {1}".format(bypass_name, return_id))
 
     return return_id
 
@@ -3298,9 +3330,19 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
     # make a copy of bgp_peer to modify
     bgp_peer_template = copy.deepcopy(config_bgp_peer)
 
-    # replace flat names
-    name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
-    name_lookup_in_template(bgp_peer_template, 'route_map_out_id', routemaps_n2id)
+    # Get peer type
+    bgp_peer_type = config_bgp_peer.get('peer_type')
+    local_debug("BGP PEER TYPE: {0}".format(bgp_peer_type))
+
+    # if Core or Edge peer, set route_maps to None for creation. Route maps get auto-created.
+    if bgp_peer_type in ['core', 'edge']:
+        local_debug('CORE-EDGE PEER FOUND: {0}'.format(bgp_peer_type))
+        bgp_peer_template['route_map_in_id'] = None
+        bgp_peer_template['route_map_out_id'] = None
+    else:
+        # replace flat names
+        name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
+        name_lookup_in_template(bgp_peer_template, 'route_map_out_id', routemaps_n2id)
 
     local_debug("bgp_peer TEMPLATE: " + str(json.dumps(bgp_peer_template, indent=4)))
 
@@ -4543,6 +4585,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # get full parent/child maps
                 config_parent2child, config_child2parent = get_parent_child_dict(config_interfaces_defaults,
                                                                                  id2n=interfaces_id2n)
+                local_debug("CONFIG_PARENT2CHILD: ", config_parent2child)
+                local_debug("CONFIG_CHILD2PARENT: ", config_child2parent)
 
                 # We need to delete unused bypasspairs NOW due to the fact other interfaces need them.
                 # Get a list of all currently configured bypasspairs.
@@ -4554,8 +4598,9 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # Exception is currently service link, as parent for service link can be changed.
                 config_parent_interfaces = config_parent2child.keys()
                 for config_parent_interface in config_parent_interfaces:
-                    # try to get bypass if ID from the list of parent IF names
-                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id)
+                    # try to get bypass if ID from the list of parent IF names, if the BP is a parent.
+                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id,
+                                                                         funny_n2id=interfaces_funny_n2id)
                     if config_parent_interface_id:
                         # if we find one, make sure it isn't in delete queue
                         local_debug("PARENT BYPASS ID, REMOVING FROM DELETE QUEUE: ", config_parent_interface_id)
@@ -4571,7 +4616,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                     # Determine interface ID.
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
-                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id)
+                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id,
+                                                                funny_n2id=interfaces_funny_n2id)
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
@@ -4598,7 +4644,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                     # Determine interface ID.
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
-                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id)
+                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id,
+                                                                funny_n2id=interfaces_funny_n2id)
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
@@ -5940,5 +5987,9 @@ def go():
             if not sdk.tenant_id:
                 user_email = None
                 user_password = None
-
-    do_site(loaded_config, destroy)
+    # Do the real work
+    try:
+        do_site(loaded_config, destroy)
+    except CloudGenixConfigError:
+        # Exit silently if error hit.
+        sys.exit(1)

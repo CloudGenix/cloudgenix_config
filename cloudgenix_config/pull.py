@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** v1.0.0b3
+**Version:** 1.0.0b4
 
 **Author:** CloudGenix
 
@@ -538,6 +538,9 @@ def _pull_config_for_single_site(site_name_id):
         # update id_name_cache
         id_name_cache.update(build_lookup_dict(interfaces, key_val='id', value_val='name'))
 
+        # Create interface type lookup dict
+        if_id2type = build_lookup_dict(interfaces, key_val='id', value_val='type')
+
         # create a parent list
         parent_id_list = []
         for interface in interfaces:
@@ -549,17 +552,21 @@ def _pull_config_for_single_site(site_name_id):
                 parent_id_list.append(parent_id)
             bypasspair_config = interface.get('bypass_pair')
             if bypasspair_config is not None and isinstance(bypasspair_config, dict):
+                # jd(bypasspair_config)
                 wan_id = bypasspair_config.get('wan')
                 lan_id = bypasspair_config.get('lan')
-                if wan_id is not None and if_type in ['port']:
+                if wan_id is not None and if_id2type.get(wan_id) in ['port']:
                     # add to parent list
+                    # print("Adding WAN {0} to parent_id_list".format(wan_id))
                     parent_id_list.append(wan_id)
-                if lan_id is not None and if_type in ['port']:
+                if lan_id is not None and if_id2type.get(lan_id) in ['port']:
                     # add to parent list
+                    # print("Adding LAN {0} to parent_id_list".format(lan_id))
                     parent_id_list.append(lan_id)
 
         for interface in interfaces:
             interface_id = interface.get('id')
+            if_type = interface.get('type')
             if not FORCE_PARENTS and interface_id in parent_id_list:
                 # interface is a parent, skip
                 continue
@@ -569,11 +576,17 @@ def _pull_config_for_single_site(site_name_id):
             # Update ids to names for complex objects in interfaces first
             interface_template = copy.deepcopy(interface)
             swi_list = interface.get('site_wan_interface_ids', None)
-            if swi_list and isinstance(swi_list, list):
+            # TODO: Due to CGB-8874, SWIs may get incorrectly propagated to loopbacks. As a workaround, don't
+            # Process loopback SWIs (not valid for < 5.1.x).
+            # Remove the loopback check below when defect above fixed.
+            if swi_list and isinstance(swi_list, list) and if_type not in ['loopback']:
                 swi_template = []
                 for swi_id in swi_list:
                     swi_template.append(id_name_cache.get(swi_id, swi_id))
                 interface_template['site_wan_interface_ids'] = swi_template
+            # 2nd part of CGB-8874 workaround.
+            elif if_type in ['loopback']:
+                interface_template['site_wan_interface_ids'] = None
 
             att_ln_list = interface.get('attached_lan_networks', None)
             if att_ln_list and isinstance(att_ln_list, list):
@@ -949,7 +962,7 @@ def _pull_config_for_single_site(site_name_id):
 
 
 def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=None, passed_strip_versions=None,
-                      passed_force_parents=None, no_header=None):
+                      passed_force_parents=None, no_header=None, return_result=False):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
@@ -959,7 +972,8 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
     :param passed_strip_versions: Optional - Remove API versions from YAML, default False
     :param passed_force_parents: Optional - Leave unconfigurable parent interfaces in configuration, default False.
     :param no_header: Optional - bool, Remove metadata header from YAML file. True removes, False or None keep.
-    :return: No return, directly writes YAML file to output_filename specified.
+    :param return_result: Optioanl - bool, If True, return the result as a Dict instead of writing out to YAML file.
+    :return: Default - directly writes YAML file to output_filename specified, no return.
     """
     global ELEMENTS
     global SITES
@@ -1012,18 +1026,27 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
                         "Exiting.".format("\n\t".join(sites.split(','))))
 
     # Got here, we got some site data.
-    config_yml = open(output_filename, "w")
-    config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
-    # write header by default, but skip if asked.
-    if not no_header:
-        config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-        if cgx_session.email:
-            config_yml.write("# by {0}\n".format(cgx_session.email))
-    yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
-    config_yml.close()
 
-    # jd(CONFIG)
-    # jd(id_name_cache)
+    # if not set to return_obj, write out YAML file.
+    if return_result:
+        # add headers to CONFIG.
+        CONFIG['type'] = "cloudgenix template"
+        CONFIG['version'] = "1.0"
+        return CONFIG
+    else:
+        config_yml = open(output_filename, "w")
+        config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+        # write header by default, but skip if asked.
+        if not no_header:
+            config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+            if cgx_session.email:
+                config_yml.write("# by {0}\n".format(cgx_session.email))
+        yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+        config_yml.close()
+
+        # jd(CONFIG)
+        # jd(id_name_cache)
+        return
 
 
 def go():

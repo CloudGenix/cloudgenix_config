@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** v1.0.0b3
+**Version:** 1.0.0b4
 
 **Author:** CloudGenix
 
@@ -46,6 +46,10 @@ if sys.version_info < (3,):
 else:
     text_type = str
     binary_type = bytes
+
+
+# Version for reference
+version = "1.0.0b4"
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
 __email__ = "developers@cloudgenix.com"
@@ -104,13 +108,20 @@ skip_interface_list = [
 ]
 
 
+class CloudGenixConfigError(Exception):
+    """
+    Custom exception for errors when not exiting.
+    """
+    pass
+
+
 def throw_error(message, resp=None, cr=True):
     """
-    Non-recoverable error, write message to STDERR and exit.
+    Non-recoverable error, write message to STDERR and exit or raise exception
     :param message: Message text
     :param resp: Optional - CloudGenix SDK Response object
-    :param cr: Optional - Use (or not) Carrage Returns.
-    :return: No Return, exits program.
+    :param cr: Optional - Use (or not) Carriage Returns.
+    :return: No Return, throws exception.
     """
     output = "ERROR: " + str(message)
     if cr:
@@ -121,7 +132,7 @@ def throw_error(message, resp=None, cr=True):
         if cr:
             output2 += "\n"
         sys.stderr.write(output2)
-    sys.exit(1)
+    raise CloudGenixConfigError(message)
 
 
 def throw_warning(message, resp=None, cr=True):
@@ -129,7 +140,7 @@ def throw_warning(message, resp=None, cr=True):
     Recoverable Warning.
     :param message: Message text
     :param resp: Optional - CloudGenix SDK Response object
-    :param cr: Optional - Use (or not) Carrage Returns.
+    :param cr: Optional - Use (or not) Carriage Returns.
     :return: None
     """
     output = "WARNING: " + str(message)
