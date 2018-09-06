@@ -2458,9 +2458,11 @@ def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
     # Make sure all possible IFs are accounted for in the name lookup.
     comprehensive_bypasspair_names = copy.deepcopy(bypasspair_child_names)
     # extend the list with the names in the n2id lists.
-    comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
     if funny_n2id is not None:
         comprehensive_bypasspair_names.extend(funny_n2id.keys())
+    # apply interfaces 2nd as it should trump funny names.
+    comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
+
 
     return_id = interfaces_n2id.get(bypass_name)
     if return_id is None and funny_n2id is not None:
@@ -2477,10 +2479,60 @@ def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
                     if id_check is not None:
                         return_id = id_check
                         local_debug("BYPASS REVERSE HIT: {0}: {1}".format(part2 + part1, return_id))
+
+    # still none, leave debug.
+    if return_id is None:
+        local_debug("BYPASS NAME MISS: {0}: {1}".format(bypass_name, return_id))
     else:
         # already matched, show hit
         local_debug("BYPASS FORWARD HIT: {0}: {1}".format(bypass_name, return_id))
 
+    return return_id
+
+
+def get_bypass_id_from_parent(bypass_pair, api_interfaces, interfaces_n2id, funny_n2id=None):
+    """
+    Get Bypasspair Interface ID parents.
+    :param bypass_pair: Bypass Pair object to look up.
+    :param api_interfaces: Interfaces retrieved from API. Ideally should be only bypasspairs.
+    :param interfaces_n2id: Interfaces Name to ID Map
+    :param funny_n2id: Funny (incorrect, un-renamable) Interfaces Name to ID map
+    :return: Bypasspair Interface ID, if found.
+    """
+
+    return_id = None
+    interfaces_local_n2id = {}
+
+    # funny name handling
+    if funny_n2id is not None:
+        interfaces_local_n2id.update(funny_n2id)
+    # normal name handling
+    interfaces_local_n2id.update(interfaces_n2id)
+
+    # extract WAN/LAN objects
+    config_wan_name = bypass_pair.get('wan')
+    config_lan_name = bypass_pair.get('lan')
+    config_wan = interfaces_local_n2id.get(config_wan_name)
+    config_lan = interfaces_local_n2id.get(config_lan_name)
+
+    if config_lan is None or config_wan is None:
+        # return, can't succeed without Interface IDs for each parent.
+        local_debug("NO WAN AND/OR LAN IN BYPASS_PAIR: WAN {0}:{1} LAN {2}:{3}"
+                    "".format(config_wan_name, config_wan, config_lan_name, config_lan))
+        return return_id
+    for api_interface in api_interfaces:
+        api_bypass_pair = api_interface.get('bypass_pair')
+        api_id = api_interface.get('id')
+        if api_id and api_bypass_pair is not None and isinstance(api_bypass_pair, dict):
+            # valid BP object, check
+            api_wan = api_bypass_pair.get('wan')
+            api_lan = api_bypass_pair.get('lan')
+            if config_wan == api_wan and config_lan == api_lan:
+                # Hit
+                local_debug("BYPASS ID_FROM_PARENT HIT: {0}".format(api_id))
+                return_id = api_id
+
+    # return
     return return_id
 
 
@@ -4618,12 +4670,17 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                     implicit_interface_id = config_interface.get('id')
                     name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id,
                                                                 funny_n2id=interfaces_funny_n2id)
-
+                    parent_interface_id = get_bypass_id_from_parent(config_interface.get('bypass_pair', {}),
+                                                                    interfaces_bypasspairs_cache, interfaces_n2id,
+                                                                    funny_n2id=interfaces_funny_n2id)
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
                     elif name_interface_id is not None:
                         # look up ID by name on existing interfaces.
                         interface_id = name_interface_id
+                    elif parent_interface_id is not None:
+                        # found based on parent match.
+                        interface_id = parent_interface_id
                     else:
                         # no interface object.
                         interface_id = None
@@ -4646,13 +4703,18 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                     implicit_interface_id = config_interface.get('id')
                     name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id,
                                                                 funny_n2id=interfaces_funny_n2id)
-
+                    parent_interface_id = get_bypass_id_from_parent(config_interface.get('bypass_pair', {}),
+                                                                    interfaces_bypasspairs_cache, interfaces_n2id,
+                                                                    funny_n2id=interfaces_funny_n2id)
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
 
                     elif name_interface_id is not None:
                         # look up ID by name on existing interfaces.
                         interface_id = name_interface_id
+                    elif parent_interface_id is not None:
+                        # found based on parent match.
+                        interface_id = parent_interface_id
                     else:
                         # no interface object.
                         interface_id = None
