@@ -2446,23 +2446,40 @@ def get_parent_child_dict(config_interfaces, id2n=None):
     return parent_if_map, child_if_map
 
 
-def get_bypass_id_from_name(bypass_name, interfaces_n2id):
+def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
     """
     Get Bypasspair Interface ID from explicit name. Handle reverse mappings, as name can be reversed.
     :param bypass_name: String to look up
     :param interfaces_n2id: Interfaces Name to ID Map
+    :param funny_n2id: Funny (incorrect, un-renamable) Interfaces Name to ID map
     :return: Bypasspair Interface ID, if found.
     """
+
+    # Make sure all possible IFs are accounted for in the name lookup.
+    comprehensive_bypasspair_names = copy.deepcopy(bypasspair_child_names)
+    # extend the list with the names in the n2id lists.
+    comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
+    if funny_n2id is not None:
+        comprehensive_bypasspair_names.extend(funny_n2id.keys())
+
     return_id = interfaces_n2id.get(bypass_name)
+    if return_id is None and funny_n2id is not None:
+        # check funny name cache
+        return_id = funny_n2id.get(bypass_name)
+
+    # still none, do some reverse checks.
     if return_id is None:
-        for part1 in bypasspair_child_names:
-            for part2 in bypasspair_child_names:
+        for part1 in comprehensive_bypasspair_names:
+            for part2 in comprehensive_bypasspair_names:
                 if part1 + part2 == bypass_name:
                     # check for reverse ID
                     id_check = interfaces_n2id.get(part2 + part1)
                     if id_check is not None:
                         return_id = id_check
                         local_debug("BYPASS REVERSE HIT: {0}: {1}".format(part2 + part1, return_id))
+    else:
+        # already matched, show hit
+        local_debug("BYPASS FORWARD HIT: {0}: {1}".format(bypass_name, return_id))
 
     return return_id
 
@@ -4568,6 +4585,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # get full parent/child maps
                 config_parent2child, config_child2parent = get_parent_child_dict(config_interfaces_defaults,
                                                                                  id2n=interfaces_id2n)
+                local_debug("CONFIG_PARENT2CHILD: ", config_parent2child)
+                local_debug("CONFIG_CHILD2PARENT: ", config_child2parent)
 
                 # We need to delete unused bypasspairs NOW due to the fact other interfaces need them.
                 # Get a list of all currently configured bypasspairs.
@@ -4579,8 +4598,9 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # Exception is currently service link, as parent for service link can be changed.
                 config_parent_interfaces = config_parent2child.keys()
                 for config_parent_interface in config_parent_interfaces:
-                    # try to get bypass if ID from the list of parent IF names
-                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id)
+                    # try to get bypass if ID from the list of parent IF names, if the BP is a parent.
+                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id,
+                                                                         funny_n2id=interfaces_funny_n2id)
                     if config_parent_interface_id:
                         # if we find one, make sure it isn't in delete queue
                         local_debug("PARENT BYPASS ID, REMOVING FROM DELETE QUEUE: ", config_parent_interface_id)
@@ -4596,7 +4616,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                     # Determine interface ID.
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
-                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id)
+                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id,
+                                                                funny_n2id=interfaces_funny_n2id)
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
@@ -4623,7 +4644,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                     # Determine interface ID.
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
-                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id)
+                    name_interface_id = get_bypass_id_from_name(config_interface_name, interfaces_n2id,
+                                                                funny_n2id=interfaces_funny_n2id)
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
