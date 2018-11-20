@@ -78,6 +78,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|
 | **1.0.0** | **b5** | Hotfix for #16 |
 | **1.0.0** | **b4** | Fix issues #8 #11 #12 and #13 |
 | **1.0.0** | **b3** | More Bug fixes. |
