@@ -867,7 +867,7 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
 
     # Check for API failure
     if not element_state_describe_response.cgx_status:
-        throw_error("Unable to get element state: ", element_state_describe_response.cgx_content)
+        throw_error("Unable to get element state: ", element_state_describe_response)
 
     # Modify the result and put back
     element_state_change = element_state_describe_response.cgx_content
@@ -876,7 +876,7 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     element_state_modify_response = sdk.put.state(element_id, element_state_change)
 
     if not element_state_modify_response.cgx_status:
-        throw_error("Upgrade command failed: ", element_state_modify_response.cgx_content)
+        throw_error("Upgrade command failed: ", element_state_modify_response)
 
     updated_element_state_result = element_state_modify_response.cgx_content
 
