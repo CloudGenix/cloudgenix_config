@@ -65,7 +65,7 @@ MIT
  
 ### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Only supports CG SDK 5.0.1b1 or greater
+ - Requires 5.1.1b1 SDK
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
    - Site safety factor is set to 1 by default (prevents unintentional multi-site configurations)
@@ -78,6 +78,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.1.0** | **b1** | CloudGenix SDK 5.1.1b1 support|
 | **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|
 | **1.0.0** | **b5** | Hotfix for #16 |
 | **1.0.0** | **b4** | Fix issues #8 #11 #12 and #13 |

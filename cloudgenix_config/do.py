@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.0.0b6
+**Version:** 1.1.0b1
 
 **Author:** CloudGenix
 
@@ -493,7 +493,8 @@ def parse_site_config(config_site):
     """
     Parse Site level configuration
     :param config_site: Site config dict
-    :return: Tuple of WAN Interface config, LAN Network config, Element Config, and DHCP Server config.
+    :return: Tuple of WAN Interface config, LAN Network config, Element Config, DHCP Server config, and
+             Site Extension config
     """
     local_debug("SITE CONFIG: " + str(json.dumps(config_site, indent=4)))
 
@@ -501,8 +502,10 @@ def parse_site_config(config_site):
     config_elements, _ = config_lower_version_get(config_site, 'elements', sdk.put.elements, default={})
     config_waninterfaces, _ = config_lower_version_get(config_site, 'waninterfaces', sdk.put.waninterfaces, default={})
     config_dhcpservers, _ = config_lower_version_get(config_site, 'dhcpservers', sdk.put.dhcpservers, default=[])
+    config_site_extensions, _ = config_lower_version_get(config_site, 'site_extensions',
+                                                         sdk.put.site_extensions, default={})
 
-    return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers
+    return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions
 
 
 def parse_element_config(config_element):
@@ -510,7 +513,7 @@ def parse_element_config(config_element):
     Parse Element level configuration
     :param config_element: Element config dict
     :return: Tuple of Interface config, Routing config, Syslog config, NTP config, SNMP config, Toolkit config and
-                Element Extensions config
+             Element Extensions config
     """
     local_debug("ELEMENT CONFIG: " + str(json.dumps(config_element, indent=4)))
 
@@ -520,8 +523,7 @@ def parse_element_config(config_element):
     config_ntp, _ = config_lower_version_get(config_element, 'ntp', sdk.put.ntp, default=[])
     config_snmp = config_lower_get(config_element, 'snmp', default={})
     config_toolkit, _ = config_lower_version_get(config_element, 'toolkit', sdk.put.elementaccessconfigs, default={})
-    config_element_extensions, _ = config_lower_version_get(config_element,
-                                                            'element_extensions',
+    config_element_extensions, _ = config_lower_version_get(config_element, 'element_extensions',
                                                             sdk.put.element_extensions, default={})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
@@ -808,7 +810,7 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     :param config_element: Element Configuration object with target version.
     :param wait_upgrade_timeout: Optional - Wait time for upgrade to complete (in seconds)
     :param pause_for_upgrade: Optional - Pause config if upgrade required until complete - Default True
-    :param wait_interval: Optinal - Interval to check API for updated statuses during wait.
+    :param wait_interval: Optional - Interval to check API for updated statuses during wait.
     :return: None
     """
     # check status
@@ -859,26 +861,26 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
         return
 
     # start upgrade.
-    output_message(" Element: Changing element from {0} to {1}.".format(images_id2n.get(active_image_id,
-                                                                                        active_image_id),
+    active_name = images_id2n.get(active_image_id, active_image_id)
+    output_message(" Element: Changing element from {0} to {1}.".format(active_name if active_name else "Unknown",
                                                                         elem_config_version))
     # Get the object.
-    element_state_describe_response = sdk.get.state(element_id)
+    software_state_describe_response = sdk.get.software_state(element_id)
 
     # Check for API failure
-    if not element_state_describe_response.cgx_status:
-        throw_error("Unable to get element state: ", element_state_describe_response)
+    if not software_state_describe_response.cgx_status:
+        throw_error("Unable to get element state: ", software_state_describe_response)
 
     # Modify the result and put back
-    element_state_change = element_state_describe_response.cgx_content
-    element_state_change['image_id'] = image_id
+    software_state_change = software_state_describe_response.cgx_content
+    software_state_change['image_id'] = image_id
 
-    element_state_modify_response = sdk.put.state(element_id, element_state_change)
+    software_state_modify_response = sdk.put.software_state(element_id, software_state_change)
 
-    if not element_state_modify_response.cgx_status:
-        throw_error("Upgrade command failed: ", element_state_modify_response)
+    if not software_state_modify_response.cgx_status:
+        throw_error("Upgrade command failed: ", software_state_modify_response)
 
-    updated_element_state_result = element_state_modify_response.cgx_content
+    updated_software_state_result = software_state_modify_response.cgx_content
 
     # jd(updated_element_state_result)
 
@@ -890,8 +892,23 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
             software_state_resp = sdk.get.software_status(element_id)
             if not software_state_resp.cgx_status:
                 throw_error("Could not query element software status {0}.".format(element_id), software_state_resp)
-            active_image_id = str(software_state_resp.cgx_content.get('active_image_id', ''))
-            upgrade_image_id = str(software_state_resp.cgx_content.get('upgrade_image_id', ''))
+
+            # Get the list of software statuses
+            software_status_list = software_state_resp.cgx_content.get('items', [])
+
+            # select the latest software status.
+            latest_timestamp = 0
+            latest_status = {}
+            for current_status in software_status_list:
+                current_timestamp = current_status.get("_updated_on_utc", 0)
+                if current_timestamp > latest_timestamp:
+                    # update most current status
+                    latest_timestamp = current_timestamp
+                    latest_status = current_status
+
+            active_image_version = str(latest_status.get('active_version'))
+            active_image_id = str(latest_status.get('active_image_id'))
+            upgrade_image_id = str(latest_status.get('upgrade_image_id', 'Unknown'))
 
             if time_elapsed > wait_upgrade_timeout:
                 # failed waiting.
@@ -900,12 +917,17 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
 
             if active_image_id != str(image_id):
                 # element not ready, wait.
+                active_name = images_id2n.get(active_image_id)
+                # was this successful? if not, try API reported name, then ID, then say "Unknown".
+                if not active_name:
+                    active_name = active_image_version if active_image_version else \
+                        active_image_id if active_image_id else "Unknown"
+
                 output_message("  Element {0} not yet at requested image: {1} (is {2}). "
                                "Waited so far {3} seconds out of {4}.".format(element_id,
                                                                               images_id2n.get(upgrade_image_id,
                                                                                               upgrade_image_id),
-                                                                              images_id2n.get(active_image_id,
-                                                                                              active_image_id),
+                                                                              active_name if active_name else "Unknown",
                                                                               time_elapsed, wait_upgrade_timeout))
                 time.sleep(wait_interval)
                 time_elapsed += wait_interval
@@ -1208,6 +1230,7 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'elements')
     site_template = fuzzy_pop(site_template, 'dhcpservers')
     site_template = fuzzy_pop(site_template, 'hubclusters')
+    site_template = fuzzy_pop(site_template, 'site_extensions')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -1695,6 +1718,145 @@ def delete_dhcpservers(leftover_dhcpservers, site_id, id2n=None):
         if not dhcpserver_del_resp.cgx_status:
             throw_error("Could not delete Dhcpserver {0}: ".format(id2n.get(dhcpserver_id, dhcpserver_id)),
                         dhcpserver_del_resp)
+    return
+
+
+def create_site_extension(config_site_extension, site_extensions_n2id, waninterfaces_n2id, lannetworks_n2id, site_id):
+    """
+    Create a new Site Extension
+    :param config_site_extension: Site Extension config dict
+    :param site_extensions_n2id: Site Extension Name to ID dict
+    :param waninterfaces_n2id: WAN Interface Name to ID dict
+    :param lannetworks_n2id: LAN Networks Name to ID dict
+    :param site_id: Site ID to use
+    :return: Created Site Extension ID
+    """
+    # make a copy of site_extension to modify
+    site_extension_template = copy.deepcopy(config_site_extension)
+
+    # Entity ID can be a multitude of things. Try them all.
+    name_lookup_in_template(site_extension_template, 'entity_id', waninterfaces_n2id)
+    name_lookup_in_template(site_extension_template, 'entity_id', lannetworks_n2id)
+    # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
+    name_lookup_in_template(site_extension_template, 'entity_id', appdefs_n2id)
+
+    local_debug("SITE_EXTENSION TEMPLATE: " + str(json.dumps(site_extension_template, indent=4)))
+
+    # create site_extension
+    site_extension_resp = sdk.post.site_extensions(site_id, site_extension_template)
+
+    if not site_extension_resp.cgx_status:
+        throw_error("Site_extension creation failed: ", site_extension_resp)
+
+    site_extension_name = site_extension_resp.cgx_content.get('name')
+    site_extension_id = site_extension_resp.cgx_content.get('id')
+
+    if not site_extension_name or not site_extension_id:
+        throw_error("Unable to determine site_extension attributes (Name: {0}, ID {1}).."
+                    "".format(site_extension_name, site_extension_id))
+
+    output_message(" Created site extension {0}.".format(site_extension_name))
+
+    # update caches
+    site_extensions_n2id[site_extension_name] = site_extension_id
+
+    return site_extension_id
+
+
+def modify_site_extension(config_site_extension, site_extension_id, site_extensions_n2id, waninterfaces_n2id,
+                          lannetworks_n2id, site_id):
+    """
+    Modify existing Site Extension
+    :param config_site_extension: Site Extension config dict
+    :param site_extension_id: Existing Site Extension ID
+    :param site_extensions_n2id: Site Extension Name to ID dict
+    :param waninterfaces_n2id: WAN Interface Name to ID dict
+    :param lannetworks_n2id: LAN Networks Name to ID dict
+    :param site_id: Site ID to use
+    :return: Returned Site Extension ID
+    """
+    site_extension_config = {}
+    # make a copy of site_extension to modify
+    site_extension_template = copy.deepcopy(config_site_extension)
+
+    # Entity ID can be a multitude of things. Try them all.
+    name_lookup_in_template(site_extension_template, 'entity_id', waninterfaces_n2id)
+    name_lookup_in_template(site_extension_template, 'entity_id', lannetworks_n2id)
+    # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
+    name_lookup_in_template(site_extension_template, 'entity_id', appdefs_n2id)
+
+    local_debug("SITE_EXTENSION TEMPLATE: " + str(json.dumps(site_extension_template, indent=4)))
+
+    # get current site_extension
+    site_extension_resp = sdk.get.site_extensions(site_id, site_extension_id)
+    if site_extension_resp.cgx_status:
+        site_extension_config = site_extension_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve site_extension: ", site_extension_resp)
+
+    # extract prev_revision
+    prev_revision = site_extension_config.get("_etag")
+
+    # Check for changes:
+    site_extension_change_check = copy.deepcopy(site_extension_config)
+    site_extension_config.update(site_extension_template)
+    if not force_update and site_extension_config == site_extension_change_check:
+        # no change in config, pass.
+        site_extension_id = site_extension_change_check.get('id')
+        site_extension_name = site_extension_change_check.get('name')
+        output_message(" No Change for Site_extension {0}.".format(site_extension_name))
+        return site_extension_id
+
+    if debuglevel >= 3:
+        local_debug("SITE_EXTENSION DIFF: {0}".format(find_diff(site_extension_change_check, site_extension_config)))
+
+    # Update Site_extension.
+    site_extension_resp2 = sdk.put.site_extensions(site_id, site_extension_id, site_extension_config)
+
+    if not site_extension_resp2.cgx_status:
+        throw_error("Site_extension update failed: ", site_extension_resp2)
+
+    site_extension_name = site_extension_resp2.cgx_content.get('name')
+    site_extension_id = site_extension_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = site_extension_resp2.cgx_content.get("_etag")
+
+    if not site_extension_name or not site_extension_id:
+        throw_error("Unable to determine site_extension attributes (Name: {0}, ID {1}).."
+                    "".format(site_extension_name, site_extension_id))
+
+    output_message(" Updated Site extension {0} (Etag {1} -> {2}).".format(site_extension_name, prev_revision,
+                                                                           current_revision))
+
+    # update caches
+    site_extensions_n2id[site_extension_name] = site_extension_id
+
+    return site_extension_id
+
+
+def delete_site_extensions(leftover_site_extensions, site_id, id2n=None):
+    """
+    Delete a list of Site Extensions
+    :param leftover_site_extensions: List of Site Extension IDs
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for site_extension_id in leftover_site_extensions:
+        # delete all leftover site_extensions.
+
+        output_message(" Deleting Unconfigured Site_extension {0}.".format(id2n.get(site_extension_id,
+                                                                           site_extension_id)))
+        site_extension_del_resp = sdk.delete.site_extensions(site_id, site_extension_id)
+        if not site_extension_del_resp.cgx_status:
+            throw_error("Could not delete Site_extension {0}: ".format(id2n.get(site_extension_id,
+                                                                                site_extension_id)),
+                        site_extension_del_resp)
     return
 
 
@@ -4265,7 +4427,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
-            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers \
+            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions\
                 = parse_site_config(config_site)
 
             # Determine site ID.
@@ -4444,6 +4606,58 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # remove from delete queue
                 leftover_dhcpservers = [entry for entry in leftover_dhcpservers if entry != dhcpserver_id]
             # -- End DHCPSERVER config
+
+            # -- Start Site_extensions
+            site_extensions_resp = sdk.get.site_extensions(site_id)
+            site_extensions_cache, leftover_site_extensions = extract_items(site_extensions_resp,
+                                                                            'site_extensions')
+            site_extensions_n2id = build_lookup_dict(site_extensions_cache)
+
+            # iterate configs
+            for config_site_extension_name, config_site_extension_value in config_site_extensions.items():
+
+                # recombine object
+                config_site_extension = recombine_named_key_value(config_site_extension_name,
+                                                                  config_site_extension_value,
+                                                                  name_key='name')
+
+                # no need to get site_extension config, no child config objects.
+
+                # Determine site_extension ID.
+                # look for implicit ID in object.
+                implicit_site_extension_id = config_site_extension.get('id')
+                name_site_extension_id = site_extensions_n2id.get(config_site_extension_name)
+
+                if implicit_site_extension_id is not None:
+                    site_extension_id = implicit_site_extension_id
+
+                elif name_site_extension_id is not None:
+                    # look up ID by name on existing site_extensions.
+                    site_extension_id = name_site_extension_id
+                else:
+                    # no site_extension object.
+                    site_extension_id = None
+
+                # Create or modify site_extension.
+                if site_extension_id is not None:
+                    # Site_extension exists, modify.
+                    site_extension_id = modify_site_extension(config_site_extension, site_extension_id,
+                                                              site_extensions_n2id,
+                                                              waninterfaces_n2id,
+                                                              lannetworks_n2id, site_id)
+
+                else:
+                    # Site_extension does not exist, create.
+                    site_extension_id = create_site_extension(config_site_extension,
+                                                              site_extensions_n2id,
+                                                              waninterfaces_n2id,
+                                                              lannetworks_n2id, site_id)
+
+                # remove from delete queue
+                leftover_site_extensions = [entry for entry in leftover_site_extensions
+                                            if entry != site_extension_id]
+
+            # -- End Site_extensions
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -5728,7 +5942,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
                 # Toolkit is single object, no cleanup required.
 
-                # delete remaining syslog configs
+                # delete remaining element_extension configs
                 element_extensions_id2n = build_lookup_dict(element_extensions_cache, key_val='id', value_val='name')
                 delete_element_extensions(leftover_element_extensions, site_id, element_id,
                                           id2n=element_extensions_id2n)
@@ -5783,6 +5997,10 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             # unbind any remaining elements.
             unbind_elements(leftover_elements, site_id)
             # add declaim for failed unbind in future.
+
+            # delete remaining site_extension configs
+            site_extensions_id2n = build_lookup_dict(site_extensions_cache, key_val='id', value_val='name')
+            delete_site_extensions(leftover_site_extensions, site_id, id2n=site_extensions_id2n)
 
             # delete remaining dhcpserver configs
             dhcpservers_id2n = build_lookup_dict(dhcpservers_cache, key_val='id', value_val='subnet')

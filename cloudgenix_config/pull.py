@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.0.0b6
+**Version:** 1.1.0b1
 
 **Author:** CloudGenix
 
@@ -142,6 +142,7 @@ NTP_STR = "ntp"
 SYSLOG_STR = "syslog"
 TOOLKIT_STR = "toolkit"
 ELEMENT_EXTENSIONS_STR = "element_extensions"
+SITE_EXTENSIONS_STR = "site_extensions"
 DHCP_SERVERS_STR = "dhcpservers"
 BGP_GLOBAL_CONFIG_STR = "global_config"
 BGP_PEERS_CONFIG_STR = "peers"
@@ -337,6 +338,7 @@ def build_version_strings():
     global SYSLOG_STR
     global TOOLKIT_STR
     global ELEMENT_EXTENSIONS_STR
+    global SITE_EXTENSIONS_STR
     global DHCP_SERVERS_STR
     global BGP_GLOBAL_CONFIG_STR
     global BGP_PEERS_CONFIG_STR
@@ -360,6 +362,7 @@ def build_version_strings():
         SYSLOG_STR = add_version_to_object(cgx_session.get.syslogservers, "syslog")
         TOOLKIT_STR = add_version_to_object(cgx_session.get.elementaccessconfigs, "toolkit")
         ELEMENT_EXTENSIONS_STR = add_version_to_object(cgx_session.get.element_extensions, "element_extensions")
+        SITE_EXTENSIONS_STR = add_version_to_object(cgx_session.get.site_extensions, "site_extensions")
         DHCP_SERVERS_STR = add_version_to_object(cgx_session.get.dhcpservers, "dhcpservers")
         BGP_GLOBAL_CONFIG_STR = add_version_to_object(cgx_session.get.bgpconfigs, "global_config")
         BGP_PEERS_CONFIG_STR = add_version_to_object(cgx_session.get.bgppeers, "peers")
@@ -520,6 +523,25 @@ def _pull_config_for_single_site(site_name_id):
         # no names, don't need duplicate check
         site[DHCP_SERVERS_STR].append(dhcpserver_template)
     delete_if_empty(site, DHCP_SERVERS_STR)
+
+    # Get Site Extensions
+    site[SITE_EXTENSIONS_STR] = {}
+    response = cgx_session.get.site_extensions(site['id'])
+    if not response.cgx_status:
+        throw_error("Site Extensions get failed: ", response)
+    site_extensions = response.cgx_content['items']
+
+    for site_extension in site_extensions:
+        site_extension_template = copy.deepcopy(site_extension)
+        # replace flat name
+        name_lookup_in_template(site_extension_template, 'entity_id', id_name_cache)
+        strip_meta_attributes(site_extension_template)
+        # check for duplicate names
+        checked_site_extension_name = check_name(site_extension['name'], dup_name_dict, 'Site Extension')
+        # update id name cache in case name changed.
+        id_name_cache[site_extension['id']] = checked_site_extension_name
+        site[SITE_EXTENSIONS_STR][checked_site_extension_name] = site_extension_template
+    delete_if_empty(site, SITE_EXTENSIONS_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
