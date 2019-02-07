@@ -141,6 +141,8 @@ TRAPS_STR = "traps"
 NTP_STR = "ntp"
 SYSLOG_STR = "syslog"
 TOOLKIT_STR = "toolkit"
+SITE_SECURITYZONES_STR = "site_security_zones"
+ELEMENT_SECURITYZONES_STR = "element_security_zones"
 ELEMENT_EXTENSIONS_STR = "element_extensions"
 SITE_EXTENSIONS_STR = "site_extensions"
 DHCP_SERVERS_STR = "dhcpservers"
@@ -159,10 +161,12 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
+securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
 waninterfacelabels_cache = []
 wannetworks_cache = []
+wanoverlays_cache = []
 servicebindingmaps_cache = []
 serviceendpoints_cache = []
 ipsecprofiles_cache = []
@@ -192,10 +196,12 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
+    global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
     global waninterfacelabels_cache
     global wannetworks_cache
+    global wanoverlays_cache
     global servicebindingmaps_cache
     global serviceendpoints_cache
     global ipsecprofiles_cache
@@ -224,6 +230,10 @@ def update_global_cache():
     security_policysets_resp = cgx_session.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'secuirity_policysets')
 
+    # secuirityzones
+    securityzones_resp = cgx_session.get.securityzones()
+    securityzones_cache, _ = extract_items(securityzones_resp, 'secuirityzones')
+
     # network_policysetstack
     network_policysetstack_resp = cgx_session.get.networkpolicysetstacks()
     network_policysetstack_cache, _ = extract_items(network_policysetstack_resp, 'network_policysetstack')
@@ -239,6 +249,10 @@ def update_global_cache():
     # wannetworks
     wannetworks_resp = cgx_session.get.wannetworks()
     wannetworks_cache, _ = extract_items(wannetworks_resp, 'wannetworks')
+
+    # wanoverlays
+    wanoverlays_resp = cgx_session.get.wanoverlays()
+    wanoverlays_cache, _ = extract_items(wanoverlays_resp, 'wanoverlays')
 
     # servicebindingmaps
     servicebindingmaps_resp = cgx_session.get.servicebindingmaps()
@@ -275,6 +289,9 @@ def update_global_cache():
     # security_policysets name
     id_name_cache.update(build_lookup_dict(security_policysets_cache, key_val='id', value_val='name'))
 
+    # securityzones name
+    id_name_cache.update(build_lookup_dict(securityzones_cache, key_val='id', value_val='name'))
+
     # network_policysetstack name
     id_name_cache.update(build_lookup_dict(network_policysetstack_cache, key_val='id', value_val='name'))
 
@@ -286,6 +303,9 @@ def update_global_cache():
 
     # wannetworks name
     id_name_cache.update(build_lookup_dict(wannetworks_cache, key_val='id', value_val='name'))
+
+    # wanoverlays name
+    id_name_cache.update(build_lookup_dict(wanoverlays_cache, key_val='id', value_val='name'))
 
     # servicebindingmaps name
     id_name_cache.update(build_lookup_dict(servicebindingmaps_cache, key_val='id', value_val='name'))
@@ -337,6 +357,8 @@ def build_version_strings():
     global NTP_STR
     global SYSLOG_STR
     global TOOLKIT_STR
+    global SITE_SECURITYZONES_STR
+    global ELEMENT_SECURITYZONES_STR
     global ELEMENT_EXTENSIONS_STR
     global SITE_EXTENSIONS_STR
     global DHCP_SERVERS_STR
@@ -361,6 +383,9 @@ def build_version_strings():
         NTP_STR = add_version_to_object(cgx_session.get.ntp, "ntp")
         SYSLOG_STR = add_version_to_object(cgx_session.get.syslogservers, "syslog")
         TOOLKIT_STR = add_version_to_object(cgx_session.get.elementaccessconfigs, "toolkit")
+        SITE_SECURITYZONES_STR = add_version_to_object(cgx_session.get.sitesecurityzones, "site_security_zones")
+        ELEMENT_SECURITYZONES_STR = add_version_to_object(cgx_session.get.elementsecurityzones,
+                                                          "element_security_zones")
         ELEMENT_EXTENSIONS_STR = add_version_to_object(cgx_session.get.element_extensions, "element_extensions")
         SITE_EXTENSIONS_STR = add_version_to_object(cgx_session.get.site_extensions, "site_extensions")
         DHCP_SERVERS_STR = add_version_to_object(cgx_session.get.dhcpservers, "dhcpservers")
@@ -542,6 +567,32 @@ def _pull_config_for_single_site(site_name_id):
         id_name_cache[site_extension['id']] = checked_site_extension_name
         site[SITE_EXTENSIONS_STR][checked_site_extension_name] = site_extension_template
     delete_if_empty(site, SITE_EXTENSIONS_STR)
+
+    # Get Site Security Zones
+    site[SITE_SECURITYZONES_STR] = []
+    response = cgx_session.get.sitesecurityzones(site['id'])
+    if not response.cgx_status:
+        throw_error("Site Security Zones get failed: ", response)
+    site_securityzones = response.cgx_content['items']
+
+    for site_securityzone in site_securityzones:
+        site_securityzone_template = copy.deepcopy(site_securityzone)
+        # replace flat name
+        name_lookup_in_template(site_securityzone_template, 'zone_id', id_name_cache)
+        # replace complex names
+        ssz_networks = site_securityzone.get('networks', None)
+        if ssz_networks and isinstance(ssz_networks, list):
+            ssz_networks_template = []
+            for ssz_network in ssz_networks:
+                ssz_network_template = copy.deepcopy(ssz_network)
+                name_lookup_in_template(ssz_network_template, 'network_id', id_name_cache)
+                ssz_networks_template.append(ssz_network_template)
+            site_securityzone_template['networks'] = ssz_networks_template
+
+        strip_meta_attributes(site_securityzone_template)
+
+        site[SITE_SECURITYZONES_STR].append(site_securityzone_template)
+    delete_if_empty(site, SITE_SECURITYZONES_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
@@ -896,6 +947,51 @@ def _pull_config_for_single_site(site_name_id):
             id_name_cache[element_extension['id']] = checked_element_extension_name
             element[ELEMENT_EXTENSIONS_STR][checked_element_extension_name] = element_extension_template
         delete_if_empty(element, ELEMENT_EXTENSIONS_STR)
+
+        # Get Site Security Zones
+        element[ELEMENT_SECURITYZONES_STR] = []
+        response = cgx_session.get.elementsecurityzones(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Security Zones get failed: ", response)
+        element_securityzones = response.cgx_content['items']
+
+        for element_securityzone in element_securityzones:
+            element_securityzone_template = copy.deepcopy(element_securityzone)
+            # replace flat name
+            name_lookup_in_template(element_securityzone_template, 'zone_id', id_name_cache)
+            # replace complex names
+            esz_lannetwork_ids = element_securityzone.get('lannetwork_ids', None)
+            if esz_lannetwork_ids and isinstance(esz_lannetwork_ids, list):
+                esz_lannetwork_ids_template = []
+                for esz_lannetwork_id in esz_lannetwork_ids:
+                    esz_lannetwork_ids_template.append(id_name_cache.get(esz_lannetwork_id, esz_lannetwork_id))
+                element_securityzone_template['lannetwork_ids'] = esz_lannetwork_ids_template
+
+            esz_interface_ids = element_securityzone.get('interface_ids', None)
+            if esz_interface_ids and isinstance(esz_interface_ids, list):
+                esz_interface_ids_template = []
+                for esz_interface_id in esz_interface_ids:
+                    esz_interface_ids_template.append(id_name_cache.get(esz_interface_id, esz_interface_id))
+                element_securityzone_template['interface_ids'] = esz_interface_ids_template
+
+            esz_waninterface_ids = element_securityzone.get('waninterface_ids', None)
+            if esz_waninterface_ids and isinstance(esz_waninterface_ids, list):
+                esz_waninterface_ids_template = []
+                for esz_waninterface_id in esz_waninterface_ids:
+                    esz_waninterface_ids_template.append(id_name_cache.get(esz_waninterface_id, esz_waninterface_id))
+                element_securityzone_template['waninterface_ids'] = esz_waninterface_ids_template
+
+            esz_wanoverlay_ids = element_securityzone.get('wanoverlay_ids', None)
+            if esz_wanoverlay_ids and isinstance(esz_wanoverlay_ids, list):
+                esz_wanoverlay_ids_template = []
+                for esz_wanoverlay_id in esz_wanoverlay_ids:
+                    esz_wanoverlay_ids_template.append(id_name_cache.get(esz_wanoverlay_id, esz_wanoverlay_id))
+                element_securityzone_template['wanoverlay_ids'] = esz_wanoverlay_ids_template
+
+            strip_meta_attributes(element_securityzone_template)
+
+            element[ELEMENT_SECURITYZONES_STR].append(element_securityzone_template)
+        delete_if_empty(site, ELEMENT_SECURITYZONES_STR)
 
         # start SNMP section
         element['snmp'] = {}
