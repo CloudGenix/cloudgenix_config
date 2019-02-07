@@ -138,7 +138,9 @@ element_put_items = [
     "l3_direct_private_wan_forwarding",
     "l3_lan_forwarding",
     "network_policysetstack_id",
-    "priority_policysetstack_id"
+    "priority_policysetstack_id",
+    "spoke_ha_config",
+    "tags"
 ]
 
 createable_interface_types = [
@@ -183,10 +185,12 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
+securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
 waninterfacelabels_cache = []
 wannetworks_cache = []
+wanoverlays_cache = []
 servicebindingmaps_cache = []
 serviceendpoints_cache = []
 ipsecprofiles_cache = []
@@ -196,10 +200,12 @@ sites_n2id = {}
 elements_n2id = {}
 policysets_n2id = {}
 security_policysets_n2id = {}
+securityzones_n2id = {}
 network_policysetstack_n2id = {}
 priority_policysetstack_n2id = {}
 waninterfacelabels_n2id = {}
 wannetworks_n2id = {}
+wanoverlays_n2id = {}
 servicebindingmaps_n2id = {}
 serviceendpoints_n2id = {}
 ipsecprofiles_n2id = {}
@@ -207,6 +213,7 @@ networkcontexts_n2id = {}
 appdefs_n2id = {}
 elements_byserial = {}
 machines_byserial = {}
+securityzones_id2n = {}
 
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
@@ -301,10 +308,12 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
+    global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
     global waninterfacelabels_cache
     global wannetworks_cache
+    global wanoverlays_cache
     global servicebindingmaps_cache
     global serviceendpoints_cache
     global ipsecprofiles_cache
@@ -314,10 +323,12 @@ def update_global_cache():
     global elements_n2id
     global policysets_n2id
     global security_policysets_n2id
+    global securityzones_n2id
     global network_policysetstack_n2id
     global priority_policysetstack_n2id
     global waninterfacelabels_n2id
     global wannetworks_n2id
+    global wanoverlays_n2id
     global servicebindingmaps_n2id
     global serviceendpoints_n2id
     global ipsecprofiles_n2id
@@ -325,6 +336,7 @@ def update_global_cache():
     global appdefs_n2id
     global elements_byserial
     global machines_byserial
+    global securityzones_id2n
 
     # sites
     sites_resp = sdk.get.sites()
@@ -346,6 +358,10 @@ def update_global_cache():
     security_policysets_resp = sdk.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'security_policysets')
 
+    # secuirityzones
+    securityzones_resp = sdk.get.securityzones()
+    securityzones_cache, _ = extract_items(securityzones_resp, 'securityzones')
+
     # network_policysetstack
     network_policysetstack_resp = sdk.get.networkpolicysetstacks()
     network_policysetstack_cache, _ = extract_items(network_policysetstack_resp, 'network_policysetstack')
@@ -361,6 +377,10 @@ def update_global_cache():
     # wannetworks
     wannetworks_resp = sdk.get.wannetworks()
     wannetworks_cache, _ = extract_items(wannetworks_resp, 'wannetworks')
+
+    # wanoverlays
+    wanoverlays_resp = sdk.get.wanoverlays()
+    wanoverlays_cache, _ = extract_items(wanoverlays_resp, 'wanoverlays')
 
     # servicebindingmaps
     servicebindingmaps_resp = sdk.get.servicebindingmaps()
@@ -394,6 +414,9 @@ def update_global_cache():
     # security_policysets name
     security_policysets_n2id = build_lookup_dict(security_policysets_cache)
 
+    # securityzones name
+    securityzones_n2id = build_lookup_dict(securityzones_cache)
+
     # network_policysetstack name
     network_policysetstack_n2id = build_lookup_dict(network_policysetstack_cache)
 
@@ -405,6 +428,9 @@ def update_global_cache():
 
     # wannetworks name
     wannetworks_n2id = build_lookup_dict(wannetworks_cache)
+
+    # wannetworks name
+    wanoverlays_n2id = build_lookup_dict(wanoverlays_cache)
 
     # servicebindingmaps name
     servicebindingmaps_n2id = build_lookup_dict(servicebindingmaps_cache)
@@ -425,6 +451,9 @@ def update_global_cache():
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
 
     machines_byserial = list_to_named_key_value(machines_cache, 'sl_no', pop_index=False)
+
+    # id to name for security zones
+    securityzones_id2n = build_lookup_dict(securityzones_cache, key_val='id', value_val='name')
 
     return
 
@@ -504,8 +533,11 @@ def parse_site_config(config_site):
     config_dhcpservers, _ = config_lower_version_get(config_site, 'dhcpservers', sdk.put.dhcpservers, default=[])
     config_site_extensions, _ = config_lower_version_get(config_site, 'site_extensions',
                                                          sdk.put.site_extensions, default={})
+    config_site_security_zones, _ = config_lower_version_get(config_site, 'site_security_zones',
+                                                             sdk.put.sitesecurityzones, default={})
 
-    return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions
+    return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
+        config_site_security_zones
 
 
 def parse_element_config(config_element):
@@ -525,9 +557,11 @@ def parse_element_config(config_element):
     config_toolkit, _ = config_lower_version_get(config_element, 'toolkit', sdk.put.elementaccessconfigs, default={})
     config_element_extensions, _ = config_lower_version_get(config_element, 'element_extensions',
                                                             sdk.put.element_extensions, default={})
+    config_element_security_zones, _ = config_lower_version_get(config_element, 'element_security_zones',
+                                                                sdk.put.elementsecurityzones, default={})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions
+        config_element_extensions, config_element_security_zones
 
 
 def parse_routing_config(config_routing):
@@ -1180,6 +1214,8 @@ def create_site(config_site):
     site_template = fuzzy_pop(site_template, 'elements')
     site_template = fuzzy_pop(site_template, 'dhcpservers')
     site_template = fuzzy_pop(site_template, 'hubclusters')
+    site_template = fuzzy_pop(site_template, 'site_extensions')
+    site_template = fuzzy_pop(site_template, 'site_security_zones')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -1231,6 +1267,7 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'dhcpservers')
     site_template = fuzzy_pop(site_template, 'hubclusters')
     site_template = fuzzy_pop(site_template, 'site_extensions')
+    site_template = fuzzy_pop(site_template, 'site_security_zones')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -1857,6 +1894,180 @@ def delete_site_extensions(leftover_site_extensions, site_id, id2n=None):
             throw_error("Could not delete Site_extension {0}: ".format(id2n.get(site_extension_id,
                                                                                 site_extension_id)),
                         site_extension_del_resp)
+    return
+
+
+def create_site_securityzone(config_site_securityzone, waninterface_n2id, lannetworks_n2id, site_id):
+    """
+    Create a Site Security Zone Mapping
+    :param config_site_securityzone: Site Securityzone config dict
+    :param waninterface_n2id: Site WAN InterfaceName to ID map (site specific)
+    :param lannetworks_n2id: LAN Networks Name to ID map (site specific)
+    :param site_id: Site ID to use
+    :return: Site Securityzone
+    """
+    # make a copy of site_securityzone to modify
+    site_securityzone_template = copy.deepcopy(config_site_securityzone)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_securityzone_template, 'zone_id', securityzones_n2id)
+
+    # replace complex names
+    ssz_networks = site_securityzone_template.get('networks', None)
+    if ssz_networks and isinstance(ssz_networks, list):
+        ssz_networks_template = []
+        for ssz_network in ssz_networks:
+            ssz_network_template = copy.deepcopy(ssz_network)
+            ssz_network_type = ssz_network.get('network_type')
+            if ssz_network_type and ssz_network_type.lower() in ['wan_network', 'wan_overlay', 'lan_network']:
+                if ssz_network_type.lower() == 'wan_network':
+                    name_lookup_in_template(ssz_network_template, 'network_id', waninterface_n2id)
+                elif ssz_network_type.lower() == 'wan_overlay':
+                    name_lookup_in_template(ssz_network_template, 'network_id', wanoverlays_n2id)
+                elif ssz_network_type.lower() == 'lan_network':
+                    name_lookup_in_template(ssz_network_template, 'network_id', lannetworks_n2id)
+
+            ssz_networks_template.append(ssz_network_template)
+        site_securityzone_template['networks'] = ssz_networks_template
+
+    local_debug("SITE_SECURITYZONE TEMPLATE: " + str(json.dumps(site_securityzone_template, indent=4)))
+
+    # create site_securityzone
+    site_securityzone_resp = sdk.post.sitesecurityzones(site_id, site_securityzone_template)
+
+    if not site_securityzone_resp.cgx_status:
+        throw_error("Site Securityzone creation failed: ", site_securityzone_resp)
+
+    site_securityzone_id = site_securityzone_resp.cgx_content.get('id')
+    site_securityzone_zone_id = site_securityzone_resp.cgx_content.get('zone_id')
+
+    if not site_securityzone_id or not site_securityzone_zone_id:
+        throw_error("Unable to determine site_securityzone attributes (ID {0}, Zone ID {1}).."
+                    "".format(site_securityzone_id, site_securityzone_zone_id))
+
+    # Try to get zone name this is for.
+    ssz_zone_name = securityzones_id2n.get(site_securityzone_zone_id, site_securityzone_zone_id)
+
+    output_message(" Created Site Securityzone Mapping for Zone '{0}'.".format(ssz_zone_name))
+
+    return site_securityzone_id
+
+
+def modify_site_securityzone(config_site_securityzone, site_securityzone_id, waninterface_n2id, lannetworks_n2id,
+                             site_id):
+    """
+    Modify Existing Site Security Zone Mapping
+    :param config_site_securityzone: Site Securityzone config dict
+    :param site_securityzone_id: Existing Site Securityzone ID
+    :param waninterface_n2id: Site WAN InterfaceName to ID map (site specific)
+    :param lannetworks_n2id: LAN Networks Name to ID map (site specific)
+    :param site_id: Site ID to use
+    :return: Returned Site Securityzone ID
+    """
+    site_securityzone_config = {}
+    # make a copy of site_securityzone to modify
+    site_securityzone_template = copy.deepcopy(config_site_securityzone)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_securityzone_template, 'zone_id', securityzones_n2id)
+
+    # replace complex names
+    ssz_networks = site_securityzone_template.get('networks', None)
+    if ssz_networks and isinstance(ssz_networks, list):
+        ssz_networks_template = []
+        for ssz_network in ssz_networks:
+            ssz_network_template = copy.deepcopy(ssz_network)
+            ssz_network_type = ssz_network.get('network_type')
+            if ssz_network_type and ssz_network_type.lower() in ['wan_network', 'wan_overlay', 'lan_network']:
+                if ssz_network_type.lower() == 'wan_network':
+                    name_lookup_in_template(ssz_network_template, 'network_id', waninterface_n2id)
+                elif ssz_network_type.lower() == 'wan_overlay':
+                    name_lookup_in_template(ssz_network_template, 'network_id', wanoverlays_n2id)
+                elif ssz_network_type.lower() == 'lan_network':
+                    name_lookup_in_template(ssz_network_template, 'network_id', lannetworks_n2id)
+
+            ssz_networks_template.append(ssz_network_template)
+        site_securityzone_template['networks'] = ssz_networks_template
+
+    local_debug("SITE_SECURITYZONE TEMPLATE: " + str(json.dumps(site_securityzone_template, indent=4)))
+
+    # get current site_securityzone
+    site_securityzone_resp = sdk.get.sitesecurityzones(site_id, site_securityzone_id)
+    if site_securityzone_resp.cgx_status:
+        site_securityzone_config = site_securityzone_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Site Securityzone: ", site_securityzone_resp)
+
+    # extract prev_revision
+    prev_revision = site_securityzone_config.get("_etag")
+
+    # Check for changes:
+    site_securityzone_change_check = copy.deepcopy(site_securityzone_config)
+    site_securityzone_config.update(site_securityzone_template)
+    if not force_update and site_securityzone_config == site_securityzone_change_check:
+        # no change in config, pass.
+        site_securityzone_id = site_securityzone_change_check.get('id')
+        site_securityzone_zone_id = site_securityzone_resp.cgx_content.get('zone_id')
+        # Try to get zone name this is for.
+        ssz_zone_name = securityzones_id2n.get(site_securityzone_zone_id, site_securityzone_zone_id)
+        output_message(" No Change for Site Securityzone mapping for {0}.".format(ssz_zone_name))
+        return site_securityzone_id
+
+    if debuglevel >= 3:
+        local_debug("SITE_SECURITYZONE DIFF: {0}".format(find_diff(site_securityzone_change_check,
+                                                                   site_securityzone_config)))
+
+    # Update Site_securityzone.
+    site_securityzone_resp2 = sdk.put.sitesecurityzones(site_id, site_securityzone_id, site_securityzone_config)
+
+    if not site_securityzone_resp2.cgx_status:
+        throw_error("Site Securityzone update failed: ", site_securityzone_resp2)
+
+    site_securityzone_zone_id = site_securityzone_resp.cgx_content.get('zone_id')
+    site_securityzone_id = site_securityzone_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = site_securityzone_resp2.cgx_content.get("_etag")
+
+    if not site_securityzone_zone_id or not site_securityzone_id:
+        throw_error("Unable to determine site securityzone attributes (ID {0}, Zone {1}).."
+                    "".format(site_securityzone_id, site_securityzone_zone_id))
+
+    # Try to get zone name this is for.
+    ssz_zone_name = securityzones_id2n.get(site_securityzone_zone_id, site_securityzone_zone_id)
+
+    output_message(" Updated Site Securityzone mapping for Zone '{0}' (Etag {1} -> {2})."
+                   "".format(ssz_zone_name, prev_revision,current_revision))
+
+    return site_securityzone_id
+
+
+def delete_site_securityzones(leftover_site_securityzones, site_id, id2n=None):
+    """
+    Delete Site Securityzone Mappings
+    :param leftover_site_securityzones: List of Site Securityzone IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for site_securityzone_id in leftover_site_securityzones:
+        # delete all leftover site_securityzones.
+
+        # Try to get zone name
+        ssz_zone_name = securityzones_id2n.get(id2n.get(site_securityzone_id, site_securityzone_id),
+                                               site_securityzone_id)
+
+        output_message(" Deleting Unconfigured Site Securityzone mapping for Zone '{0}'."
+                       "".format(ssz_zone_name))
+        site_securityzone_del_resp = sdk.delete.sitesecurityzones(site_id, site_securityzone_id)
+        if not site_securityzone_del_resp.cgx_status:
+            throw_error("Could not delete Site Securityzone {0}: ".format(id2n.get(site_securityzone_id,
+                                                                                   site_securityzone_id)),
+                        site_securityzone_del_resp)
     return
 
 
@@ -4427,8 +4638,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
-            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions\
-                = parse_site_config(config_site)
+            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
+                config_site_security_zones = parse_site_config(config_site)
 
             # Determine site ID.
             # look for implicit ID in object.
@@ -4659,6 +4870,60 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
             # -- End Site_extensions
 
+            # -- Start Site_securityzones
+            site_securityzones_resp = sdk.get.sitesecurityzones(site_id)
+            site_securityzones_cache, leftover_site_securityzones = extract_items(site_securityzones_resp,
+                                                                                  'sitesecurityzones')
+            # build lookup cache based on zone id.
+            site_securityzones_zoneid2id = build_lookup_dict(site_securityzones_cache, key_val='zone_id')
+
+            # iterate configs (list)
+            for config_site_securityzone_entry in config_site_security_zones:
+
+                # deepcopy to modify.
+                config_site_securityzone = copy.deepcopy(config_site_securityzone_entry)
+
+                # no need to get site_securityzone config, no child config objects.
+
+                # Determine site_securityzone ID.
+                # look for implicit ID in object.
+                implicit_site_securityzone_id = config_site_securityzone.get('id')
+                # if no ID, select by zone ID
+                config_site_securityzone_zone = config_site_securityzone.get('zone_id')
+                # do name to id lookup
+                config_site_securityzone_zone_id = securityzones_n2id.get(config_site_securityzone_zone,
+                                                                          config_site_securityzone_zone)
+                # finally, get securityzone ID from zone_id
+                config_site_securityzone_id = site_securityzones_zoneid2id.get(config_site_securityzone_zone_id)
+
+                if implicit_site_securityzone_id is not None:
+                    site_securityzone_id = implicit_site_securityzone_id
+
+                elif config_site_securityzone_id is not None:
+                    # look up ID by destinationprefix on existing site_securityzone.
+                    site_securityzone_id = config_site_securityzone_id
+
+                else:
+                    # no site_securityzone object.
+                    site_securityzone_id = None
+
+                # Create or modify site_securityzone.
+                if site_securityzone_id is not None:
+                    # Site_securityzone exists, modify.
+                    site_securityzone_id = modify_site_securityzone(config_site_securityzone, site_securityzone_id,
+                                                                    waninterfaces_n2id, lannetworks_n2id, site_id)
+
+                else:
+                    # Site_securityzone does not exist, create.
+                    site_securityzone_id = create_site_securityzone(config_site_securityzone, waninterfaces_n2id,
+                                                                    lannetworks_n2id, site_id)
+
+                # remove from delete queue
+                leftover_site_securityzones = [entry for entry in leftover_site_securityzones
+                                               if entry != site_securityzone_id]
+
+            # -- End Site_securityzones
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -4669,7 +4934,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
-                    config_toolkit, config_element_extensions = parse_element_config(config_element)
+                    config_toolkit, config_element_extensions, config_element_security_zones \
+                    = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -5997,6 +6263,12 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             # unbind any remaining elements.
             unbind_elements(leftover_elements, site_id)
             # add declaim for failed unbind in future.
+
+            # delete remaining site_securityzone configs
+            # build a site_securityzone_id to zone name mapping.
+            site_securityzones_id2zoneid = build_lookup_dict(site_securityzones_cache, key_val='id',
+                                                             value_val='zone_id')
+            delete_site_securityzones(leftover_site_securityzones, site_id, id2n=site_securityzones_id2zoneid)
 
             # delete remaining site_extension configs
             site_extensions_id2n = build_lookup_dict(site_extensions_cache, key_val='id', value_val='name')
