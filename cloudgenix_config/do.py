@@ -882,7 +882,29 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     software_state_resp = sdk.get.software_status(element_id)
     if not software_state_resp.cgx_status:
         throw_error("Could not query element software status {0}.".format(element_id), software_state_resp)
-    active_image_id = str(software_state_resp.cgx_content.get('active_image_id', ''))
+    backup_active_name = None
+    active_image_id = software_state_resp.cgx_content.get('active_image_id')
+
+    if active_image_id is None:
+        # attempt to pull active_image_id from status array for newer api.
+        prev_image_operations = software_state_resp.cgx_content.get('items')
+        if prev_image_operations and isinstance(prev_image_operations, list):
+            for prev_image_operation in prev_image_operations:
+                operation_active_id = prev_image_operation.get('active_image_id')
+                operation_active_name = prev_image_operation.get('active_version')
+
+                if operation_active_name:
+                    backup_active_name = operation_active_name
+
+                if operation_active_id:
+                    active_image_id = operation_active_id
+                    # exit out of for loop
+                    break
+
+    # final check
+    if active_image_id is None:
+        # fail
+        active_image_id = ''
 
     local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
     local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
@@ -896,6 +918,10 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
 
     # start upgrade.
     active_name = images_id2n.get(active_image_id, active_image_id)
+    if not active_name and backup_active_name:
+        # we have a string but unknown image, lets use that.
+        active_name = backup_active_name
+
     output_message(" Element: Changing element from {0} to {1}.".format(active_name if active_name else "Unknown",
                                                                         elem_config_version))
     # Get the object.
@@ -4564,6 +4590,218 @@ def delete_element_extensions(leftover_element_extensions, site_id, element_id, 
     return
 
 
+def create_element_securityzone(config_element_securityzone, waninterface_n2id, lannetworks_n2id, interfaces_n2id,
+                                site_id, element_id):
+    """
+    Create a element Security Zone Mapping
+    :param config_element_securityzone: element Securityzone config dict
+    :param waninterface_n2id: element WAN InterfaceName to ID map (site specific)
+    :param lannetworks_n2id: LAN Networks Name to ID map (site specific)
+    :param interfaces_n2id: Interfaces Name to ID map (site and element specific)
+    :param site_id: site ID to use
+    :param element_id: element ID to use
+    :return: element Securityzone
+
+    """
+    # make a copy of site_securityzone to modify
+    element_securityzone_template = copy.deepcopy(config_element_securityzone)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(element_securityzone_template, 'zone_id', securityzones_n2id)
+
+    # replace complex names
+    esz_entry_interface_ids = config_element_securityzone.get('interface_ids')
+    if esz_entry_interface_ids and isinstance(esz_entry_interface_ids, list):
+        esz_entry_interface_ids_template = []
+        for esz_entry_interface_id in esz_entry_interface_ids:
+            esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id,
+                                                                        esz_entry_interface_id))
+        element_securityzone_template['interface_ids'] = esz_entry_interface_ids_template
+
+    esz_entry_lannetwork_ids = config_element_securityzone.get('lannetwork_ids')
+    if esz_entry_lannetwork_ids and isinstance(esz_entry_lannetwork_ids, list):
+        esz_entry_lannetwork_ids_template = []
+        for esz_entry_lannetwork_id in esz_entry_lannetwork_ids:
+            esz_entry_lannetwork_ids_template.append(lannetworks_n2id.get(esz_entry_lannetwork_id,
+                                                                          esz_entry_lannetwork_id))
+        element_securityzone_template['lannetwork_ids'] = esz_entry_lannetwork_ids_template
+
+    esz_entry_waninterface_ids = config_element_securityzone.get('waninterface_ids')
+    if esz_entry_waninterface_ids and isinstance(esz_entry_waninterface_ids, list):
+        esz_entry_waninterface_ids_template = []
+        for esz_entry_waninterface_id in esz_entry_waninterface_ids:
+            esz_entry_waninterface_ids_template.append(waninterface_n2id.get(esz_entry_waninterface_id,
+                                                                             esz_entry_waninterface_id))
+        element_securityzone_template['waninterface_ids'] = esz_entry_waninterface_ids_template
+
+    esz_entry_wanoverlay_ids = config_element_securityzone.get('wanoverlay_ids')
+    if esz_entry_wanoverlay_ids and isinstance(esz_entry_wanoverlay_ids, list):
+        esz_entry_wanoverlay_ids_template = []
+        for esz_entry_wanoverlay_id in esz_entry_wanoverlay_ids:
+            esz_entry_wanoverlay_ids_template.append(wanoverlays_n2id.get(esz_entry_wanoverlay_id,
+                                                                          esz_entry_wanoverlay_id))
+        element_securityzone_template['wanoverlay_ids'] = esz_entry_wanoverlay_ids_template
+
+    local_debug("ELEMENT_SECURITYZONE TEMPLATE: " + str(json.dumps(element_securityzone_template, indent=4)))
+
+    # create element_securityzone
+    element_securityzone_resp = sdk.post.elementsecurityzones(site_id, element_id, element_securityzone_template)
+
+    if not element_securityzone_resp.cgx_status:
+        throw_error("Element Securityzone creation failed: ", element_securityzone_resp)
+
+    element_securityzone_id = element_securityzone_resp.cgx_content.get('id')
+    element_securityzone_zone_id = element_securityzone_resp.cgx_content.get('zone_id')
+
+    if not element_securityzone_id or not element_securityzone_zone_id:
+        throw_error("Unable to determine element_securityzone attributes (ID {0}, Zone ID {1}).."
+                    "".format(element_securityzone_id, element_securityzone_zone_id))
+
+    # Try to get zone name this is for.
+    esz_zone_name = securityzones_id2n.get(element_securityzone_zone_id, element_securityzone_zone_id)
+
+    output_message("   Created Element Securityzone Mapping for Zone '{0}'.".format(esz_zone_name))
+
+    return element_securityzone_id
+
+
+def modify_element_securityzone(config_element_securityzone, element_securityzone_id, waninterface_n2id,
+                                lannetworks_n2id, interfaces_n2id, site_id, element_id):
+    """
+    Modify Existing element Security Zone Mapping
+    :param config_element_securityzone: element Securityzone config dict
+    :param element_securityzone_id: Existing element Securityzone ID
+    :param waninterface_n2id: element WAN InterfaceName to ID map (site specific)
+    :param lannetworks_n2id: LAN Networks Name to ID map (site specific)
+    :param interfaces_n2id: Interfaces Name to ID map (site and element specific)
+    :param site_id: site ID to use
+    :param element_id: element ID to use
+    :return: Returned element Securityzone ID
+    """
+    element_securityzone_config = {}
+    # make a copy of site_securityzone to modify
+    element_securityzone_template = copy.deepcopy(config_element_securityzone)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(element_securityzone_template, 'zone_id', securityzones_n2id)
+
+    # replace complex names
+    esz_entry_interface_ids = config_element_securityzone.get('interface_ids')
+    if esz_entry_interface_ids and isinstance(esz_entry_interface_ids, list):
+        esz_entry_interface_ids_template = []
+        for esz_entry_interface_id in esz_entry_interface_ids:
+            esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id,
+                                                                        esz_entry_interface_id))
+        element_securityzone_template['interface_ids'] = esz_entry_interface_ids_template
+
+    esz_entry_lannetwork_ids = config_element_securityzone.get('lannetwork_ids')
+    if esz_entry_lannetwork_ids and isinstance(esz_entry_lannetwork_ids, list):
+        esz_entry_lannetwork_ids_template = []
+        for esz_entry_lannetwork_id in esz_entry_lannetwork_ids:
+            esz_entry_lannetwork_ids_template.append(lannetworks_n2id.get(esz_entry_lannetwork_id,
+                                                                          esz_entry_lannetwork_id))
+        element_securityzone_template['lannetwork_ids'] = esz_entry_lannetwork_ids_template
+
+    esz_entry_waninterface_ids = config_element_securityzone.get('waninterface_ids')
+    if esz_entry_waninterface_ids and isinstance(esz_entry_waninterface_ids, list):
+        esz_entry_waninterface_ids_template = []
+        for esz_entry_waninterface_id in esz_entry_waninterface_ids:
+            esz_entry_waninterface_ids_template.append(waninterface_n2id.get(esz_entry_waninterface_id,
+                                                                             esz_entry_waninterface_id))
+        element_securityzone_template['waninterface_ids'] = esz_entry_waninterface_ids_template
+
+    esz_entry_wanoverlay_ids = config_element_securityzone.get('wanoverlay_ids')
+    if esz_entry_wanoverlay_ids and isinstance(esz_entry_wanoverlay_ids, list):
+        esz_entry_wanoverlay_ids_template = []
+        for esz_entry_wanoverlay_id in esz_entry_wanoverlay_ids:
+            esz_entry_wanoverlay_ids_template.append(wanoverlays_n2id.get(esz_entry_wanoverlay_id,
+                                                                          esz_entry_wanoverlay_id))
+        element_securityzone_template['wanoverlay_ids'] = esz_entry_wanoverlay_ids_template
+
+    local_debug("ELEMENT_SECURITYZONE TEMPLATE: " + str(json.dumps(element_securityzone_template, indent=4)))
+
+    # get current element_securityzone
+    element_securityzone_resp = sdk.get.elementsecurityzones(site_id, element_id, element_securityzone_id)
+    if element_securityzone_resp.cgx_status:
+        element_securityzone_config = element_securityzone_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Element Securityzone: ", element_securityzone_resp)
+
+    # extract prev_revision
+    prev_revision = element_securityzone_config.get("_etag")
+
+    # Check for changes:
+    element_securityzone_change_check = copy.deepcopy(element_securityzone_config)
+    element_securityzone_config.update(element_securityzone_template)
+    if not force_update and element_securityzone_config == element_securityzone_change_check:
+        # no change in config, pass.
+        element_securityzone_id = element_securityzone_change_check.get('id')
+        element_securityzone_zone_id = element_securityzone_resp.cgx_content.get('zone_id')
+        # Try to get zone name this is for.
+        esz_zone_name = securityzones_id2n.get(element_securityzone_zone_id, element_securityzone_zone_id)
+        output_message("   No Change for Element Securityzone mapping for {0}.".format(esz_zone_name))
+        return element_securityzone_id
+
+    if debuglevel >= 3:
+        local_debug("element_SECURITYZONE DIFF: {0}".format(find_diff(element_securityzone_change_check,
+                                                                      element_securityzone_config)))
+
+    # Update element_securityzone.
+    element_securityzone_resp2 = sdk.put.elementsecurityzones(site_id, element_id, element_securityzone_id,
+                                                              element_securityzone_config)
+
+    if not element_securityzone_resp2.cgx_status:
+        throw_error("Element Securityzone update failed: ", element_securityzone_resp2)
+
+    element_securityzone_zone_id = element_securityzone_resp.cgx_content.get('zone_id')
+    element_securityzone_id = element_securityzone_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = element_securityzone_resp2.cgx_content.get("_etag")
+
+    if not element_securityzone_zone_id or not element_securityzone_id:
+        throw_error("Unable to determine element securityzone attributes (ID {0}, Zone {1}).."
+                    "".format(element_securityzone_id, element_securityzone_zone_id))
+
+    # Try to get zone name this is for.
+    esz_zone_name = securityzones_id2n.get(element_securityzone_zone_id, element_securityzone_zone_id)
+
+    output_message("   Updated Element Securityzone mapping for Zone '{0}' (Etag {1} -> {2})."
+                   "".format(esz_zone_name, prev_revision,current_revision))
+
+    return element_securityzone_id
+
+
+def delete_element_securityzones(leftover_element_securityzones, site_id, element_id, id2n=None):
+    """
+    Delete element Securityzone Mappings
+    :param leftover_element_securityzones: List of element Securityzone IDs to delete
+    :param site_id: site ID to use
+    :param element_id: element ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for element_securityzone_id in leftover_element_securityzones:
+        # delete all leftover element_securityzones.
+
+        # Try to get zone name
+        esz_zone_name = securityzones_id2n.get(id2n.get(element_securityzone_id, element_securityzone_id),
+                                               element_securityzone_id)
+
+        output_message("   Deleting Unconfigured Element Securityzone mapping for Zone '{0}'."
+                       "".format(esz_zone_name))
+        element_securityzone_del_resp = sdk.delete.elementsecurityzones(site_id, element_id, element_securityzone_id)
+        if not element_securityzone_del_resp.cgx_status:
+            throw_error("Could not delete Element Securityzone {0}: ".format(id2n.get(element_securityzone_id,
+                                                                                      element_securityzone_id)),
+                        element_securityzone_del_resp)
+    return
+
+
 def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None, passed_timeout_claim=None,
             passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None):
@@ -6194,6 +6432,65 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
                 # -- End Element_extensions
 
+                # -- Start element_securityzones
+                element_securityzones_resp = sdk.get.elementsecurityzones(site_id, element_id)
+                element_securityzones_cache, leftover_element_securityzones = extract_items(element_securityzones_resp,
+                                                                                            'elementsecurityzones')
+                # build lookup cache based on zone id.
+                element_securityzones_zoneid2id = build_lookup_dict(element_securityzones_cache, key_val='zone_id')
+
+                # iterate configs (list)
+                for config_element_securityzone_entry in config_element_security_zones:
+
+                    # deepcopy to modify.
+                    config_element_securityzone = copy.deepcopy(config_element_securityzone_entry)
+
+                    # no need to get element_securityzone config, no child config objects.
+
+                    # Determine element_securityzone ID.
+                    # look for implicit ID in object.
+                    implicit_element_securityzone_id = config_element_securityzone.get('id')
+                    # if no ID, select by zone ID
+                    config_element_securityzone_zone = config_element_securityzone.get('zone_id')
+                    # do name to id lookup
+                    config_element_securityzone_zone_id = securityzones_n2id.get(config_element_securityzone_zone,
+                                                                                 config_element_securityzone_zone)
+                    # finally, get securityzone ID from zone_id
+                    config_element_securityzone_id = element_securityzones_zoneid2id.get(
+                        config_element_securityzone_zone_id)
+
+                    if implicit_element_securityzone_id is not None:
+                        element_securityzone_id = implicit_element_securityzone_id
+
+                    elif config_element_securityzone_id is not None:
+                        # look up ID by destinationprefix on existing element_securityzone.
+                        element_securityzone_id = config_element_securityzone_id
+
+                    else:
+                        # no element_securityzone object.
+                        element_securityzone_id = None
+
+                    # Create or modify element_securityzone.
+                    if element_securityzone_id is not None:
+                        # element_securityzone exists, modify.
+                        element_securityzone_id = modify_element_securityzone(config_element_securityzone,
+                                                                              element_securityzone_id,
+                                                                              waninterfaces_n2id, lannetworks_n2id,
+                                                                              interfaces_n2id, site_id, element_id)
+
+                    else:
+                        # element_securityzone does not exist, create.
+                        element_securityzone_id = create_element_securityzone(config_element_securityzone,
+                                                                              waninterfaces_n2id,
+                                                                              lannetworks_n2id, interfaces_n2id,
+                                                                              site_id, element_id)
+
+                    # remove from delete queue
+                    leftover_element_securityzones = [entry for entry in leftover_element_securityzones
+                                                      if entry != element_securityzone_id]
+
+                # -- End element_securityzones
+
                 # -- Start Toolkit (elementaccess) - single object
                 # no need to get toolkit config, no child config objects.
 
@@ -6207,6 +6504,13 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # BEGIN ELEMENT CLEANUP
 
                 # Toolkit is single object, no cleanup required.
+
+                # delete remaining element_securityzone configs
+                # build a element_securityzone_id to zone name mapping.
+                element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
+                                                                    value_val='zone_id')
+                delete_element_securityzones(leftover_element_securityzones, site_id, element_id,
+                                             id2n=element_securityzones_id2zoneid)
 
                 # delete remaining element_extension configs
                 element_extensions_id2n = build_lookup_dict(element_extensions_cache, key_val='id', value_val='name')
