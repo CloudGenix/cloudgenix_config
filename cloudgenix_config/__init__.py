@@ -365,12 +365,16 @@ def extract_items(resp_object, error_label=None, id_key='id'):
         # return data
         return items, id_list
 
+    # handle 404 for certian APIs where objects may not exist
+    elif resp_object.status_code in [404]:
+        return [{}], []
+
     else:
         if error_label is not None:
             throw_error("Unable to cache {0}.".format(error_label), resp_object)
             return [], []
         else:
-            throw_error("Unable to cache {0}.".format(error_label), resp_object)
+            throw_error("Unable to cache response.".format(error_label), resp_object)
             return [], []
 
 

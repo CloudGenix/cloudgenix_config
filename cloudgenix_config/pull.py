@@ -155,6 +155,7 @@ ASPATHACL_CONFIG_STR = "as_path_access_lists"
 PREFIXLISTS_CONFIG_STR = "prefix_lists"
 IPCOMMUNITYLISTS_CONFIG_STR = "ip_community_lists"
 HUBCLUSTER_CONFIG_STR = "hubclusters"
+SPOKECLUSTER_CONFIG_STR = "spokeclusters"
 
 
 # Global Config Cache holders
@@ -371,6 +372,7 @@ def build_version_strings():
     global PREFIXLISTS_CONFIG_STR
     global IPCOMMUNITYLISTS_CONFIG_STR
     global HUBCLUSTER_CONFIG_STR
+    global SPOKECLUSTER_CONFIG_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -399,6 +401,7 @@ def build_version_strings():
         IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(cgx_session.get.routing_ipcommunitylists,
                                                             "ip_community_lists")
         HUBCLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "hubclusters")
+        SPOKECLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.spokeclusters, "spokeclusters")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -530,11 +533,30 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(hubcluster_template, 'security_policy_set', id_name_cache)
         strip_meta_attributes(hubcluster_template)
         # check name for duplicates
-        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Laninterface')
+        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster')
         # update id name cache in case name changed.
         id_name_cache[hubcluster['id']] = checked_hubcluster_name
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
     delete_if_empty(site, HUBCLUSTER_CONFIG_STR)
+
+    # Get Hub Clusters
+    dup_name_dict = {}
+    site[SPOKECLUSTER_CONFIG_STR] = {}
+    response = cgx_session.get.spokeclusters(site['id'])
+    if not response.cgx_status:
+        throw_error("LAN networks get failed: ", response)
+    spokeclusters = response.cgx_content['items']
+    # update id_name_cache
+    id_name_cache.update(build_lookup_dict(spokeclusters, key_val='id', value_val='name'))
+    for spokecluster in spokeclusters:
+        spokecluster_template = copy.deepcopy(spokecluster)
+        strip_meta_attributes(spokecluster_template)
+        # check name for duplicates
+        checked_spokecluster_name = check_name(spokecluster['name'], dup_name_dict, 'Spokecluster')
+        # update id name cache in case name changed.
+        id_name_cache[spokecluster['id']] = checked_spokecluster_name
+        site[SPOKECLUSTER_CONFIG_STR][checked_spokecluster_name] = spokecluster_template
+    delete_if_empty(site, SPOKECLUSTER_CONFIG_STR)
 
     # Get DHCP Servers
     site[DHCP_SERVERS_STR] = []
@@ -1051,6 +1073,29 @@ def _pull_config_for_single_site(site_name_id):
         if element_template.get('hw_id'):
             # use serial_number not HWID, machine config will use this value too
             del element_template['hw_id']
+
+        # replace complex name for spoke_ha_config
+        spoke_ha_config = element_template.get('spoke_ha_config')
+        if spoke_ha_config:
+            # need to look for names
+            spoke_ha_config_template = copy.deepcopy(spoke_ha_config)
+            name_lookup_in_template(spoke_ha_config_template, 'cluster_id', id_name_cache)
+            name_lookup_in_template(spoke_ha_config_template, 'source_interface', id_name_cache)
+            spoke_ha_config_track = spoke_ha_config.get('track')
+            if spoke_ha_config_track:
+                spoke_ha_config_track_template = copy.deepcopy(spoke_ha_config_track)
+                spoke_ha_config_track_interfaces = spoke_ha_config_track.get("interfaces")
+                if spoke_ha_config_track_interfaces:
+                    spoke_ha_config_track_interfaces_template = []
+                    for spoke_ha_config_track_interfaces_entry in spoke_ha_config_track_interfaces:
+                        spoke_ha_config_track_interfaces_entry_template = \
+                            copy.deepcopy(spoke_ha_config_track_interfaces_entry)
+                        name_lookup_in_template(spoke_ha_config_track_interfaces_entry_template,
+                                                'interface_id', id_name_cache)
+                        spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
+                    spoke_ha_config_track_template = spoke_ha_config_track_interfaces_template
+                spoke_ha_config_template['track'] = spoke_ha_config_track_template
+            element_template['spoke_ha_config'] = spoke_ha_config_template
 
         # check for duplicate names
         checked_element_name = check_name(element['name'], dup_name_dict_elements, 'Element')
