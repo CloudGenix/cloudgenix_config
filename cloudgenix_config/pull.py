@@ -37,6 +37,8 @@ import argparse
 import copy
 import datetime
 import logging
+import errno
+
 
 # CloudGenix Python SDK
 try:
@@ -1079,18 +1081,22 @@ def _pull_config_for_single_site(site_name_id):
     return
 
 
-def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=None, passed_strip_versions=None,
-                      passed_force_parents=None, no_header=None, return_result=False):
+def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None, passed_report_id=None,
+                      passed_strip_versions=None, passed_force_parents=None, no_header=None, return_result=False,
+                      normalize=False):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
     :param output_filename: Filename to save configuration YAML content to.
+    :param output_multi: If set, creates one file per site(s), using 'site name.yml' as filename in specified value
+                         (which should be a directory path).
     :param passed_sdk: A cloudgenix.API() authenticated SDK object. Required if running function from external script.
     :param passed_report_id: Optional - Report ID in YAML, default False
     :param passed_strip_versions: Optional - Remove API versions from YAML, default False
     :param passed_force_parents: Optional - Leave unconfigurable parent interfaces in configuration, default False.
     :param no_header: Optional - bool, Remove metadata header from YAML file. True removes, False or None keep.
-    :param return_result: Optioanl - bool, If True, return the result as a Dict instead of writing out to YAML file.
+    :param return_result: Optional - bool, If True, return the result as a Dict instead of writing out to YAML file.
+    :param normalize: Optional - bool, if true, make sure site name is renamed to safe name.
     :return: Default - directly writes YAML file to output_filename specified, no return.
     """
     global ELEMENTS
@@ -1126,45 +1132,141 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
         throw_error("A 'Site Name', comma-seperated list of sites 'Site A, Site B', or "
                     "'ALL_SITES' must be specified to the mandatory '--sites/-S' option.")
 
-    if sites == "ALL_SITES":
-        for val in SITES:
-            _pull_config_for_single_site(val['id'])
-        if not CONFIG[SITES_STR]:
-            # got no config info.
-            throw_error("No matching sites found when attempting to pull config for ALL_SITES.\n"
-                        "Exiting.")
+    if output_multi is None or return_result:
+        # single site, specified file, or API call asking to return object. Ignore output_multi if
+        # return_result is set.
+        if sites == "ALL_SITES":
+            for val in SITES:
+                _pull_config_for_single_site(val['id'])
+            if not CONFIG[SITES_STR]:
+                # got no config info.
+                throw_error("No matching sites found when attempting to pull config for ALL_SITES.\n"
+                            "Exiting.")
+        else:
+            for val in sites.split(','):
+                # ensure removing leading/trailing whitespace
+                _pull_config_for_single_site(val.strip())
+            if not CONFIG[SITES_STR]:
+                # got no config info.
+                throw_error("No matching site found that matched entered site(s): \n"
+                            "\t{0}\n"
+                            "Exiting.".format(val))
+
+        # Got here, we got some site data.
+
+        # if not set to return_obj, write out YAML file.
+        if return_result:
+            # add headers to CONFIG.
+            CONFIG['type'] = "cloudgenix template"
+            CONFIG['version'] = "1.0"
+            return CONFIG
+        else:
+            config_yml = open(output_filename, "w")
+            config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+            # write header by default, but skip if asked.
+            if not no_header:
+                config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+                if cgx_session.email:
+                    config_yml.write("# by {0}\n".format(cgx_session.email))
+            yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+            config_yml.close()
+
+            # jd(CONFIG)
+            # jd(id_name_cache)
     else:
-        for val in sites.split(','):
-            # ensure removing leading/trailing whitespace
-            _pull_config_for_single_site(val.strip())
-        if not CONFIG[SITES_STR]:
-            # got no config info.
-            throw_error("No matching sites found that matched entered site(s): \n"
-                        "\t{0}\n"
-                        "Exiting.".format("\n\t".join(sites.split(','))))
+        # output_multi is set. Prepare.
 
-    # Got here, we got some site data.
+        # make sure directory works.
+        final_dir = os.path.join(output_multi, '')
+        try:
+            os.mkdir(final_dir)
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                raise
+            pass
 
-    # if not set to return_obj, write out YAML file.
-    if return_result:
-        # add headers to CONFIG.
-        CONFIG['type'] = "cloudgenix template"
-        CONFIG['version'] = "1.0"
-        return CONFIG
-    else:
-        config_yml = open(output_filename, "w")
-        config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
-        # write header by default, but skip if asked.
-        if not no_header:
-            config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-            if cgx_session.email:
-                config_yml.write("# by {0}\n".format(cgx_session.email))
-        yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
-        config_yml.close()
+        # single site, specified file.
+        if sites == "ALL_SITES":
 
-        # jd(CONFIG)
-        # jd(id_name_cache)
-        return
+            for val in SITES:
+                # Reset config
+                CONFIG[SITES_STR] = {}
+                _pull_config_for_single_site(val['id'])
+                if not CONFIG[SITES_STR]:
+                    # got no config info.
+                    throw_error("No matching sites found when attempting to pull config for ALL_SITES.\n"
+                                "Exiting.")
+                # should only be one site in config
+                cur_site_count = len(CONFIG[SITES_STR])
+                if cur_site_count != 1:
+                    throw_error("BUG: Got more than one site in single site object, Exiting.")
+                # extract site name
+                cur_site_name = list(CONFIG[SITES_STR].keys())[0]
+
+                if normalize:
+                    final_site_name = "".join(x for x in cur_site_name if (x.isalnum() or x in "._- "))
+                    # remove spaces
+                    final_site_name = final_site_name.replace(' ', '_')
+                else:
+                    final_site_name = cur_site_name
+
+                # Write out YAML file.
+                config_yml = open(final_dir + final_site_name + ".yml", "w")
+                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+                # write header by default, but skip if asked.
+                if not no_header:
+                    config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+                    if cgx_session.email:
+                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+                config_yml.close()
+
+                # jd(CONFIG)
+                # jd(id_name_cache)
+
+        else:
+
+            for val in sites.split(','):
+                # Reset config
+                CONFIG[SITES_STR] = {}
+                # ensure removing leading/trailing whitespace
+                _pull_config_for_single_site(val.strip())
+                if not CONFIG[SITES_STR]:
+                    # got no config info.
+                    throw_error("No matching site found that matched entered site(s): \n"
+                                "\t{0}\n"
+                                "Exiting.".format(val))
+
+                # should only be one site in config
+                cur_site_count = len(CONFIG[SITES_STR])
+                if cur_site_count != 1:
+                    throw_error("BUG: Got more than one site in single site object, Exiting.")
+                # extract site name
+                cur_site_name = list(CONFIG[SITES_STR].keys())[0]
+
+                if normalize:
+                    final_site_name = "".join(x for x in cur_site_name if (x.isalnum() or x in "._- "))
+                    # remove spaces
+                    final_site_name = final_site_name.replace(' ', '_')
+                else:
+                    final_site_name = cur_site_name
+
+                # Write out YAML file.
+                config_yml = open(final_dir + final_site_name + ".yml", "w")
+                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+                # write header by default, but skip if asked.
+                if not no_header:
+                    config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+                    if cgx_session.email:
+                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+                config_yml.close()
+
+                # jd(CONFIG)
+                # jd(id_name_cache)
+
+
+    return
 
 
 def go():
@@ -1199,8 +1301,17 @@ def go():
                               default=False, action="store_true")
     config_group.add_argument("--no-header", help="Skip export of Metadata header in config YAML.",
                               default=False, action="store_true")
-    config_group.add_argument("--output", help="Output file name (default './config.yml')", type=str,
-                              default="./config.yml")
+
+    config_group.add_argument("--normalize", help="Normalize the site name to filesystem friendly. Only has effect "
+                                                  "with --multi-out.",
+                              default=False, action="store_true")
+
+    file_output = config_group.add_mutually_exclusive_group()
+
+    file_output.add_argument("--output", help="Output file name (default './config.yml')", type=str,
+                             default="./config.yml")
+    file_output.add_argument("--multi-output", help="Enable per-site file output. Specify Directory to place file(s).",
+                             type=str, default=None)
 
     # Allow Controller modification and debug level sets.
     controller_group = parser.add_argument_group('API', 'These options change how this program connects to the API.')
@@ -1235,6 +1346,8 @@ def go():
     STRIP_VERSIONS = args['strip_versions']
     FORCE_PARENTS = args['force_parents']
     filename = args['output']
+    multi_output = args['multi_output']
+    normalize = args['normalize']
 
     # Build SDK Constructor
     if args['controller'] and args['insecure']:
@@ -1285,7 +1398,8 @@ def go():
                 user_password = None
 
     # pull the specified sites config
-    pull_config_sites(args['sites'], filename, no_header=args['no_header'])
+    pull_config_sites(args['sites'], filename, output_multi=multi_output, normalize=normalize,
+                      no_header=args['no_header'])
 
     return
 

@@ -68,6 +68,7 @@ MIT
  - Requires 5.1.1b1 SDK
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
+     - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
    - Site safety factor is set to 1 by default (prevents unintentional multi-site configurations)
  - Re-naming Sites is not currently supported (changing site name in config causes a new site to be created)
  - Deletion of sites using `do_site.py` DESTROYS all objects under the Site. This operation is done by running `do_site.py` with the `--destroy` option.
