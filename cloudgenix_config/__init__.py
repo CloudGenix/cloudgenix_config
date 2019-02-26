@@ -520,8 +520,8 @@ def find_diff(d1, d2, path=""):
     :return:
     """
     return_str = ""
-    for k in d1.keys():
-        if k not in d2.keys():
+    for k in d1:
+        if k not in d2:
             return_str += "{0} {1}\n".format(path, ":")
             return_str += "{0} {1}\n".format(k + " as key not in d2", "\n")
         else:
@@ -531,6 +531,9 @@ def find_diff(d1, d2, path=""):
                 else:
                     path = path + "->" + k
                 return_str += find_diff(d1[k], d2[k], path)
+            elif type(d1[k]) == list:
+                find_diff(dict(zip(map(str, range(len(d1[k]))), d1[k])), dict(zip(map(str, range(len(d2[k]))), d2[k])),
+                          k)
             else:
                 if d1[k] != d2[k]:
                     return_str += "{0} {1}\n".format(path, ":")

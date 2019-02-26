@@ -534,10 +534,11 @@ def parse_site_config(config_site):
     config_site_extensions, _ = config_lower_version_get(config_site, 'site_extensions',
                                                          sdk.put.site_extensions, default={})
     config_site_security_zones, _ = config_lower_version_get(config_site, 'site_security_zones',
-                                                             sdk.put.sitesecurityzones, default={})
+                                                             sdk.put.sitesecurityzones, default=[])
+    config_spokeclusters, _ = config_lower_version_get(config_site, 'spokeclusters', sdk.put.spokeclusters, default={})
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones
+        config_site_security_zones, config_spokeclusters
 
 
 def parse_element_config(config_element):
@@ -558,7 +559,7 @@ def parse_element_config(config_element):
     config_element_extensions, _ = config_lower_version_get(config_element, 'element_extensions',
                                                             sdk.put.element_extensions, default={})
     config_element_security_zones, _ = config_lower_version_get(config_element, 'element_security_zones',
-                                                                sdk.put.elementsecurityzones, default={})
+                                                                sdk.put.elementsecurityzones, default=[])
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones
@@ -998,6 +999,101 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     return
 
 
+def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id):
+    """
+    Since Spoke HA config is part of the element object, we need to handle it separately.
+    :param matching_element: Element ID to work on
+    :param site_id: Site ID to work on
+    :param config_element: Element config struct
+    :param spokecluster_n2id: Spoke Cluster Name -> ID map.
+    :return:
+    """
+    # check status
+    element = matching_element
+    element_serial = element.get('serial_number')
+    element_id = element.get('id')
+    element_name_or_id = element.get('name', element_id)
+    element_site_id = element.get("site_id")
+
+    # when here, element should always be in assigned state.
+
+    # create template from the matching element.
+    elem_template = copy.deepcopy(matching_element)
+
+    # now clean up element template.
+    for key in copy.deepcopy(elem_template).keys():
+        if key not in element_put_items:
+            del elem_template[key]
+
+    # create a copy of element config for cleanup
+    config_element_copy = copy.deepcopy(config_element)
+
+    # clean up element config copy
+    for key in copy.deepcopy(config_element_copy).keys():
+        if key not in element_put_items:
+            del config_element_copy[key]
+
+    # replace complex name for spoke_ha_config
+    spoke_ha_config = config_element.get('spoke_ha_config')
+    if spoke_ha_config:
+        # need to look for names
+        spoke_ha_config_template = copy.deepcopy(spoke_ha_config)
+        name_lookup_in_template(spoke_ha_config_template, 'cluster_id', spokecluster_n2id)
+        name_lookup_in_template(spoke_ha_config_template, 'source_interface', interfaces_n2id)
+        spoke_ha_config_track = spoke_ha_config.get('track')
+        if spoke_ha_config_track:
+            spoke_ha_config_track_template = copy.deepcopy(spoke_ha_config_track)
+            spoke_ha_config_track_interfaces = spoke_ha_config_track.get("interfaces")
+            if spoke_ha_config_track_interfaces:
+                spoke_ha_config_track_interfaces_template = []
+                for spoke_ha_config_track_interfaces_entry in spoke_ha_config_track_interfaces:
+                    spoke_ha_config_track_interfaces_entry_template = \
+                        copy.deepcopy(spoke_ha_config_track_interfaces_entry)
+                    name_lookup_in_template(spoke_ha_config_track_interfaces_entry_template,
+                                            'interface_id', interfaces_n2id)
+                    spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
+                spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
+            spoke_ha_config_template['track'] = spoke_ha_config_track_template
+        config_element_copy['spoke_ha_config'] = spoke_ha_config_template
+    else:
+        config_element_copy['spoke_ha_config'] = None
+
+    # Create a copy of the cleaned element template for update check
+    element_change_check = copy.deepcopy(elem_template)
+
+    # Update element template with config changes from cleaned copy
+    elem_template.update(config_element_copy)
+
+    # Check for changes in cleaned config copy and cleaned template (will not detect spoke HA changes here):
+    if not force_update and elem_template == element_change_check:
+        # no change in config, pass.
+        element_name = matching_element.get('name')
+        output_message("   No Change for Spoke HA in Element {0}.".format(element_name_or_id))
+        return
+
+    if debuglevel >= 3:
+        local_debug("ELEMENT SPOKEHA DIFF: {0}".format(find_diff(element_change_check, elem_template)))
+
+    output_message("   Updating Spoke HA for Element {0}.".format(element_name_or_id))
+
+    # clean up element template.
+    for key in copy.deepcopy(elem_template).keys():
+        if key not in element_put_items:
+            del elem_template[key]
+
+    # Add missing elem attributes
+    elem_template['sw_obj'] = None
+
+    local_debug("ELEM_SPOKEHA_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
+
+    elem_update_resp = sdk.put.elements(element_id, elem_template)
+
+    if not elem_update_resp.cgx_status:
+        throw_error("Element Spoke HA {0} Update failed: ".format(element_id), elem_update_resp)
+
+    return
+
+
 def assign_modify_element(matching_element, site_id, config_element):
     """
     Assign or Modify element object
@@ -1041,10 +1137,14 @@ def assign_modify_element(matching_element, site_id, config_element):
             # Create a copy of the cleaned element template for update check
             element_change_check = copy.deepcopy(elem_template)
 
+            # We don't want to do any spoke_ha_config changes here. Copy the current spoke_ha config over the YAML
+            # config. We'll pick up the new config AFTER enumerating the interfaces.
+            config_element_copy['spoke_ha_config'] = elem_template.get('spoke_ha_config', None)
+
             # Update element template with config changes from cleaned copy
             elem_template.update(config_element_copy)
 
-            # Check for changes in cleaned config copy and cleaned template:
+            # Check for changes in cleaned config copy and cleaned template (will not detect spoke HA changes here):
             if not force_update and elem_template == element_change_check:
                 # no change in config, pass.
                 element_name = matching_element.get('name')
@@ -1102,6 +1202,9 @@ def assign_modify_element(matching_element, site_id, config_element):
         # Add missing elem attributes
         elem_template['sw_obj'] = None
         elem_template['site_id'] = site_id
+
+        # Ensure spoke HA config is blank for Element assignment:
+        elem_template['spoke_ha_config'] = None
 
         local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
@@ -1242,6 +1345,7 @@ def create_site(config_site):
     site_template = fuzzy_pop(site_template, 'hubclusters')
     site_template = fuzzy_pop(site_template, 'site_extensions')
     site_template = fuzzy_pop(site_template, 'site_security_zones')
+    site_template = fuzzy_pop(site_template, 'spokeclusters')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -1294,6 +1398,7 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'hubclusters')
     site_template = fuzzy_pop(site_template, 'site_extensions')
     site_template = fuzzy_pop(site_template, 'site_security_zones')
+    site_template = fuzzy_pop(site_template, 'spokeclusters')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2094,6 +2199,132 @@ def delete_site_securityzones(leftover_site_securityzones, site_id, id2n=None):
             throw_error("Could not delete Site Securityzone {0}: ".format(id2n.get(site_securityzone_id,
                                                                                    site_securityzone_id)),
                         site_securityzone_del_resp)
+    return
+
+
+def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id):
+    """
+    Create a Spoke Cluster
+    :param config_spokecluster: Spoke Cluster config dict
+    :param spokeclusters_n2id: Spoke Cluster Name to ID dict
+    :param site_id: Site ID to use
+    :return: New Spoke Cluster ID
+    """
+    # make a copy of spokecluster to modify
+    spokecluster_template = copy.deepcopy(config_spokecluster)
+
+    # perform name -> ID lookups
+    # None needed for Spoke Clusters
+
+    local_debug("SPOKECLUSTER TEMPLATE: " + str(json.dumps(spokecluster_template, indent=4)))
+
+    # create spokecluster
+    spokecluster_resp = sdk.post.spokeclusters(site_id, spokecluster_template)
+
+    if not spokecluster_resp.cgx_status:
+        throw_error("Spoke Cluster creation failed: ", spokecluster_resp)
+
+    spokecluster_name = spokecluster_resp.cgx_content.get('name')
+    spokecluster_id = spokecluster_resp.cgx_content.get('id')
+
+    if not spokecluster_name or not spokecluster_id:
+        throw_error("Unable to determine spokecluster attributes (Name: {0}, ID {1})..".format(spokecluster_name,
+                                                                                               spokecluster_id))
+
+    output_message(" Created Spoke Cluster {0}.".format(spokecluster_name))
+
+    # update caches
+    spokeclusters_n2id[spokecluster_name] = spokecluster_id
+
+    return spokecluster_id
+
+
+def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id, site_id):
+    """
+    Modify Existing Spoke CLuster
+    :param config_spokecluster: Spoke Cluster config dict
+    :param spokecluster_id: Existing Spoke Cluster ID
+    :param spokeclusters_n2id: Spoke Cluster Name to ID dict
+    :param site_id: Site ID to use
+    :return: Returned Spoke Cluster ID
+    """
+    spokecluster_config = {}
+    # make a copy of spokecluster to modify
+    spokecluster_template = copy.deepcopy(config_spokecluster)
+
+    # perform name -> ID lookups
+    # None needed for Spoke Clusters
+
+    local_debug("SPOKECLUSTER TEMPLATE: " + str(json.dumps(spokecluster_template, indent=4)))
+
+    # get current spokecluster
+    spokecluster_resp = sdk.get.spokeclusters(site_id, spokecluster_id)
+    if spokecluster_resp.cgx_status:
+        spokecluster_config = spokecluster_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Spoke Cluster: ", spokecluster_resp)
+
+    # extract prev_revision
+    prev_revision = spokecluster_config.get("_etag")
+
+    # Check for changes:
+    spokecluster_change_check = copy.deepcopy(spokecluster_config)
+    spokecluster_config.update(spokecluster_template)
+    if not force_update and spokecluster_config == spokecluster_change_check:
+        # no change in config, pass.
+        spokecluster_id = spokecluster_change_check.get('id')
+        spokecluster_name = spokecluster_change_check.get('name')
+        output_message(" No Change for Spoke Cluster {0}.".format(spokecluster_name))
+        return spokecluster_id
+
+    if debuglevel >= 3:
+        local_debug("SPOKECLUSTER DIFF: {0}".format(find_diff(spokecluster_change_check, spokecluster_config)))
+
+    # Update spokecluster.
+    spokecluster_resp2 = sdk.put.spokeclusters(site_id, spokecluster_id, spokecluster_config)
+
+    if not spokecluster_resp2.cgx_status:
+        throw_error("Spoke Cluster update failed: ", spokecluster_resp2)
+
+    spokecluster_name = spokecluster_resp2.cgx_content.get('name')
+    spokecluster_id = spokecluster_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = spokecluster_resp2.cgx_content.get("_etag")
+
+    if not spokecluster_name or not spokecluster_id:
+        throw_error("Unable to determine Spoke Cluster attributes (Name: {0}, ID {1})..".format(spokecluster_name,
+                                                                                                spokecluster_id))
+
+    output_message(" Updated Spoke Cluster {0} (Etag {1} -> {2}).".format(spokecluster_name, prev_revision,
+                                                                          current_revision))
+
+    # update caches
+    spokeclusters_n2id[spokecluster_name] = spokecluster_id
+
+    return spokecluster_id
+
+
+def delete_spokeclusters(leftover_spokeclusters, site_id, id2n=None):
+    """
+    Delete Spoke Cluster
+    :param leftover_spokeclusters: List of Spoke Cluster IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for spokecluster_id in leftover_spokeclusters:
+        # delete all leftover spokeclusters.
+
+        output_message(" Deleting Unconfigured Spoke Cluster {0}.".format(id2n.get(spokecluster_id, spokecluster_id)))
+        spokecluster_del_resp = sdk.delete.spokeclusters(site_id, spokecluster_id)
+        if not spokecluster_del_resp.cgx_status:
+            throw_error("Could not delete Spoke Cluster {0}: ".format(id2n.get(spokecluster_id, spokecluster_id)),
+                        spokecluster_del_resp)
     return
 
 
@@ -4743,7 +4974,7 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
         return element_securityzone_id
 
     if debuglevel >= 3:
-        local_debug("element_SECURITYZONE DIFF: {0}".format(find_diff(element_securityzone_change_check,
+        local_debug("ELEMENT_SECURITYZONE DIFF: {0}".format(find_diff(element_securityzone_change_check,
                                                                       element_securityzone_config)))
 
     # Update element_securityzone.
@@ -4877,7 +5108,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones = parse_site_config(config_site)
+                config_site_security_zones, config_spokeclusters = parse_site_config(config_site)
 
             # Determine site ID.
             # look for implicit ID in object.
@@ -5161,6 +5392,49 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                                                if entry != site_securityzone_id]
 
             # -- End Site_securityzones
+
+            # -- Start Spoke Clusters
+            spokeclusters_resp = sdk.get.spokeclusters(site_id)
+            spokeclusters_cache, leftover_spokeclusters = extract_items(spokeclusters_resp, 'spokeclusters')
+            spokeclusters_n2id = build_lookup_dict(spokeclusters_cache)
+
+            # iterate configs
+            for config_spokecluster_name, config_spokecluster_value in config_spokeclusters.items():
+                # recombine object
+                config_spokecluster = recombine_named_key_value(config_spokecluster_name, config_spokecluster_value,
+                                                                name_key='name')
+
+                # no need to get Spoke Cluster config, no child config objects.
+
+                # Determine spokecluster ID.
+                # look for implicit ID in object.
+                implicit_spokecluster_id = config_spokecluster.get('id')
+                name_spokecluster_id = spokeclusters_n2id.get(config_spokecluster_name)
+
+                if implicit_spokecluster_id is not None:
+                    spokecluster_id = implicit_spokecluster_id
+
+                elif name_spokecluster_id is not None:
+                    # look up ID by name on existing spokeclusters.
+                    spokecluster_id = name_spokecluster_id
+                else:
+                    # no spokecluster object.
+                    spokecluster_id = None
+
+                # Create or modify spokecluster.
+                if spokecluster_id is not None:
+                    # Spokecluster exists, modify.
+                    spokecluster_id = modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id,
+                                                          site_id)
+
+                else:
+                    # Spokecluster does not exist, create.
+                    spokecluster_id = create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id)
+
+                # remove from delete queue
+                leftover_spokeclusters = [entry for entry in leftover_spokeclusters if entry != spokecluster_id]
+
+            # -- End Spoke Clusters
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -5806,6 +6080,24 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
+
+                # -- Start Element Spoke HA config
+                # Since for some reason, Spoke HA config is tied into element object, we can't configure it
+                # at the same time as the element configuration operation is performed. This requires us to do
+                # a second element operation AFTER the interfaces are enumerated and at the correct state (here).
+
+                # assign and configure element
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id)
+
+                # update element and machine cache before moving on.
+                update_element_machine_cache()
+                config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
+
+                # final element ID and model for this element:
+                element_id = matching_element.get('id')
+                element_model = matching_element.get('model_name')
+
+                # -- End Element Spoke HA config
 
                 # -- Start Routing
                 # parse routing config.
@@ -6567,6 +6859,11 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             # unbind any remaining elements.
             unbind_elements(leftover_elements, site_id)
             # add declaim for failed unbind in future.
+
+            # delete remaining spokecluster configs
+            # build a spokecluster_id to name mapping.
+            spokeclusters_id2n= build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
+            delete_spokeclusters(leftover_spokeclusters, site_id, id2n=spokeclusters_id2n)
 
             # delete remaining site_securityzone configs
             # build a site_securityzone_id to zone name mapping.

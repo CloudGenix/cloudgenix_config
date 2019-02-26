@@ -1093,7 +1093,7 @@ def _pull_config_for_single_site(site_name_id):
                         name_lookup_in_template(spoke_ha_config_track_interfaces_entry_template,
                                                 'interface_id', id_name_cache)
                         spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
-                    spoke_ha_config_track_template = spoke_ha_config_track_interfaces_template
+                    spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
                 spoke_ha_config_template['track'] = spoke_ha_config_track_template
             element_template['spoke_ha_config'] = spoke_ha_config_template
 
