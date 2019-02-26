@@ -1064,10 +1064,9 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     # Update element template with config changes from cleaned copy
     elem_template.update(config_element_copy)
 
-    # Check for changes in cleaned config copy and cleaned template (will not detect spoke HA changes here):
+    # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
     if not force_update and elem_template == element_change_check:
         # no change in config, pass.
-        element_name = matching_element.get('name')
         output_message("   No Change for Spoke HA in Element {0}.".format(element_name_or_id))
         return
 
