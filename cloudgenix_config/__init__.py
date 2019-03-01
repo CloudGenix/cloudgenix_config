@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.0.0b6
+**Version:** 1.1.0b1
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-version = "1.0.0b6"
+version = "1.1.0b1"
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
 __email__ = "developers@cloudgenix.com"
@@ -365,12 +365,16 @@ def extract_items(resp_object, error_label=None, id_key='id'):
         # return data
         return items, id_list
 
+    # handle 404 for certian APIs where objects may not exist
+    elif resp_object.status_code in [404]:
+        return [{}], []
+
     else:
         if error_label is not None:
             throw_error("Unable to cache {0}.".format(error_label), resp_object)
             return [], []
         else:
-            throw_error("Unable to cache {0}.".format(error_label), resp_object)
+            throw_error("Unable to cache response.".format(error_label), resp_object)
             return [], []
 
 
@@ -516,8 +520,8 @@ def find_diff(d1, d2, path=""):
     :return:
     """
     return_str = ""
-    for k in d1.keys():
-        if k not in d2.keys():
+    for k in d1:
+        if k not in d2:
             return_str += "{0} {1}\n".format(path, ":")
             return_str += "{0} {1}\n".format(k + " as key not in d2", "\n")
         else:
@@ -527,6 +531,9 @@ def find_diff(d1, d2, path=""):
                 else:
                     path = path + "->" + k
                 return_str += find_diff(d1[k], d2[k], path)
+            elif type(d1[k]) == list:
+                find_diff(dict(zip(map(str, range(len(d1[k]))), d1[k])), dict(zip(map(str, range(len(d2[k]))), d2[k])),
+                          k)
             else:
                 if d1[k] != d2[k]:
                     return_str += "{0} {1}\n".format(path, ":")

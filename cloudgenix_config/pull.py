@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.0.0b6
+**Version:** 1.1.0b1
 
 **Author:** CloudGenix
 
@@ -37,6 +37,8 @@ import argparse
 import copy
 import datetime
 import logging
+import errno
+
 
 # CloudGenix Python SDK
 try:
@@ -141,7 +143,10 @@ TRAPS_STR = "traps"
 NTP_STR = "ntp"
 SYSLOG_STR = "syslog"
 TOOLKIT_STR = "toolkit"
+SITE_SECURITYZONES_STR = "site_security_zones"
+ELEMENT_SECURITYZONES_STR = "element_security_zones"
 ELEMENT_EXTENSIONS_STR = "element_extensions"
+SITE_EXTENSIONS_STR = "site_extensions"
 DHCP_SERVERS_STR = "dhcpservers"
 BGP_GLOBAL_CONFIG_STR = "global_config"
 BGP_PEERS_CONFIG_STR = "peers"
@@ -150,6 +155,7 @@ ASPATHACL_CONFIG_STR = "as_path_access_lists"
 PREFIXLISTS_CONFIG_STR = "prefix_lists"
 IPCOMMUNITYLISTS_CONFIG_STR = "ip_community_lists"
 HUBCLUSTER_CONFIG_STR = "hubclusters"
+SPOKECLUSTER_CONFIG_STR = "spokeclusters"
 
 
 # Global Config Cache holders
@@ -158,10 +164,12 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
+securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
 waninterfacelabels_cache = []
 wannetworks_cache = []
+wanoverlays_cache = []
 servicebindingmaps_cache = []
 serviceendpoints_cache = []
 ipsecprofiles_cache = []
@@ -191,10 +199,12 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
+    global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
     global waninterfacelabels_cache
     global wannetworks_cache
+    global wanoverlays_cache
     global servicebindingmaps_cache
     global serviceendpoints_cache
     global ipsecprofiles_cache
@@ -223,6 +233,10 @@ def update_global_cache():
     security_policysets_resp = cgx_session.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'secuirity_policysets')
 
+    # secuirityzones
+    securityzones_resp = cgx_session.get.securityzones()
+    securityzones_cache, _ = extract_items(securityzones_resp, 'secuirityzones')
+
     # network_policysetstack
     network_policysetstack_resp = cgx_session.get.networkpolicysetstacks()
     network_policysetstack_cache, _ = extract_items(network_policysetstack_resp, 'network_policysetstack')
@@ -238,6 +252,10 @@ def update_global_cache():
     # wannetworks
     wannetworks_resp = cgx_session.get.wannetworks()
     wannetworks_cache, _ = extract_items(wannetworks_resp, 'wannetworks')
+
+    # wanoverlays
+    wanoverlays_resp = cgx_session.get.wanoverlays()
+    wanoverlays_cache, _ = extract_items(wanoverlays_resp, 'wanoverlays')
 
     # servicebindingmaps
     servicebindingmaps_resp = cgx_session.get.servicebindingmaps()
@@ -274,6 +292,9 @@ def update_global_cache():
     # security_policysets name
     id_name_cache.update(build_lookup_dict(security_policysets_cache, key_val='id', value_val='name'))
 
+    # securityzones name
+    id_name_cache.update(build_lookup_dict(securityzones_cache, key_val='id', value_val='name'))
+
     # network_policysetstack name
     id_name_cache.update(build_lookup_dict(network_policysetstack_cache, key_val='id', value_val='name'))
 
@@ -285,6 +306,9 @@ def update_global_cache():
 
     # wannetworks name
     id_name_cache.update(build_lookup_dict(wannetworks_cache, key_val='id', value_val='name'))
+
+    # wanoverlays name
+    id_name_cache.update(build_lookup_dict(wanoverlays_cache, key_val='id', value_val='name'))
 
     # servicebindingmaps name
     id_name_cache.update(build_lookup_dict(servicebindingmaps_cache, key_val='id', value_val='name'))
@@ -336,7 +360,10 @@ def build_version_strings():
     global NTP_STR
     global SYSLOG_STR
     global TOOLKIT_STR
+    global SITE_SECURITYZONES_STR
+    global ELEMENT_SECURITYZONES_STR
     global ELEMENT_EXTENSIONS_STR
+    global SITE_EXTENSIONS_STR
     global DHCP_SERVERS_STR
     global BGP_GLOBAL_CONFIG_STR
     global BGP_PEERS_CONFIG_STR
@@ -345,6 +372,7 @@ def build_version_strings():
     global PREFIXLISTS_CONFIG_STR
     global IPCOMMUNITYLISTS_CONFIG_STR
     global HUBCLUSTER_CONFIG_STR
+    global SPOKECLUSTER_CONFIG_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -359,7 +387,11 @@ def build_version_strings():
         NTP_STR = add_version_to_object(cgx_session.get.ntp, "ntp")
         SYSLOG_STR = add_version_to_object(cgx_session.get.syslogservers, "syslog")
         TOOLKIT_STR = add_version_to_object(cgx_session.get.elementaccessconfigs, "toolkit")
+        SITE_SECURITYZONES_STR = add_version_to_object(cgx_session.get.sitesecurityzones, "site_security_zones")
+        ELEMENT_SECURITYZONES_STR = add_version_to_object(cgx_session.get.elementsecurityzones,
+                                                          "element_security_zones")
         ELEMENT_EXTENSIONS_STR = add_version_to_object(cgx_session.get.element_extensions, "element_extensions")
+        SITE_EXTENSIONS_STR = add_version_to_object(cgx_session.get.site_extensions, "site_extensions")
         DHCP_SERVERS_STR = add_version_to_object(cgx_session.get.dhcpservers, "dhcpservers")
         BGP_GLOBAL_CONFIG_STR = add_version_to_object(cgx_session.get.bgpconfigs, "global_config")
         BGP_PEERS_CONFIG_STR = add_version_to_object(cgx_session.get.bgppeers, "peers")
@@ -369,6 +401,7 @@ def build_version_strings():
         IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(cgx_session.get.routing_ipcommunitylists,
                                                             "ip_community_lists")
         HUBCLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "hubclusters")
+        SPOKECLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.spokeclusters, "spokeclusters")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -500,11 +533,30 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(hubcluster_template, 'security_policy_set', id_name_cache)
         strip_meta_attributes(hubcluster_template)
         # check name for duplicates
-        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Laninterface')
+        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster')
         # update id name cache in case name changed.
         id_name_cache[hubcluster['id']] = checked_hubcluster_name
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
     delete_if_empty(site, HUBCLUSTER_CONFIG_STR)
+
+    # Get Hub Clusters
+    dup_name_dict = {}
+    site[SPOKECLUSTER_CONFIG_STR] = {}
+    response = cgx_session.get.spokeclusters(site['id'])
+    if not response.cgx_status:
+        throw_error("LAN networks get failed: ", response)
+    spokeclusters = response.cgx_content['items']
+    # update id_name_cache
+    id_name_cache.update(build_lookup_dict(spokeclusters, key_val='id', value_val='name'))
+    for spokecluster in spokeclusters:
+        spokecluster_template = copy.deepcopy(spokecluster)
+        strip_meta_attributes(spokecluster_template)
+        # check name for duplicates
+        checked_spokecluster_name = check_name(spokecluster['name'], dup_name_dict, 'Spokecluster')
+        # update id name cache in case name changed.
+        id_name_cache[spokecluster['id']] = checked_spokecluster_name
+        site[SPOKECLUSTER_CONFIG_STR][checked_spokecluster_name] = spokecluster_template
+    delete_if_empty(site, SPOKECLUSTER_CONFIG_STR)
 
     # Get DHCP Servers
     site[DHCP_SERVERS_STR] = []
@@ -520,6 +572,51 @@ def _pull_config_for_single_site(site_name_id):
         # no names, don't need duplicate check
         site[DHCP_SERVERS_STR].append(dhcpserver_template)
     delete_if_empty(site, DHCP_SERVERS_STR)
+
+    # Get Site Extensions
+    site[SITE_EXTENSIONS_STR] = {}
+    response = cgx_session.get.site_extensions(site['id'])
+    if not response.cgx_status:
+        throw_error("Site Extensions get failed: ", response)
+    site_extensions = response.cgx_content['items']
+
+    for site_extension in site_extensions:
+        site_extension_template = copy.deepcopy(site_extension)
+        # replace flat name
+        name_lookup_in_template(site_extension_template, 'entity_id', id_name_cache)
+        strip_meta_attributes(site_extension_template)
+        # check for duplicate names
+        checked_site_extension_name = check_name(site_extension['name'], dup_name_dict, 'Site Extension')
+        # update id name cache in case name changed.
+        id_name_cache[site_extension['id']] = checked_site_extension_name
+        site[SITE_EXTENSIONS_STR][checked_site_extension_name] = site_extension_template
+    delete_if_empty(site, SITE_EXTENSIONS_STR)
+
+    # Get Site Security Zones
+    site[SITE_SECURITYZONES_STR] = []
+    response = cgx_session.get.sitesecurityzones(site['id'])
+    if not response.cgx_status:
+        throw_error("Site Security Zones get failed: ", response)
+    site_securityzones = response.cgx_content['items']
+
+    for site_securityzone in site_securityzones:
+        site_securityzone_template = copy.deepcopy(site_securityzone)
+        # replace flat name
+        name_lookup_in_template(site_securityzone_template, 'zone_id', id_name_cache)
+        # replace complex names
+        ssz_networks = site_securityzone.get('networks', None)
+        if ssz_networks and isinstance(ssz_networks, list):
+            ssz_networks_template = []
+            for ssz_network in ssz_networks:
+                ssz_network_template = copy.deepcopy(ssz_network)
+                name_lookup_in_template(ssz_network_template, 'network_id', id_name_cache)
+                ssz_networks_template.append(ssz_network_template)
+            site_securityzone_template['networks'] = ssz_networks_template
+
+        strip_meta_attributes(site_securityzone_template)
+
+        site[SITE_SECURITYZONES_STR].append(site_securityzone_template)
+    delete_if_empty(site, SITE_SECURITYZONES_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
@@ -875,6 +972,51 @@ def _pull_config_for_single_site(site_name_id):
             element[ELEMENT_EXTENSIONS_STR][checked_element_extension_name] = element_extension_template
         delete_if_empty(element, ELEMENT_EXTENSIONS_STR)
 
+        # Get Site Security Zones
+        element[ELEMENT_SECURITYZONES_STR] = []
+        response = cgx_session.get.elementsecurityzones(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Security Zones get failed: ", response)
+        element_securityzones = response.cgx_content['items']
+
+        for element_securityzone in element_securityzones:
+            element_securityzone_template = copy.deepcopy(element_securityzone)
+            # replace flat name
+            name_lookup_in_template(element_securityzone_template, 'zone_id', id_name_cache)
+            # replace complex names
+            esz_lannetwork_ids = element_securityzone.get('lannetwork_ids', None)
+            if esz_lannetwork_ids and isinstance(esz_lannetwork_ids, list):
+                esz_lannetwork_ids_template = []
+                for esz_lannetwork_id in esz_lannetwork_ids:
+                    esz_lannetwork_ids_template.append(id_name_cache.get(esz_lannetwork_id, esz_lannetwork_id))
+                element_securityzone_template['lannetwork_ids'] = esz_lannetwork_ids_template
+
+            esz_interface_ids = element_securityzone.get('interface_ids', None)
+            if esz_interface_ids and isinstance(esz_interface_ids, list):
+                esz_interface_ids_template = []
+                for esz_interface_id in esz_interface_ids:
+                    esz_interface_ids_template.append(id_name_cache.get(esz_interface_id, esz_interface_id))
+                element_securityzone_template['interface_ids'] = esz_interface_ids_template
+
+            esz_waninterface_ids = element_securityzone.get('waninterface_ids', None)
+            if esz_waninterface_ids and isinstance(esz_waninterface_ids, list):
+                esz_waninterface_ids_template = []
+                for esz_waninterface_id in esz_waninterface_ids:
+                    esz_waninterface_ids_template.append(id_name_cache.get(esz_waninterface_id, esz_waninterface_id))
+                element_securityzone_template['waninterface_ids'] = esz_waninterface_ids_template
+
+            esz_wanoverlay_ids = element_securityzone.get('wanoverlay_ids', None)
+            if esz_wanoverlay_ids and isinstance(esz_wanoverlay_ids, list):
+                esz_wanoverlay_ids_template = []
+                for esz_wanoverlay_id in esz_wanoverlay_ids:
+                    esz_wanoverlay_ids_template.append(id_name_cache.get(esz_wanoverlay_id, esz_wanoverlay_id))
+                element_securityzone_template['wanoverlay_ids'] = esz_wanoverlay_ids_template
+
+            strip_meta_attributes(element_securityzone_template)
+
+            element[ELEMENT_SECURITYZONES_STR].append(element_securityzone_template)
+        delete_if_empty(site, ELEMENT_SECURITYZONES_STR)
+
         # start SNMP section
         element['snmp'] = {}
 
@@ -932,6 +1074,29 @@ def _pull_config_for_single_site(site_name_id):
             # use serial_number not HWID, machine config will use this value too
             del element_template['hw_id']
 
+        # replace complex name for spoke_ha_config
+        spoke_ha_config = element_template.get('spoke_ha_config')
+        if spoke_ha_config:
+            # need to look for names
+            spoke_ha_config_template = copy.deepcopy(spoke_ha_config)
+            name_lookup_in_template(spoke_ha_config_template, 'cluster_id', id_name_cache)
+            name_lookup_in_template(spoke_ha_config_template, 'source_interface', id_name_cache)
+            spoke_ha_config_track = spoke_ha_config.get('track')
+            if spoke_ha_config_track:
+                spoke_ha_config_track_template = copy.deepcopy(spoke_ha_config_track)
+                spoke_ha_config_track_interfaces = spoke_ha_config_track.get("interfaces")
+                if spoke_ha_config_track_interfaces:
+                    spoke_ha_config_track_interfaces_template = []
+                    for spoke_ha_config_track_interfaces_entry in spoke_ha_config_track_interfaces:
+                        spoke_ha_config_track_interfaces_entry_template = \
+                            copy.deepcopy(spoke_ha_config_track_interfaces_entry)
+                        name_lookup_in_template(spoke_ha_config_track_interfaces_entry_template,
+                                                'interface_id', id_name_cache)
+                        spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
+                    spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
+                spoke_ha_config_template['track'] = spoke_ha_config_track_template
+            element_template['spoke_ha_config'] = spoke_ha_config_template
+
         # check for duplicate names
         checked_element_name = check_name(element['name'], dup_name_dict_elements, 'Element')
         # update id name cache in case name changed.
@@ -961,18 +1126,22 @@ def _pull_config_for_single_site(site_name_id):
     return
 
 
-def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=None, passed_strip_versions=None,
-                      passed_force_parents=None, no_header=None, return_result=False):
+def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None, passed_report_id=None,
+                      passed_strip_versions=None, passed_force_parents=None, no_header=None, return_result=False,
+                      normalize=False):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
     :param output_filename: Filename to save configuration YAML content to.
+    :param output_multi: If set, creates one file per site(s), using 'site name.yml' as filename in specified value
+                         (which should be a directory path).
     :param passed_sdk: A cloudgenix.API() authenticated SDK object. Required if running function from external script.
     :param passed_report_id: Optional - Report ID in YAML, default False
     :param passed_strip_versions: Optional - Remove API versions from YAML, default False
     :param passed_force_parents: Optional - Leave unconfigurable parent interfaces in configuration, default False.
     :param no_header: Optional - bool, Remove metadata header from YAML file. True removes, False or None keep.
-    :param return_result: Optioanl - bool, If True, return the result as a Dict instead of writing out to YAML file.
+    :param return_result: Optional - bool, If True, return the result as a Dict instead of writing out to YAML file.
+    :param normalize: Optional - bool, if true, make sure site name is renamed to safe name.
     :return: Default - directly writes YAML file to output_filename specified, no return.
     """
     global ELEMENTS
@@ -1008,45 +1177,141 @@ def pull_config_sites(sites, output_filename, passed_sdk=None, passed_report_id=
         throw_error("A 'Site Name', comma-seperated list of sites 'Site A, Site B', or "
                     "'ALL_SITES' must be specified to the mandatory '--sites/-S' option.")
 
-    if sites == "ALL_SITES":
-        for val in SITES:
-            _pull_config_for_single_site(val['id'])
-        if not CONFIG[SITES_STR]:
-            # got no config info.
-            throw_error("No matching sites found when attempting to pull config for ALL_SITES.\n"
-                        "Exiting.")
+    if output_multi is None or return_result:
+        # single site, specified file, or API call asking to return object. Ignore output_multi if
+        # return_result is set.
+        if sites == "ALL_SITES":
+            for val in SITES:
+                _pull_config_for_single_site(val['id'])
+            if not CONFIG[SITES_STR]:
+                # got no config info.
+                throw_error("No matching sites found when attempting to pull config for ALL_SITES.\n"
+                            "Exiting.")
+        else:
+            for val in sites.split(','):
+                # ensure removing leading/trailing whitespace
+                _pull_config_for_single_site(val.strip())
+            if not CONFIG[SITES_STR]:
+                # got no config info.
+                throw_error("No matching site found that matched entered site(s): \n"
+                            "\t{0}\n"
+                            "Exiting.".format(val))
+
+        # Got here, we got some site data.
+
+        # if not set to return_obj, write out YAML file.
+        if return_result:
+            # add headers to CONFIG.
+            CONFIG['type'] = "cloudgenix template"
+            CONFIG['version'] = "1.0"
+            return CONFIG
+        else:
+            config_yml = open(output_filename, "w")
+            config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+            # write header by default, but skip if asked.
+            if not no_header:
+                config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+                if cgx_session.email:
+                    config_yml.write("# by {0}\n".format(cgx_session.email))
+            yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+            config_yml.close()
+
+            # jd(CONFIG)
+            # jd(id_name_cache)
     else:
-        for val in sites.split(','):
-            # ensure removing leading/trailing whitespace
-            _pull_config_for_single_site(val.strip())
-        if not CONFIG[SITES_STR]:
-            # got no config info.
-            throw_error("No matching sites found that matched entered site(s): \n"
-                        "\t{0}\n"
-                        "Exiting.".format("\n\t".join(sites.split(','))))
+        # output_multi is set. Prepare.
 
-    # Got here, we got some site data.
+        # make sure directory works.
+        final_dir = os.path.join(output_multi, '')
+        try:
+            os.mkdir(final_dir)
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                raise
+            pass
 
-    # if not set to return_obj, write out YAML file.
-    if return_result:
-        # add headers to CONFIG.
-        CONFIG['type'] = "cloudgenix template"
-        CONFIG['version'] = "1.0"
-        return CONFIG
-    else:
-        config_yml = open(output_filename, "w")
-        config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
-        # write header by default, but skip if asked.
-        if not no_header:
-            config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-            if cgx_session.email:
-                config_yml.write("# by {0}\n".format(cgx_session.email))
-        yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
-        config_yml.close()
+        # single site, specified file.
+        if sites == "ALL_SITES":
 
-        # jd(CONFIG)
-        # jd(id_name_cache)
-        return
+            for val in SITES:
+                # Reset config
+                CONFIG[SITES_STR] = {}
+                _pull_config_for_single_site(val['id'])
+                if not CONFIG[SITES_STR]:
+                    # got no config info.
+                    throw_error("No matching sites found when attempting to pull config for ALL_SITES.\n"
+                                "Exiting.")
+                # should only be one site in config
+                cur_site_count = len(CONFIG[SITES_STR])
+                if cur_site_count != 1:
+                    throw_error("BUG: Got more than one site in single site object, Exiting.")
+                # extract site name
+                cur_site_name = list(CONFIG[SITES_STR].keys())[0]
+
+                if normalize:
+                    final_site_name = "".join(x for x in cur_site_name if (x.isalnum() or x in "._- "))
+                    # remove spaces
+                    final_site_name = final_site_name.replace(' ', '_')
+                else:
+                    final_site_name = cur_site_name
+
+                # Write out YAML file.
+                config_yml = open(final_dir + final_site_name + ".yml", "w")
+                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+                # write header by default, but skip if asked.
+                if not no_header:
+                    config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+                    if cgx_session.email:
+                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+                config_yml.close()
+
+                # jd(CONFIG)
+                # jd(id_name_cache)
+
+        else:
+
+            for val in sites.split(','):
+                # Reset config
+                CONFIG[SITES_STR] = {}
+                # ensure removing leading/trailing whitespace
+                _pull_config_for_single_site(val.strip())
+                if not CONFIG[SITES_STR]:
+                    # got no config info.
+                    throw_error("No matching site found that matched entered site(s): \n"
+                                "\t{0}\n"
+                                "Exiting.".format(val))
+
+                # should only be one site in config
+                cur_site_count = len(CONFIG[SITES_STR])
+                if cur_site_count != 1:
+                    throw_error("BUG: Got more than one site in single site object, Exiting.")
+                # extract site name
+                cur_site_name = list(CONFIG[SITES_STR].keys())[0]
+
+                if normalize:
+                    final_site_name = "".join(x for x in cur_site_name if (x.isalnum() or x in "._- "))
+                    # remove spaces
+                    final_site_name = final_site_name.replace(' ', '_')
+                else:
+                    final_site_name = cur_site_name
+
+                # Write out YAML file.
+                config_yml = open(final_dir + final_site_name + ".yml", "w")
+                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+                # write header by default, but skip if asked.
+                if not no_header:
+                    config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
+                    if cgx_session.email:
+                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
+                config_yml.close()
+
+                # jd(CONFIG)
+                # jd(id_name_cache)
+
+
+    return
 
 
 def go():
@@ -1081,8 +1346,17 @@ def go():
                               default=False, action="store_true")
     config_group.add_argument("--no-header", help="Skip export of Metadata header in config YAML.",
                               default=False, action="store_true")
-    config_group.add_argument("--output", help="Output file name (default './config.yml')", type=str,
-                              default="./config.yml")
+
+    config_group.add_argument("--normalize", help="Normalize the site name to filesystem friendly. Only has effect "
+                                                  "with --multi-out.",
+                              default=False, action="store_true")
+
+    file_output = config_group.add_mutually_exclusive_group()
+
+    file_output.add_argument("--output", help="Output file name (default './config.yml')", type=str,
+                             default="./config.yml")
+    file_output.add_argument("--multi-output", help="Enable per-site file output. Specify Directory to place file(s).",
+                             type=str, default=None)
 
     # Allow Controller modification and debug level sets.
     controller_group = parser.add_argument_group('API', 'These options change how this program connects to the API.')
@@ -1117,6 +1391,8 @@ def go():
     STRIP_VERSIONS = args['strip_versions']
     FORCE_PARENTS = args['force_parents']
     filename = args['output']
+    multi_output = args['multi_output']
+    normalize = args['normalize']
 
     # Build SDK Constructor
     if args['controller'] and args['insecure']:
@@ -1167,7 +1443,8 @@ def go():
                 user_password = None
 
     # pull the specified sites config
-    pull_config_sites(args['sites'], filename, no_header=args['no_header'])
+    pull_config_sites(args['sites'], filename, output_multi=multi_output, normalize=normalize,
+                      no_header=args['no_header'])
 
     return
 

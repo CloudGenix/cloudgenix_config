@@ -16,7 +16,7 @@ configuration is designed to be run on file change, to maintain configuration st
 * Active CloudGenix Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.0.1b1 - <https://github.com/CloudGenix/sdk-python>
+    * CloudGenix Python SDK >= 5.1.1b1 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
@@ -65,9 +65,10 @@ MIT
  
 ### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Only supports CG SDK 5.0.1b1 or greater
+ - Requires 5.1.1b1 SDK
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
+     - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
    - Site safety factor is set to 1 by default (prevents unintentional multi-site configurations)
  - Re-naming Sites is not currently supported (changing site name in config causes a new site to be created)
  - Deletion of sites using `do_site.py` DESTROYS all objects under the Site. This operation is done by running `do_site.py` with the `--destroy` option.
@@ -78,6 +79,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.1.0** | **b1** | CloudGenix SDK 5.1.1b1 support|
 | **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|
 | **1.0.0** | **b5** | Hotfix for #16 |
 | **1.0.0** | **b4** | Fix issues #8 #11 #12 and #13 |
