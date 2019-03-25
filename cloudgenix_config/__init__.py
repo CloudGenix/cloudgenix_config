@@ -49,7 +49,8 @@ else:
 
 
 # Version for reference
-version = "1.1.0b1"
+__version__ = "1.1.0b1"
+version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
 __email__ = "developers@cloudgenix.com"

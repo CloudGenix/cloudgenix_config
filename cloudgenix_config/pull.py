@@ -30,6 +30,7 @@ MIT
 """
 
 import yaml
+import json
 import re
 import sys
 import os
@@ -53,6 +54,7 @@ except ImportError as e:
 # import module specific
 from cloudgenix_config import throw_error, throw_warning, name_lookup_in_template, extract_items, build_lookup_dict, \
     check_name, nameable_interface_types, skip_interface_list, get_function_default_args
+from cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -187,6 +189,48 @@ jd = cloudgenix.jd
 logger = logging.getLogger(__name__)
 
 idreg = re.compile('^[0-9]+$')
+
+
+def dump_version():
+    """
+    Dump version info to string and exit.
+    :return: Multiline String.
+    """
+    # Got request for versions. Dump and exit
+    try:
+        python_ver = sys.version
+    except NameError:
+        python_ver = "Unknown"
+    try:
+        cloudgenix_config_ver = import_cloudgenix_config_version
+    except NameError:
+        cloudgenix_config_ver = "Unknown"
+    try:
+        cloudgenix_ver = cloudgenix.version
+    except NameError:
+        cloudgenix_ver = "Unknown"
+    try:
+        json_ver = json.__version__
+    except NameError:
+        json_ver = "Unknown"
+    try:
+        yaml_ver = yaml.__version__
+    except NameError:
+        yaml_ver = "Unknown"
+    try:
+        logging_ver = logging.__version__
+    except NameError:
+        logging_ver = "Unknown"
+
+    output = ""
+    output += "**PROGRAM VERSIONS**, "
+    output += "Python version: {0}, ".format(python_ver)
+    output += "'cloudgenix_config' version: {0}, ".format(cloudgenix_config_ver)
+    output += "'cloudgenix' version: {0}, ".format(cloudgenix_ver)
+    output += "'json' version: {0}, ".format(json_ver)
+    output += "'yaml' version: {0}, ".format(yaml_ver)
+    output += "'logging' version: {0}, ".format(logging_ver)
+    return output
 
 
 def update_global_cache():
@@ -1384,6 +1428,8 @@ def go():
                        default=False)
     debug_group.add_argument("--debug", "-D", help="API Debug info, levels 0-2",
                              type=int, default=0)
+    debug_group.add_argument("--version", help="Dump Version(s) of script and modules and exit.", action='version',
+                             version=dump_version())
 
     args = vars(parser.parse_args())
 
