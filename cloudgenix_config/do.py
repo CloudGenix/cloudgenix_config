@@ -7089,7 +7089,7 @@ def go():
 
     # load config file
     with open(config_file, 'r') as datafile:
-        loaded_config = yaml.load(datafile)
+        loaded_config = yaml.safe_load(datafile)
 
     # set verbosity and SDK debug
     debuglevel = args["verbose"]

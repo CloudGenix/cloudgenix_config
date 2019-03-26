@@ -119,14 +119,6 @@ __license__ = """
 """
 
 
-# replace NULL exported YAML values with blanks. Semantically the same, but easier to read.
-def represent_none(self, _):
-    return self.represent_scalar('tag:yaml.org,2002:null', '')
-
-
-yaml.add_representer(type(None), represent_none, Dumper=yaml.SafeDumper)
-
-
 # Globals
 CONFIG = {}
 SITES = {}
@@ -189,6 +181,14 @@ jd = cloudgenix.jd
 logger = logging.getLogger(__name__)
 
 idreg = re.compile('^[0-9]+$')
+
+
+# replace NULL exported YAML values with blanks. Semantically the same, but easier to read.
+def represent_none(self, _):
+    return self.represent_scalar('tag:yaml.org,2002:null', '')
+
+
+yaml.add_representer(type(None), represent_none, Dumper=yaml.SafeDumper)
 
 
 def dump_version():
