@@ -1358,7 +1358,7 @@ def unbind_elements(element_id_list, site_id):
             # Wipe them out. All of them..
             elem_resp = sdk.put.elements(element_item_id, elem_template)
             if not elem_resp.cgx_status:
-                throw_error("Could not unbind element {0}: ".format(element_item_name), elem_resp.cgx_content)
+                throw_error("Could not unbind element {0}: ".format(element_item_name), elem_resp)
 
         else:
             throw_warning("Element {0}({1}) not bound to {2}.".format(element_item_name, element_item_id,
@@ -1516,7 +1516,7 @@ def set_site_state(config_site, site_id):
     site_resp = sdk.get.sites(site_id)
 
     if not site_resp.cgx_status:
-        throw_error("Get of site {0} failed: ".format(site_id), site_resp.cgx_content)
+        throw_error("Get of site {0} failed: ".format(site_id), site_resp)
 
     # check state
     cur_state = site_resp.cgx_content.get('admin_state')
@@ -1530,7 +1530,7 @@ def set_site_state(config_site, site_id):
     # put it back
     site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content)
     if not site_modify_resp.cgx_status:
-        throw_error("Set of site {0} status failed: ".format(site_id), site_modify_resp.cgx_content)
+        throw_error("Set of site {0} status failed: ".format(site_id), site_modify_resp)
 
     output_message("Updated Site {0} to state {1}.".format(site_name, site_state))
 
