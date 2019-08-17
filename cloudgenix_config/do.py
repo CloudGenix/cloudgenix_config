@@ -789,7 +789,7 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
 
 
 def wait_for_element_state(matching_element, state_list=None, wait_verify_success=DEFAULT_WAIT_MAX_TIME,
-                           wait_interval=DEFAULT_WAIT_INTERVAL):
+                           wait_interval=DEFAULT_WAIT_INTERVAL, destroy_declaim=False):
     """
     Wait for Element to reach a specific state or list of states.
     :param matching_element: Element API response for element to wait for
@@ -814,6 +814,18 @@ def wait_for_element_state(matching_element, state_list=None, wait_verify_succes
         if not elem_resp.cgx_status:
             throw_error("Could not query element {0}.".format(element_id), elem_resp.cgx_status)
         state = str(elem_resp.cgx_content.get('state', ''))
+
+        # Element is offline. Force back to inventory
+        if destroy_declaim is True:
+            output_message("Element {0} will be declaimed from the controller. .".format(element_id))
+
+            declaimdata = {"action": "declaim", "parameters": None}
+            resp = sdk.post.operations_e(element_id=element_id, data=declaimdata)
+            if resp.cgx_status:
+                ready = True
+                return
+            else:
+                throw_error("WARN: Element {0} could not be declaimed.".format(element_id))
 
         if time_elapsed > wait_verify_success:
             # failed waiting.
@@ -5032,13 +5044,14 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
     return
 
 
-def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None, passed_timeout_claim=None,
+def do_site(loaded_config, destroy, destroy_declaim, passed_sdk=None, passed_timeout_offline=None, passed_timeout_claim=None,
             passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None):
     """
     Main Site config/deploy worker function.
     :param loaded_config: Loaded config in Python Dict format
     :param destroy: Bool, True = Create site/objects, False = Destroy (completely, use with caution).
+    :param destroy-declaim: Bool, True = Destroy completely and declaim element.
     :param passed_sdk: Authenticated `cloudgenix.API()` constructor.
     :param passed_timeout_offline: Optional - Time to wait if ION is offline (seconds)
     :param passed_timeout_claim: Optional - Time to wait for ION to claim (seconds)
@@ -5063,6 +5076,10 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
     # read passed items.
     if not isinstance(destroy, bool):
         throw_error("do_site function requires 'destroy' be True or False only.")
+
+    # read passed items.
+    if not isinstance(destroy_declaim, bool):
+        throw_error("do_site function requires 'destroy-declaim' be True or False only.")
 
     if passed_sdk is not None:
         sdk = passed_sdk
@@ -6951,7 +6968,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             # wait for element unbinds to complete
             for del_element in unbound_elements:
                 wait_for_element_state(del_element, ['ready'], wait_verify_success=timeout_state,
-                                       wait_interval=interval_timeout)
+                                       wait_interval=interval_timeout,destroy_declaim=destroy_declaim)
 
             # Delete site
             output_message("Deleting Site {0}..".format(del_site_name))
@@ -7011,6 +7028,8 @@ def go():
                               default=1, type=int)
     config_group.add_argument("--destroy", help="DESTROY site and all connected items (WAN Interfaces, LAN Networks).",
                               default=False, action="store_true")
+    config_group.add_argument("--destroydeclaim", help="DESTROY site and all connected items (WAN Interfaces, LAN Networks). DECLAIM element",
+                              default=False, action="store_true")
 
     # Allow Controller modification and debug level sets.
     controller_group = parser.add_argument_group('API', 'These options change how this program connects to the API.')
@@ -7040,6 +7059,10 @@ def go():
     args = vars(parser.parse_args())
 
     destroy = args['destroy']
+    destroy_declaim = args['destroydeclaim']
+    if destroy_declaim:
+        destroy = True
+
     config_file = args['Config File'][0]
 
     # load config file
@@ -7141,7 +7164,7 @@ def go():
                 user_password = None
     # Do the real work
     try:
-        do_site(loaded_config, destroy)
+        do_site(loaded_config, destroy, destroy_declaim)
     except CloudGenixConfigError:
         # Exit silently if error hit.
         sys.exit(1)
