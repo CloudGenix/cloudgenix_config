@@ -79,7 +79,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.1.0** | **b2** | Added support for destroy-declaim and fix for Issue#28|
+| **1.1.0** | **b2** | Added support for destroy-declaim and fix for Issue#27|
 | **1.1.0** | **b1** | CloudGenix SDK 5.1.1b1 support|
 | **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|
 | **1.0.0** | **b5** | Hotfix for #16 |
