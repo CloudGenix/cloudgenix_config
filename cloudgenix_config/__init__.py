@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.1.0b1
+**Version:** 1.1.0b2
 
 **Author:** CloudGenix
 
