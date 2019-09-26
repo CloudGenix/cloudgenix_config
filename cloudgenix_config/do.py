@@ -1051,7 +1051,16 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     :param spokecluster_n2id: Spoke Cluster Name -> ID map.
     :return:
     """
-    # check status
+    # Due to changes on the backend after the element is assigned to a site, etag for the element changes and is not in sync with the element in cache.
+    # To avoid updating the entire cache, just do a get on this individual element
+    # Change added after HA config was failing due to etag mismatch (Issue#28)
+
+    element_id = matching_element.get('id')
+    elem_get_resp = sdk.get.elements(element_id=element_id)
+    if not elem_get_resp.cgx_status:
+        throw_error("Element Get {0} failed: ".format(element_id), elem_get_resp)
+
+    matching_element = elem_get_resp.cgx_content
     element = matching_element
     element_serial = element.get('serial_number')
     element_id = element.get('id')
@@ -5485,6 +5494,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             for config_element_name, config_element_value in config_elements.items():
                 # recombine element object
                 config_element = recombine_named_key_value(config_element_name, config_element_value, name_key='name')
+                print("config element {}".format(config_element))
 
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
@@ -5531,6 +5541,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
+                print("matching element {}".format(matching_element))
 
                 # final element ID and model for this element:
                 element_id = matching_element.get('id')
