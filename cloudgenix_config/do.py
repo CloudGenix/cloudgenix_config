@@ -5494,7 +5494,6 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             for config_element_name, config_element_value in config_elements.items():
                 # recombine element object
                 config_element = recombine_named_key_value(config_element_name, config_element_value, name_key='name')
-                print("config element {}".format(config_element))
 
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
@@ -5541,7 +5540,6 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
-                print("matching element {}".format(matching_element))
 
                 # final element ID and model for this element:
                 element_id = matching_element.get('id')
