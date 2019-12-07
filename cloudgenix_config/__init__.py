@@ -543,12 +543,13 @@ def find_diff(d1, d2, path=""):
     return return_str
 
 
-def check_name(name, dup_check_dict, function_text):
+def check_name(name, dup_check_dict, function_text, error_site_txt=None):
     """
     Look up name in template, if has been used before, append count to it.
     :param name: Name to check.
     :param dup_check_dict: Dict with previously looked up values as keys, counts as items.
     :param function_text: Text to display for function in error.
+    :param error_site_txt: Optional text with site name for error message.
     :return: The final name after modification.
     """
 
@@ -561,8 +562,13 @@ def check_name(name, dup_check_dict, function_text):
         fixed_name = "{0} {1}".format(function_text, name_count)
         # update dup check dict
         dup_check_dict[text_type(name)] = name_count
-        throw_warning("No name on {0}, defaulting to '{0} {1}'".format(function_text,
-                                                                       name_count))
+        if not error_site_txt:
+            throw_warning("No name on {0}, defaulting to '{0} {1}'".format(function_text,
+                                                                           name_count))
+        else:
+            throw_warning("No name on {0}@{2}, defaulting to '{0} {1}'".format(function_text,
+                                                                               name_count,
+                                                                               error_site_txt))
         return fixed_name
 
     else:
@@ -576,9 +582,15 @@ def check_name(name, dup_check_dict, function_text):
             fixed_name = "{0} {1}".format(name, name_count)
             # update dup check dict
             dup_check_dict[text_type(name)] = name_count
-            throw_warning("Duplicate name {0} on a {1}, renaming to '{0} {2}'".format(name,
-                                                                                      function_text,
-                                                                                      name_count))
+            if not error_site_txt:
+                throw_warning("Duplicate name {0} on a {1}, renaming to '{0} {2}'".format(name,
+                                                                                          function_text,
+                                                                                          name_count))
+            else:
+                throw_warning("Duplicate name {0} on a {1}@{3}, renaming to '{0} {2}'".format(name,
+                                                                                              function_text,
+                                                                                              name_count,
+                                                                                              error_site_txt))
             return fixed_name
 
         else:

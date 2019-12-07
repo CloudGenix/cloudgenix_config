@@ -512,6 +512,10 @@ def _pull_config_for_single_site(site_name_id):
         throw_warning("Site name/id \"{0}\" not found.".format(site_name_id))
         return
 
+    # Get site name from object for error messages. This may differ from what is put into yml
+    # if this site name is a duplicate with another site.
+    error_site_name = site['name']
+
     # Get WAN interfaces
     dup_name_dict = {}
     site[WANINTERFACES_STR] = {}
@@ -535,7 +539,9 @@ def _pull_config_for_single_site(site_name_id):
                           'to site.'.format(ui_normalized_name), waninterface)
         strip_meta_attributes(waninterface_template)
         # check name for duplicates
-        checked_wannetwork_name = check_name(ui_normalized_name, dup_name_dict, 'Waninterface')
+        checked_wannetwork_name = check_name(ui_normalized_name, dup_name_dict, 'Waninterface',
+                                             error_site_txt="{0}({1})".format(error_site_name,
+                                                                              site_id))
         # update id name cache in case name changed.
         id_name_cache[waninterface['id']] = checked_wannetwork_name
         site[WANINTERFACES_STR][checked_wannetwork_name] = waninterface_template
@@ -556,7 +562,9 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(lannetwork_template, 'security_policy_set', id_name_cache)
         strip_meta_attributes(lannetwork_template)
         # check name for duplicates
-        checked_lannetwork_name = check_name(lannetwork['name'], dup_name_dict, 'Laninterface')
+        checked_lannetwork_name = check_name(lannetwork['name'], dup_name_dict, 'Laninterface',
+                                             error_site_txt="{0}({1})".format(error_site_name,
+                                                                              site_id))
         # update id name cache in case name changed.
         id_name_cache[lannetwork['id']] = checked_lannetwork_name
         site[LANNETWORKS_STR][checked_lannetwork_name] = lannetwork_template
@@ -577,7 +585,9 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(hubcluster_template, 'security_policy_set', id_name_cache)
         strip_meta_attributes(hubcluster_template)
         # check name for duplicates
-        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster')
+        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster',
+                                             error_site_txt="{0}({1})".format(error_site_name,
+                                                                              site_id))
         # update id name cache in case name changed.
         id_name_cache[hubcluster['id']] = checked_hubcluster_name
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
@@ -596,7 +606,9 @@ def _pull_config_for_single_site(site_name_id):
         spokecluster_template = copy.deepcopy(spokecluster)
         strip_meta_attributes(spokecluster_template)
         # check name for duplicates
-        checked_spokecluster_name = check_name(spokecluster['name'], dup_name_dict, 'Spokecluster')
+        checked_spokecluster_name = check_name(spokecluster['name'], dup_name_dict, 'Spokecluster',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
         # update id name cache in case name changed.
         id_name_cache[spokecluster['id']] = checked_spokecluster_name
         site[SPOKECLUSTER_CONFIG_STR][checked_spokecluster_name] = spokecluster_template
@@ -630,7 +642,9 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(site_extension_template, 'entity_id', id_name_cache)
         strip_meta_attributes(site_extension_template)
         # check for duplicate names
-        checked_site_extension_name = check_name(site_extension['name'], dup_name_dict, 'Site Extension')
+        checked_site_extension_name = check_name(site_extension['name'], dup_name_dict, 'Site Extension',
+                                                 error_site_txt="{0}({1})".format(error_site_name,
+                                                                                  site_id))
         # update id name cache in case name changed.
         id_name_cache[site_extension['id']] = checked_site_extension_name
         site[SITE_EXTENSIONS_STR][checked_site_extension_name] = site_extension_template
@@ -786,7 +800,9 @@ def _pull_config_for_single_site(site_name_id):
             # ok. Check for duplicates if it is a namable interface. If a dup is found, rename.
             interface_type = interface_template.get('type', "Unknown Interface")
             if interface_type in nameable_interface_types:
-                checked_interface_name = check_name(interface['name'], dup_name_dict, interface_type)
+                checked_interface_name = check_name(interface['name'], dup_name_dict, interface_type,
+                                                    error_site_txt="{0}({1})".format(error_site_name,
+                                                                                     site_id))
                 # update id name cache in case name changed.
                 id_name_cache[interface['id']] = checked_interface_name
                 element[INTERFACES_STR][checked_interface_name] = interface_template
@@ -867,7 +883,9 @@ def _pull_config_for_single_site(site_name_id):
             name_lookup_in_template(bgp_peer_template, 'route_map_out_id', id_name_cache)
             strip_meta_attributes(bgp_peer_template)
             # check for duplicate names
-            checked_bgp_peer_name = check_name(bgp_peer['name'], dup_name_dict, 'BGP Peer')
+            checked_bgp_peer_name = check_name(bgp_peer['name'], dup_name_dict, 'BGP Peer',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
             # update id name cache in case name changed.
             id_name_cache[bgp_peer['id']] = checked_bgp_peer_name
             element['routing']['bgp'][BGP_PEERS_CONFIG_STR][checked_bgp_peer_name] = bgp_peer_template
@@ -914,7 +932,9 @@ def _pull_config_for_single_site(site_name_id):
             # name_lookup_in_template(routemap_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(routemap_template)
             # check for duplicate names
-            checked_routemap_name = check_name(routemap['name'], dup_name_dict, 'Route Map')
+            checked_routemap_name = check_name(routemap['name'], dup_name_dict, 'Route Map',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
             # update id name cache in case name changed.
             id_name_cache[routemap['id']] = checked_routemap_name
             element['routing'][ROUTEMAP_CONFIG_STR][checked_routemap_name] = routemap_template
@@ -930,7 +950,9 @@ def _pull_config_for_single_site(site_name_id):
             strip_meta_attributes(aspath_access_list_template)
             # check for duplicate names
             checked_aspath_access_list_name = check_name(aspath_access_list['name'], dup_name_dict,
-                                                         'AS-PATH Access List')
+                                                         'AS-PATH Access List',
+                                                         error_site_txt="{0}({1})".format(error_site_name,
+                                                                                          site_id))
             # update id name cache in case name changed.
             id_name_cache[aspath_access_list['id']] = checked_aspath_access_list_name
             element['routing'][ASPATHACL_CONFIG_STR][checked_aspath_access_list_name] = aspath_access_list_template
@@ -945,7 +967,9 @@ def _pull_config_for_single_site(site_name_id):
             # name_lookup_in_template(routing_prefixlist_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(routing_prefixlist_template)
             # check for duplicate names
-            checked_routing_prefixlist_name = check_name(routing_prefixlist['name'], dup_name_dict, 'Prefix List')
+            checked_routing_prefixlist_name = check_name(routing_prefixlist['name'], dup_name_dict, 'Prefix List',
+                                                         error_site_txt="{0}({1})".format(error_site_name,
+                                                                                          site_id))
             # update id name cache in case name changed.
             id_name_cache[routing_prefixlist['id']] = checked_routing_prefixlist_name
             element['routing'][PREFIXLISTS_CONFIG_STR][checked_routing_prefixlist_name] = routing_prefixlist_template
@@ -960,7 +984,9 @@ def _pull_config_for_single_site(site_name_id):
             # name_lookup_in_template(ip_community_list_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(ip_community_list_template)
             # check for duplicate names
-            checked_ip_community_list_name = check_name(ip_community_list['name'], dup_name_dict, 'IP-Community List')
+            checked_ip_community_list_name = check_name(ip_community_list['name'], dup_name_dict, 'IP-Community List',
+                                                        error_site_txt="{0}({1})".format(error_site_name,
+                                                                                         site_id))
             # update id name cache in case name changed.
             id_name_cache[ip_community_list['id']] = checked_ip_community_list_name
             element['routing'][IPCOMMUNITYLISTS_CONFIG_STR][checked_ip_community_list_name] = ip_community_list_template
@@ -1010,7 +1036,9 @@ def _pull_config_for_single_site(site_name_id):
             name_lookup_in_template(element_extension_template, 'entity_id', id_name_cache)
             strip_meta_attributes(element_extension_template)
             # check for duplicate names
-            checked_element_extension_name = check_name(element_extension['name'], dup_name_dict, 'Element Extension')
+            checked_element_extension_name = check_name(element_extension['name'], dup_name_dict, 'Element Extension',
+                                                        error_site_txt="{0}({1})".format(error_site_name,
+                                                                                         site_id))
             # update id name cache in case name changed.
             id_name_cache[element_extension['id']] = checked_element_extension_name
             element[ELEMENT_EXTENSIONS_STR][checked_element_extension_name] = element_extension_template
@@ -1142,7 +1170,9 @@ def _pull_config_for_single_site(site_name_id):
             element_template['spoke_ha_config'] = spoke_ha_config_template
 
         # check for duplicate names
-        checked_element_name = check_name(element['name'], dup_name_dict_elements, 'Element')
+        checked_element_name = check_name(element['name'], dup_name_dict_elements, 'Element',
+                                          error_site_txt="{0}({1})".format(error_site_name,
+                                                                           site_id))
         # update id name cache in case name changed.
         id_name_cache[element['id']] = checked_element_name
         site[ELEMENTS_STR][checked_element_name] = element_template
