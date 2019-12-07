@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.1.0b3
+**Version:** 1.1.0b2
 
 **Author:** CloudGenix
 
@@ -4739,12 +4739,14 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
     # make a copy of element_extension to modify
     element_extension_template = copy.deepcopy(config_element_extension)
 
-    # Entity ID can be a multitude of things. Try them all.
-    name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
-    # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
-    name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
+    # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
+    element_extension_namespace = config_element_extension.get('namespace')
+    if element_extension_namespace not in ["dnsmasq/prod"]:
+        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
+        # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
+        name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
 
     local_debug("ELEMENT_EXTENSION TEMPLATE: " + str(json.dumps(element_extension_template, indent=4)))
 
@@ -4787,12 +4789,14 @@ def modify_element_extension(config_element_extension, element_extension_id, ele
     # make a copy of element_extension to modify
     element_extension_template = copy.deepcopy(config_element_extension)
 
-    # Entity ID can be a multitude of things. Try them all.
-    name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
-    # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
-    name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
+    # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
+    element_extension_namespace = config_element_extension.get('namespace')
+    if element_extension_namespace not in ["dnsmasq/prod"]:
+        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
+        # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
+        name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
 
     local_debug("ELEMENT_EXTENSION TEMPLATE: " + str(json.dumps(element_extension_template, indent=4)))
 
