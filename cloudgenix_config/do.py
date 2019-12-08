@@ -1045,13 +1045,15 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
 def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
-    :param matching_element: Element ID to work on
+    :param matching_element: Element object (containing ID) to work on
     :param site_id: Site ID to work on
     :param config_element: Element config struct
+    :param interfaces_n2id: Intertfaces Name -> ID map.
     :param spokecluster_n2id: Spoke Cluster Name -> ID map.
     :return:
     """
-    # Due to changes on the backend after the element is assigned to a site, etag for the element changes and is not in sync with the element in cache.
+    # Due to changes on the backend after the element is assigned to a site, etag for the element changes and is not in
+    # sync with the element in cache.
     # To avoid updating the entire cache, just do a get on this individual element
     # Change added after HA config was failing due to etag mismatch (Issue#27)
 
@@ -1337,6 +1339,19 @@ def unbind_elements(element_id_list, site_id):
                             throw_error("Could not strip config from {0}: ".format(intf_name),
                                         reconf_resp.cgx_content)
 
+            # Delete element securityzones for this element, if they exist
+            output_message(" Removing any leftover Element Security Zones and Spoke HA from {0}:"
+                           "".format(element_item_name))
+            element_securityzones_resp = sdk.get.elementsecurityzones(site_id, element_item_id)
+            element_securityzones_cache, leftover_element_securityzones = extract_items(element_securityzones_resp,
+                                                                                        'elementsecurityzones')
+
+            # build a element_securityzone_id to zone name mapping.
+            element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
+                                                                value_val='zone_id')
+            delete_element_securityzones(leftover_element_securityzones, site_id, element_item_id,
+                                         id2n=element_securityzones_id2zoneid)
+
             # Remove static routes from device.
             static_routes_resp = sdk.get.staticroutes(site_id, element_item_id)
 
@@ -1354,6 +1369,24 @@ def unbind_elements(element_id_list, site_id):
 
             # prepare to unbind element.
             elem_template = copy.deepcopy(element_item)
+
+            # clear out any Spoke HA configurations
+            elem_template['spoke_ha_config'] = None
+
+            # create a temp element object to flush the configs.
+            matching_element = {"id": element_item_id}
+
+            # use the temp fake element to flush the Spoke HA configuration prior to unbind.
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {})
+
+            # refresh the element
+            element_resp = sdk.get.elements(element_item_id)
+
+            if not element_resp.cgx_status:
+                throw_warning('Could not refresh element after Spoke HA flush: ', element_resp)
+
+            # update the template with the refreshed ETAG.
+            elem_template = dict(element_resp.cgx_content)
 
             # clean up element template.
             for key in copy.deepcopy(elem_template).keys():
@@ -6918,7 +6951,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
             # delete remaining spokecluster configs
             # build a spokecluster_id to name mapping.
-            spokeclusters_id2n= build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
+            spokeclusters_id2n = build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
             delete_spokeclusters(leftover_spokeclusters, site_id, id2n=spokeclusters_id2n)
 
             # delete remaining site_securityzone configs
