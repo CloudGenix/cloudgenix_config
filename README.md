@@ -79,6 +79,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.2.0** | **b1** | CloudGenix SDK 5.2.1b1 support|
 | **1.1.0** | **b2** | Fix for Github issues #25, #26, #27, #28, #30|
 | **1.1.0** | **b1** | CloudGenix SDK 5.1.1b1 support|
 | **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|

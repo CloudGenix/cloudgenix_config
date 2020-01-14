@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.1.0b2
+**Version:** 1.2.0b1
 
 **Author:** CloudGenix
 
@@ -150,6 +150,7 @@ PREFIXLISTS_CONFIG_STR = "prefix_lists"
 IPCOMMUNITYLISTS_CONFIG_STR = "ip_community_lists"
 HUBCLUSTER_CONFIG_STR = "hubclusters"
 SPOKECLUSTER_CONFIG_STR = "spokeclusters"
+NATLOCALPREFIX_STR = "site_nat_localprefixes"
 
 
 # Global Config Cache holders
@@ -169,6 +170,12 @@ serviceendpoints_cache = []
 ipsecprofiles_cache = []
 networkcontexts_cache = []
 appdefs_cache = []
+natglobalprefixes_cache = []
+natlocalprefixes_cache = []
+natpolicypools_cache = []
+natpolicysetstacks_cache = []
+natzones_cache = []
+
 id_name_cache = {}
 sites_n2id = {}
 dup_name_dict_sites = {}
@@ -254,6 +261,11 @@ def update_global_cache():
     global ipsecprofiles_cache
     global networkcontexts_cache
     global appdefs_cache
+    global natglobalprefixes_cache
+    global natlocalprefixes_cache
+    global natpolicypools_cache
+    global natpolicysetstacks_cache
+    global natzones_cache
     global id_name_cache
     global sites_n2id
 
@@ -321,6 +333,26 @@ def update_global_cache():
     appdefs_resp = cgx_session.get.appdefs()
     appdefs_cache, _ = extract_items(appdefs_resp, 'appdefs')
 
+    # NAT Global Prefixes
+    natglobalprefixes_resp = cgx_session.get.natglobalprefixes()
+    natglobalprefixes_cache, _ = extract_items(natglobalprefixes_resp, 'natglobalprefixes')
+
+    # NAT Local Prefixes
+    natlocalprefixes_resp = cgx_session.get.natlocalprefixes()
+    natlocalprefixes_cache, _ = extract_items(natlocalprefixes_resp, 'natlocalprefixes')
+
+    # NAT Policy Pools
+    natpolicypools_resp = cgx_session.get.natpolicypools()
+    natpolicypools_cache, _ = extract_items(natpolicypools_resp, 'natpolicypools')
+
+    # NAT natpolicysetstacks
+    natpolicysetstacks_resp = cgx_session.get.natpolicysetstacks()
+    natpolicysetstacks_cache, _ = extract_items(natpolicysetstacks_resp, 'natpolicysetstacks')
+
+    # NAT zones
+    natzones_resp = cgx_session.get.natzones()
+    natzones_cache, _ = extract_items(natzones_resp, 'natzones')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -368,6 +400,21 @@ def update_global_cache():
 
     # appdefs name
     id_name_cache.update(build_lookup_dict(appdefs_cache, key_val='id', value_val='name'))
+
+    # NAT Global Prefixes name
+    id_name_cache.update(build_lookup_dict(natglobalprefixes_cache, key_val='id', value_val='name'))
+
+    # NAT Local Prefixes name
+    id_name_cache.update(build_lookup_dict(natlocalprefixes_cache, key_val='id', value_val='name'))
+
+    # NAT Policy Pools name
+    id_name_cache.update(build_lookup_dict(natpolicypools_cache, key_val='id', value_val='name'))
+
+    # NAT natpolicysetstacks name
+    id_name_cache.update(build_lookup_dict(natpolicysetstacks_cache, key_val='id', value_val='name'))
+
+    # NAT zones name
+    id_name_cache.update(build_lookup_dict(natzones_cache, key_val='id', value_val='name'))
 
     return
 
@@ -417,6 +464,7 @@ def build_version_strings():
     global IPCOMMUNITYLISTS_CONFIG_STR
     global HUBCLUSTER_CONFIG_STR
     global SPOKECLUSTER_CONFIG_STR
+    global NATLOCALPREFIX_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -446,6 +494,7 @@ def build_version_strings():
                                                             "ip_community_lists")
         HUBCLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "hubclusters")
         SPOKECLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.spokeclusters, "spokeclusters")
+        NATLOCALPREFIX_STR = add_version_to_object(cgx_session.get.site_natlocalprefixes, "site_nat_localprefixes")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -593,7 +642,7 @@ def _pull_config_for_single_site(site_name_id):
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
     delete_if_empty(site, HUBCLUSTER_CONFIG_STR)
 
-    # Get Hub Clusters
+    # Get Spoke Clusters
     dup_name_dict = {}
     site[SPOKECLUSTER_CONFIG_STR] = {}
     response = cgx_session.get.spokeclusters(site['id'])
@@ -675,6 +724,22 @@ def _pull_config_for_single_site(site_name_id):
 
         site[SITE_SECURITYZONES_STR].append(site_securityzone_template)
     delete_if_empty(site, SITE_SECURITYZONES_STR)
+
+    # Get Site NAT Localprefixes
+    site[NATLOCALPREFIX_STR] = []
+    response = cgx_session.get.site_natlocalprefixes(site['id'])
+    if not response.cgx_status:
+        throw_error("Site NAT Local Prefixes get failed: ", response)
+    site_natlocalprefixes = response.cgx_content['items']
+
+    for site_natlocalprefix in site_natlocalprefixes:
+        site_natlocalprefix_template = copy.deepcopy(site_natlocalprefix)
+        # replace flat name
+        name_lookup_in_template(site_natlocalprefix_template, 'prefix_id', id_name_cache)
+        strip_meta_attributes(site_natlocalprefix_template)
+
+        site[NATLOCALPREFIX_STR].append(site_natlocalprefix_template)
+    delete_if_empty(site, NATLOCALPREFIX_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
@@ -792,8 +857,25 @@ def _pull_config_for_single_site(site_name_id):
 
                 interface_template['dhcp_relay'] = dhcp_relay_template
 
+            nat_pools_list = interface.get('nat_pools', None)
+            if nat_pools_list and isinstance(nat_pools_list, list):
+                nat_pools_list_template = []
+                for nat_pools_dict in nat_pools_list:
+
+                    nat_pools_template = copy.deepcopy(nat_pools_dict)
+
+                    # replace names
+                    name_lookup_in_template(nat_pools_template, 'nat_pool_id', id_name_cache)
+
+                    # update list with dict template
+                    nat_pools_list_template.append(nat_pools_template)
+
+                # assign list of dict templates back to object.
+                interface_template['nat_pools'] = nat_pools_list_template
+
             # replace flat names in interface itself
             name_lookup_in_template(interface_template, 'parent', id_name_cache)
+            name_lookup_in_template(interface_template, 'nat_zone_id', id_name_cache)
 
             # strip metadata/names
             strip_meta_attributes(interface_template)
@@ -1188,6 +1270,7 @@ def _pull_config_for_single_site(site_name_id):
     name_lookup_in_template(site_template, 'network_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'service_binding', id_name_cache)
+    name_lookup_in_template(site_template, 'nat_policysetstack_id', id_name_cache)
 
     strip_meta_attributes(site_template)
     # check for duplicate names
