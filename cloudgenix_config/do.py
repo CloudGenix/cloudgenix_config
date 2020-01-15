@@ -197,6 +197,13 @@ serviceendpoints_cache = []
 ipsecprofiles_cache = []
 networkcontexts_cache = []
 appdefs_cache = []
+natglobalprefixes_cache = []
+natlocalprefixes_cache = []
+natpolicypools_cache = []
+natpolicysetstacks_cache = []
+natzones_cache = []
+
+# Most items need Name to ID maps.
 sites_n2id = {}
 elements_n2id = {}
 policysets_n2id = {}
@@ -212,9 +219,19 @@ serviceendpoints_n2id = {}
 ipsecprofiles_n2id = {}
 networkcontexts_n2id = {}
 appdefs_n2id = {}
+natglobalprefixes_n2id = {}
+natlocalprefixes_n2id = {}
+natpolicypools_n2id = {}
+natpolicysetstacks_n2id = {}
+natzones_n2id = {}
+
+# Machines/elements need serial to ID mappings
 elements_byserial = {}
 machines_byserial = {}
+
+# Some items need id to zone mappings
 securityzones_id2n = {}
+natlocalprefixes_id2n = {}
 
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
@@ -362,6 +379,12 @@ def update_global_cache():
     global ipsecprofiles_cache
     global networkcontexts_cache
     global appdefs_cache
+    global natglobalprefixes_cache
+    global natlocalprefixes_cache
+    global natpolicypools_cache
+    global natpolicysetstacks_cache
+    global natzones_cache
+
     global sites_n2id
     global elements_n2id
     global policysets_n2id
@@ -377,9 +400,17 @@ def update_global_cache():
     global ipsecprofiles_n2id
     global networkcontexts_n2id
     global appdefs_n2id
+    global natglobalprefixes_n2id
+    global natlocalprefixes_n2id
+    global natpolicypools_n2id
+    global natpolicysetstacks_n2id
+    global natzones_n2id
+
     global elements_byserial
     global machines_byserial
+
     global securityzones_id2n
+    global natlocalprefixes_id2n
 
     # sites
     sites_resp = sdk.get.sites()
@@ -445,6 +476,26 @@ def update_global_cache():
     appdefs_resp = sdk.get.appdefs()
     appdefs_cache, _ = extract_items(appdefs_resp, 'appdefs')
 
+    # NAT Global Prefixes
+    natglobalprefixes_resp = sdk.get.natglobalprefixes()
+    natglobalprefixes_cache, _ = extract_items(natglobalprefixes_resp, 'natglobalprefixes')
+
+    # NAT Local Prefixes
+    natlocalprefixes_resp = sdk.get.natlocalprefixes()
+    natlocalprefixes_cache, _ = extract_items(natlocalprefixes_resp, 'natlocalprefixes')
+
+    # NAT Policy Pools
+    natpolicypools_resp = sdk.get.natpolicypools()
+    natpolicypools_cache, _ = extract_items(natpolicypools_resp, 'natpolicypools')
+
+    # NAT natpolicysetstacks
+    natpolicysetstacks_resp = sdk.get.natpolicysetstacks()
+    natpolicysetstacks_cache, _ = extract_items(natpolicysetstacks_resp, 'natpolicysetstacks')
+
+    # NAT zones
+    natzones_resp = sdk.get.natzones()
+    natzones_cache, _ = extract_items(natzones_resp, 'natzones')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -490,6 +541,21 @@ def update_global_cache():
     # appdefs name
     appdefs_n2id = build_lookup_dict(appdefs_cache)
 
+    # NAT Global Prefixes name
+    natglobalprefixes_n2id = build_lookup_dict(natglobalprefixes_cache)
+
+    # NAT Local Prefixes name
+    natlocalprefixes_n2id = build_lookup_dict(natlocalprefixes_cache)
+
+    # NAT Policy Pools name
+    natpolicypools_n2id = build_lookup_dict(natpolicypools_cache)
+
+    # NAT natpolicysetstacks name
+    natpolicysetstacks_n2id = build_lookup_dict(natpolicysetstacks_cache)
+
+    # NAT zones name
+    natzones_n2id = build_lookup_dict(natzones_cache)
+
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
 
@@ -497,6 +563,10 @@ def update_global_cache():
 
     # id to name for security zones
     securityzones_id2n = build_lookup_dict(securityzones_cache, key_val='id', value_val='name')
+
+    # id to name for natlocalprefixes (not site specific)
+    natlocalprefixes_id2n = build_lookup_dict(natlocalprefixes_cache, key_val='id', value_val='name')
+
 
     return
 
@@ -579,9 +649,11 @@ def parse_site_config(config_site):
     config_site_security_zones, _ = config_lower_version_get(config_site, 'site_security_zones',
                                                              sdk.put.sitesecurityzones, default=[])
     config_spokeclusters, _ = config_lower_version_get(config_site, 'spokeclusters', sdk.put.spokeclusters, default={})
+    config_site_nat_localprefixes, _ = config_lower_version_get(config_site, 'site_nat_localprefixes',
+                                                                sdk.put.site_natlocalprefixes, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes
 
 
 def parse_element_config(config_element):
@@ -1430,12 +1502,14 @@ def create_site(config_site):
     site_template = fuzzy_pop(site_template, 'site_extensions')
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
+    site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
+    name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
@@ -1483,12 +1557,14 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'site_extensions')
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
+    site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
+    name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
@@ -2280,9 +2356,149 @@ def delete_site_securityzones(leftover_site_securityzones, site_id, id2n=None):
                        "".format(ssz_zone_name))
         site_securityzone_del_resp = sdk.delete.sitesecurityzones(site_id, site_securityzone_id)
         if not site_securityzone_del_resp.cgx_status:
-            throw_error("Could not delete Site Securityzone {0}: ".format(id2n.get(site_securityzone_id,
-                                                                                   site_securityzone_id)),
+            throw_error("Could not delete Site Securityzone {0}: ".format(ssz_zone_name),
                         site_securityzone_del_resp)
+    return
+
+
+def create_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefixes_prefixid2id, site_id):
+    """
+    Create a Site NAT Local Prefix mapping
+    :param config_site_nat_localprefix: Site nat localprefix config dict
+    :param site_nat_localprefixes_prefixid2id: Site NAT localprefix ID to NAT Localprefix ID dict
+    :param site_id: Site ID to use
+    :return: Site nat localprefix ID
+    """
+    # make a copy of site_nat_localprefix to modify
+    site_nat_localprefix_template = copy.deepcopy(config_site_nat_localprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_nat_localprefix_template, 'prefix_id', natlocalprefixes_n2id)
+
+    # replace complex names (none for site nat localprefixes)
+
+    local_debug("SITE_NAT_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_nat_localprefix_template, indent=4)))
+
+    # create site_nat_localprefix
+    site_nat_localprefix_resp = sdk.post.site_natlocalprefixes(site_id, site_nat_localprefix_template)
+
+    if not site_nat_localprefix_resp.cgx_status:
+        throw_error("Site NAT Localprefix creation failed: ", site_nat_localprefix_resp)
+
+    site_nat_localprefix_id = site_nat_localprefix_resp.cgx_content.get('id')
+    site_nat_localprefix_prefix_id = site_nat_localprefix_resp.cgx_content.get('prefix_id')
+
+    if not site_nat_localprefix_id or not site_nat_localprefix_prefix_id:
+        throw_error("Unable to determine site_nat_localprefix attributes (ID {0}, Zone ID {1}).."
+                    "".format(site_nat_localprefix_id, site_nat_localprefix_prefix_id))
+
+    # Try to get prefix name this is for.
+    snlp_name = natlocalprefixes_id2n.get(site_nat_localprefix_prefix_id, site_nat_localprefix_prefix_id)
+
+    output_message(" Created Site NAT Localprefix mapping for Localprefix '{0}'.".format(snlp_name))
+
+    return site_nat_localprefix_id
+
+
+def modify_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefix_id,
+                                site_nat_localprefixes_prefixid2id, site_id):
+    """
+    Modify Existing Site NAT Local Prefix mapping
+    :param config_site_nat_localprefix: Site nat localprefix config dict
+    :param site_nat_localprefix_id: Existing Site nat localprefix ID
+    :param site_nat_localprefixes_prefixid2id: Site NAT localprefix ID to NAT Localprefix ID dict
+    :param site_id: Site ID to use
+    :return: Returned Site nat localprefix ID
+    """
+    site_nat_localprefix_config = {}
+    # make a copy of site_nat_localprefix to modify
+    site_nat_localprefix_template = copy.deepcopy(config_site_nat_localprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_nat_localprefix_template, 'prefix_id', natlocalprefixes_n2id)
+
+    # replace complex names (none for site_nat_localprefixes)
+
+    local_debug("SITE_NAT_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_nat_localprefix_template, indent=4)))
+
+    # get current site_nat_localprefix
+    site_nat_localprefix_resp = sdk.get.site_natlocalprefixes(site_id, site_nat_localprefix_id)
+    if site_nat_localprefix_resp.cgx_status:
+        site_nat_localprefix_config = site_nat_localprefix_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Site NAT Localprefix: ", site_nat_localprefix_resp)
+
+    # extract prev_revision
+    prev_revision = site_nat_localprefix_config.get("_etag")
+
+    # Check for changes:
+    site_nat_localprefix_change_check = copy.deepcopy(site_nat_localprefix_config)
+    site_nat_localprefix_config.update(site_nat_localprefix_template)
+    if not force_update and site_nat_localprefix_config == site_nat_localprefix_change_check:
+        # no change in config, pass.
+        site_nat_localprefix_id = site_nat_localprefix_change_check.get('id')
+        site_nat_localprefix_prefix_id = site_nat_localprefix_resp.cgx_content.get('prefix_id')
+        # Try to get prefix name this is for.
+        snlp_name = natlocalprefixes_id2n.get(site_nat_localprefix_prefix_id, site_nat_localprefix_prefix_id)
+        output_message(" No Change for Site NAT Localprefix mapping for Localprefix {0}.".format(snlp_name))
+        return site_nat_localprefix_id
+
+    if debuglevel >= 3:
+        local_debug("SITE_NAT_LOCALPREFIX DIFF: {0}".format(find_diff(site_nat_localprefix_change_check,
+                                                                      site_nat_localprefix_config)))
+
+    # Update Site_nat_localprefix.
+    site_nat_localprefix_resp2 = sdk.put.site_natlocalprefixes(site_id, site_nat_localprefix_id,
+                                                               site_nat_localprefix_config)
+
+    if not site_nat_localprefix_resp2.cgx_status:
+        throw_error("Site NAT Localprefix update failed: ", site_nat_localprefix_resp2)
+
+    site_nat_localprefix_prefix_id = site_nat_localprefix_resp.cgx_content.get('prefix_id')
+    site_nat_localprefix_id = site_nat_localprefix_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = site_nat_localprefix_resp2.cgx_content.get("_etag")
+
+    if not site_nat_localprefix_prefix_id or not site_nat_localprefix_id:
+        throw_error("Unable to determine Site NAT Localprefix attributes (ID {0}, Zone {1}).."
+                    "".format(site_nat_localprefix_id, site_nat_localprefix_prefix_id))
+
+    # Try to get prefix name this is for.
+    snlp_name = natlocalprefixes_id2n.get(site_nat_localprefix_prefix_id, site_nat_localprefix_prefix_id)
+
+    output_message(" Updated Site NAT Localprefix mapping for Localprefix '{0}' (Etag {1} -> {2})."
+                   "".format(snlp_name, prev_revision, current_revision))
+
+    return site_nat_localprefix_id
+
+
+def delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id, id2n=None):
+    """
+    Delete Site nat localprefix Mappings
+    :param leftover_site_nat_localprefixes: List of Site nat localprefix IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for site_nat_localprefix_id in leftover_site_nat_localprefixes:
+        # delete all leftover site_nat_localprefixes.
+
+        # Try to get zone name
+        snlp_name = natlocalprefixes_id2n.get(id2n.get(site_nat_localprefix_id, site_nat_localprefix_id),
+                                              site_nat_localprefix_id)
+
+        output_message(" Deleting Unconfigured Site NAT Localprefix mapping for Localprefix '{0}'."
+                       "".format(snlp_name))
+        site_nat_localprefix_del_resp = sdk.delete.site_natlocalprefixes(site_id, site_nat_localprefix_id)
+        if not site_nat_localprefix_del_resp.cgx_status:
+            throw_error("Could not delete Site NAT Localprefix mapping for Localprefix {0}: "
+                        "".format(snlp_name),
+                        site_nat_localprefix_del_resp)
     return
 
 
@@ -2555,12 +2771,29 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             else:
                 interface_template["dhcp_relay"] = None
 
+        elif key == "nat_pools":
+
+            # look for key in config, xlate name to ID.
+            config_nat_pools = config_interface.get('nat_pools', [])
+            if config_nat_pools and isinstance(config_nat_pools, list):
+                # clone list to modify
+                n2id_np_template = copy.deepcopy(config_nat_pools)
+
+                # replace flat names in dict
+                name_lookup_in_template(n2id_np_template, 'nat_pool_id', natpolicypools_n2id)
+
+                # update template
+                interface_template["nat_pools"] = n2id_np_template
+            else:
+                interface_template["nat_pools"] = None
+
         else:
             # just set the key.
             interface_template[key] = value
 
     # replace flat names
     name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -2788,12 +3021,35 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             else:
                 interface_template["dhcp_relay"] = None
 
+        elif key == "nat_pools":
+
+            # look for key in config, xlate name to ID.
+            config_nat_pools = config_interface.get('nat_pools', [])
+            if config_nat_pools and isinstance(config_nat_pools, list):
+                # create a new list and copy over entries as we replace names
+                n2id_nat_pool_template = []
+                for config_nat_pool_entry in config_nat_pools:
+                    # clone dict to modify
+                    n2id_nat_pool_entry_template = copy.deepcopy(config_nat_pool_entry)
+
+                    # replace flat names in dict
+                    name_lookup_in_template(n2id_nat_pool_entry_template, 'nat_pool_id', natpolicypools_n2id)
+
+                    # update new list
+                    n2id_nat_pool_template.append(n2id_nat_pool_entry_template)
+
+                # update template
+                interface_template["nat_pools"] = n2id_nat_pool_template
+            else:
+                interface_template["nat_pools"] = None
+
         else:
             # just set the key.
             interface_template[key] = value
 
     # replace flat names
     name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -5121,14 +5377,14 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
     return
 
 
-def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None, passed_timeout_claim=None,
-            passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
+def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
+            passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None):
     """
     Main Site config/deploy worker function.
     :param loaded_config: Loaded config in Python Dict format
     :param destroy: Bool, True = Create site/objects, False = Destroy (completely, use with caution).
-    :param destroy-declaim: Bool, True = Destroy completely and declaim element.
+    :param declaim: Bool, True = on unassign, automatically declaim element.
     :param passed_sdk: Authenticated `cloudgenix.API()` constructor.
     :param passed_timeout_offline: Optional - Time to wait if ION is offline (seconds)
     :param passed_timeout_claim: Optional - Time to wait for ION to claim (seconds)
@@ -5197,7 +5453,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters = parse_site_config(config_site)
+                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes \
+                = parse_site_config(config_site)
 
             # Determine site ID.
             # look for implicit ID in object.
@@ -5524,6 +5781,78 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
                 leftover_spokeclusters = [entry for entry in leftover_spokeclusters if entry != spokecluster_id]
 
             # -- End Spoke Clusters
+
+            # -- Start Site_nat_localprefixes
+            site_nat_localprefixes_resp = sdk.get.site_natlocalprefixes(site_id)
+            # TODO remove this MESSY HACK to work around CGB-15068.
+            if site_nat_localprefixes_resp.cgx_status and site_nat_localprefixes_resp.cgx_content == {}:
+                # Welcome to the land of CGB-15068. Fix in progress.
+                site_nat_localprefixes_resp.cgx_content = {
+                    "_etag": 1,  # Hopefully this should work
+                    "_content_length": "0",
+                    "_schema": 0,
+                    "_created_on_utc": 15791094199340006,
+                    "_updated_on_utc": 0,
+                    "_status_code": "200",
+                    "_request_id": "1579109419923000400002492011547730241671",
+                    "count": 0,
+                    "items": []
+                }
+            # END MESSY HACK for CGB-15068
+
+            site_nat_localprefixes_cache, leftover_site_nat_localprefixes = extract_items(site_nat_localprefixes_resp,
+                                                                                          'site_nat_localprefixes')
+            # build lookup cache based on prefix id.
+            site_nat_localprefixes_prefixid2id = build_lookup_dict(site_nat_localprefixes_cache, key_val='prefix_id')
+
+            # iterate configs (list)
+            for config_site_nat_localprefix_entry in config_site_nat_localprefixes:
+
+                # deepcopy to modify.
+                config_site_nat_localprefix = copy.deepcopy(config_site_nat_localprefix_entry)
+
+                # no need to get site_nat_localprefix config, no child config objects.
+
+                # Determine site_nat_localprefix ID.
+                # look for implicit ID in object.
+                implicit_site_nat_localprefix_id = config_site_nat_localprefix.get('id')
+                # if no ID, select by zone ID
+                config_site_nat_localprefix_prefix = config_site_nat_localprefix.get('prefix_id')
+                # do name to id lookup
+                config_site_nat_localprefix_prefix_id = natlocalprefixes_n2id.get(config_site_nat_localprefix_prefix,
+                                                                                  config_site_nat_localprefix_prefix)
+                # finally, get securityzone ID from zone_id
+                config_site_nat_localprefix_id = \
+                    site_nat_localprefixes_prefixid2id.get(config_site_nat_localprefix_prefix_id)
+
+                if implicit_site_nat_localprefix_id is not None:
+                    site_nat_localprefix_id = implicit_site_nat_localprefix_id
+
+                elif config_site_nat_localprefix_id is not None:
+                    # look up ID by prefix_id on existing site_nat_localprefix.
+                    site_nat_localprefix_id = config_site_nat_localprefix_id
+
+                else:
+                    # no site_nat_localprefix object.
+                    site_nat_localprefix_id = None
+
+                # Create or modify site_nat_localprefix.
+                if site_nat_localprefix_id is not None:
+                    # Site_securityzone exists, modify.
+                    site_nat_localprefix_id = modify_site_nat_localprefix(config_site_nat_localprefix,
+                                                                          site_nat_localprefix_id,
+                                                                          site_nat_localprefixes_prefixid2id, site_id)
+
+                else:
+                    # Site_securityzone does not exist, create.
+                    site_nat_localprefix_id = create_site_nat_localprefix(config_site_nat_localprefix,
+                                                                          site_nat_localprefixes_prefixid2id, site_id)
+
+                # remove from delete queue
+                leftover_site_nat_localprefixes = [entry for entry in leftover_site_nat_localprefixes
+                                                   if entry != site_nat_localprefix_id]
+
+            # -- End Site_nat_localprefixes
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -6953,6 +7282,13 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             # build a spokecluster_id to name mapping.
             spokeclusters_id2n = build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
             delete_spokeclusters(leftover_spokeclusters, site_id, id2n=spokeclusters_id2n)
+
+            # delete remaining site_nat_localprefix configs
+            # build a site_nat_localprefix_id to zone name mapping.
+            site_nat_localprefixes_id2prefixid = build_lookup_dict(site_nat_localprefixes_cache, key_val='id',
+                                                                   value_val='prefix_id')
+            delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id,
+                                          id2n=site_nat_localprefixes_id2prefixid)
 
             # delete remaining site_securityzone configs
             # build a site_securityzone_id to zone name mapping.

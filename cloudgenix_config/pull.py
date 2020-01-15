@@ -181,7 +181,7 @@ sites_n2id = {}
 dup_name_dict_sites = {}
 
 # Define constructor globally for now.
-cgx_session = cloudgenix.API()
+sdk = cloudgenix.API()
 jd = cloudgenix.jd
 
 # Set logging to use function name
@@ -266,91 +266,92 @@ def update_global_cache():
     global natpolicypools_cache
     global natpolicysetstacks_cache
     global natzones_cache
+
     global id_name_cache
     global sites_n2id
 
     # sites
-    sites_resp = cgx_session.get.sites()
+    sites_resp = sdk.get.sites()
     sites_cache, _ = extract_items(sites_resp, 'sites')
 
     # elements
-    elements_resp = cgx_session.get.elements()
+    elements_resp = sdk.get.elements()
     elements_cache, _ = extract_items(elements_resp, 'elements')
 
     # machines
-    machines_resp = cgx_session.get.machines()
+    machines_resp = sdk.get.machines()
     machines_cache, _ = extract_items(machines_resp, 'machines')
 
     # policysets
-    policysets_resp = cgx_session.get.policysets()
+    policysets_resp = sdk.get.policysets()
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
     # secuirity_policysets
-    security_policysets_resp = cgx_session.get.securitypolicysets()
+    security_policysets_resp = sdk.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'secuirity_policysets')
 
     # secuirityzones
-    securityzones_resp = cgx_session.get.securityzones()
+    securityzones_resp = sdk.get.securityzones()
     securityzones_cache, _ = extract_items(securityzones_resp, 'secuirityzones')
 
     # network_policysetstack
-    network_policysetstack_resp = cgx_session.get.networkpolicysetstacks()
+    network_policysetstack_resp = sdk.get.networkpolicysetstacks()
     network_policysetstack_cache, _ = extract_items(network_policysetstack_resp, 'network_policysetstack')
 
     # prioroty_policysetstack
-    prioroty_policysetstack_resp = cgx_session.get.prioritypolicysetstacks()
+    prioroty_policysetstack_resp = sdk.get.prioritypolicysetstacks()
     prioroty_policysetstack_cache, _ = extract_items(prioroty_policysetstack_resp, 'prioroty_policysetstack')
 
     # waninterfacelabels
-    waninterfacelabels_resp = cgx_session.get.waninterfacelabels()
+    waninterfacelabels_resp = sdk.get.waninterfacelabels()
     waninterfacelabels_cache, _ = extract_items(waninterfacelabels_resp, 'waninterfacelabels')
 
     # wannetworks
-    wannetworks_resp = cgx_session.get.wannetworks()
+    wannetworks_resp = sdk.get.wannetworks()
     wannetworks_cache, _ = extract_items(wannetworks_resp, 'wannetworks')
 
     # wanoverlays
-    wanoverlays_resp = cgx_session.get.wanoverlays()
+    wanoverlays_resp = sdk.get.wanoverlays()
     wanoverlays_cache, _ = extract_items(wanoverlays_resp, 'wanoverlays')
 
     # servicebindingmaps
-    servicebindingmaps_resp = cgx_session.get.servicebindingmaps()
+    servicebindingmaps_resp = sdk.get.servicebindingmaps()
     servicebindingmaps_cache, _ = extract_items(servicebindingmaps_resp, 'servicebindingmaps')
 
     # serviceendpoints
-    serviceendpoints_resp = cgx_session.get.serviceendpoints()
+    serviceendpoints_resp = sdk.get.serviceendpoints()
     serviceendpoints_cache, _ = extract_items(serviceendpoints_resp, 'serviceendpoints')
 
     # ipsecprofiles
-    ipsecprofiles_resp = cgx_session.get.ipsecprofiles()
+    ipsecprofiles_resp = sdk.get.ipsecprofiles()
     ipsecprofiles_cache, _ = extract_items(ipsecprofiles_resp, 'ipsecprofiles')
 
     # networkcontexts
-    networkcontexts_resp = cgx_session.get.networkcontexts()
+    networkcontexts_resp = sdk.get.networkcontexts()
     networkcontexts_cache, _ = extract_items(networkcontexts_resp, 'networkcontexts')
 
     # appdef
-    appdefs_resp = cgx_session.get.appdefs()
+    appdefs_resp = sdk.get.appdefs()
     appdefs_cache, _ = extract_items(appdefs_resp, 'appdefs')
 
     # NAT Global Prefixes
-    natglobalprefixes_resp = cgx_session.get.natglobalprefixes()
+    natglobalprefixes_resp = sdk.get.natglobalprefixes()
     natglobalprefixes_cache, _ = extract_items(natglobalprefixes_resp, 'natglobalprefixes')
 
     # NAT Local Prefixes
-    natlocalprefixes_resp = cgx_session.get.natlocalprefixes()
+    natlocalprefixes_resp = sdk.get.natlocalprefixes()
     natlocalprefixes_cache, _ = extract_items(natlocalprefixes_resp, 'natlocalprefixes')
 
     # NAT Policy Pools
-    natpolicypools_resp = cgx_session.get.natpolicypools()
+    natpolicypools_resp = sdk.get.natpolicypools()
     natpolicypools_cache, _ = extract_items(natpolicypools_resp, 'natpolicypools')
 
     # NAT natpolicysetstacks
-    natpolicysetstacks_resp = cgx_session.get.natpolicysetstacks()
+    natpolicysetstacks_resp = sdk.get.natpolicysetstacks()
     natpolicysetstacks_cache, _ = extract_items(natpolicysetstacks_resp, 'natpolicysetstacks')
 
     # NAT zones
-    natzones_resp = cgx_session.get.natzones()
+    natzones_resp = sdk.get.natzones()
     natzones_cache, _ = extract_items(natzones_resp, 'natzones')
 
     # sites name
@@ -419,14 +420,14 @@ def update_global_cache():
     return
 
 
-def add_version_to_object(cgx_session_func, input_string):
+def add_version_to_object(sdk_func, input_string):
     """
     Adds API version as version key to string
-    :param cgx_session_func: CloudGenix CGX_SESSION function
+    :param sdk_func: CloudGenix sdk function
     :param input_string: Config section
     :return: input_string + ' ' + API version.
     """
-    args = get_function_default_args(cgx_session_func)
+    args = get_function_default_args(sdk_func)
     # extract API version
     api_version = args.get('api_version')
     # if invalid API version, set to default value
@@ -468,33 +469,33 @@ def build_version_strings():
 
     if not STRIP_VERSIONS:
         # Config container strings
-        SITES_STR = add_version_to_object(cgx_session.get.sites, "sites")
-        ELEMENTS_STR = add_version_to_object(cgx_session.get.elements, "elements")
-        WANINTERFACES_STR = add_version_to_object(cgx_session.get.waninterfaces, "waninterfaces")
-        LANNETWORKS_STR = add_version_to_object(cgx_session.get.lannetworks, "lannetworks")
-        INTERFACES_STR = add_version_to_object(cgx_session.get.interfaces, "interfaces")
-        STATIC_STR = add_version_to_object(cgx_session.get.staticroutes, "static")
-        AGENT_STR = add_version_to_object(cgx_session.get.snmpagents, "agent")
-        TRAPS_STR = add_version_to_object(cgx_session.get.snmptraps, "traps")
-        NTP_STR = add_version_to_object(cgx_session.get.ntp, "ntp")
-        SYSLOG_STR = add_version_to_object(cgx_session.get.syslogservers, "syslog")
-        TOOLKIT_STR = add_version_to_object(cgx_session.get.elementaccessconfigs, "toolkit")
-        SITE_SECURITYZONES_STR = add_version_to_object(cgx_session.get.sitesecurityzones, "site_security_zones")
-        ELEMENT_SECURITYZONES_STR = add_version_to_object(cgx_session.get.elementsecurityzones,
+        SITES_STR = add_version_to_object(sdk.get.sites, "sites")
+        ELEMENTS_STR = add_version_to_object(sdk.get.elements, "elements")
+        WANINTERFACES_STR = add_version_to_object(sdk.get.waninterfaces, "waninterfaces")
+        LANNETWORKS_STR = add_version_to_object(sdk.get.lannetworks, "lannetworks")
+        INTERFACES_STR = add_version_to_object(sdk.get.interfaces, "interfaces")
+        STATIC_STR = add_version_to_object(sdk.get.staticroutes, "static")
+        AGENT_STR = add_version_to_object(sdk.get.snmpagents, "agent")
+        TRAPS_STR = add_version_to_object(sdk.get.snmptraps, "traps")
+        NTP_STR = add_version_to_object(sdk.get.ntp, "ntp")
+        SYSLOG_STR = add_version_to_object(sdk.get.syslogservers, "syslog")
+        TOOLKIT_STR = add_version_to_object(sdk.get.elementaccessconfigs, "toolkit")
+        SITE_SECURITYZONES_STR = add_version_to_object(sdk.get.sitesecurityzones, "site_security_zones")
+        ELEMENT_SECURITYZONES_STR = add_version_to_object(sdk.get.elementsecurityzones,
                                                           "element_security_zones")
-        ELEMENT_EXTENSIONS_STR = add_version_to_object(cgx_session.get.element_extensions, "element_extensions")
-        SITE_EXTENSIONS_STR = add_version_to_object(cgx_session.get.site_extensions, "site_extensions")
-        DHCP_SERVERS_STR = add_version_to_object(cgx_session.get.dhcpservers, "dhcpservers")
-        BGP_GLOBAL_CONFIG_STR = add_version_to_object(cgx_session.get.bgpconfigs, "global_config")
-        BGP_PEERS_CONFIG_STR = add_version_to_object(cgx_session.get.bgppeers, "peers")
-        ROUTEMAP_CONFIG_STR = add_version_to_object(cgx_session.get.routing_routemaps, "route_maps")
-        ASPATHACL_CONFIG_STR = add_version_to_object(cgx_session.get.routing_aspathaccesslists, "as_path_access_lists")
-        PREFIXLISTS_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "prefix_lists")
-        IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(cgx_session.get.routing_ipcommunitylists,
+        ELEMENT_EXTENSIONS_STR = add_version_to_object(sdk.get.element_extensions, "element_extensions")
+        SITE_EXTENSIONS_STR = add_version_to_object(sdk.get.site_extensions, "site_extensions")
+        DHCP_SERVERS_STR = add_version_to_object(sdk.get.dhcpservers, "dhcpservers")
+        BGP_GLOBAL_CONFIG_STR = add_version_to_object(sdk.get.bgpconfigs, "global_config")
+        BGP_PEERS_CONFIG_STR = add_version_to_object(sdk.get.bgppeers, "peers")
+        ROUTEMAP_CONFIG_STR = add_version_to_object(sdk.get.routing_routemaps, "route_maps")
+        ASPATHACL_CONFIG_STR = add_version_to_object(sdk.get.routing_aspathaccesslists, "as_path_access_lists")
+        PREFIXLISTS_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "prefix_lists")
+        IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(sdk.get.routing_ipcommunitylists,
                                                             "ip_community_lists")
-        HUBCLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "hubclusters")
-        SPOKECLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.spokeclusters, "spokeclusters")
-        NATLOCALPREFIX_STR = add_version_to_object(cgx_session.get.site_natlocalprefixes, "site_nat_localprefixes")
+        HUBCLUSTER_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "hubclusters")
+        SPOKECLUSTER_CONFIG_STR = add_version_to_object(sdk.get.spokeclusters, "spokeclusters")
+        NATLOCALPREFIX_STR = add_version_to_object(sdk.get.site_natlocalprefixes, "site_nat_localprefixes")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -539,7 +540,7 @@ def delete_if_empty(variable_dict, key):
 def _pull_config_for_single_site(site_name_id):
     """
     Function to pull configuration from CloudGenix controller, and save as YAML file.
-    Needs cloudgenix_config globals set (cgx_session, cache, etc). Rework eventually to allow running
+    Needs cloudgenix_config globals set (sdk, cache, etc). Rework eventually to allow running
     directly.
     :param site_name_id: Site name or ID.
     :return: No return, mutates CONFIG var in place.
@@ -568,7 +569,7 @@ def _pull_config_for_single_site(site_name_id):
     # Get WAN interfaces
     dup_name_dict = {}
     site[WANINTERFACES_STR] = {}
-    response = cgx_session.get.waninterfaces(site['id'])
+    response = sdk.get.waninterfaces(site['id'])
     if not response.cgx_status:
         throw_error("WAN interfaces get failed: ", response)
     waninterfaces = response.cgx_content['items']
@@ -599,7 +600,7 @@ def _pull_config_for_single_site(site_name_id):
     # Get LAN Networks
     dup_name_dict = {}
     site[LANNETWORKS_STR] = {}
-    response = cgx_session.get.lannetworks(site['id'])
+    response = sdk.get.lannetworks(site['id'])
     if not response.cgx_status:
         throw_error("LAN networks get failed: ", response)
     lannetworks = response.cgx_content['items']
@@ -622,7 +623,7 @@ def _pull_config_for_single_site(site_name_id):
     # Get Hub Clusters
     dup_name_dict = {}
     site[HUBCLUSTER_CONFIG_STR] = {}
-    response = cgx_session.get.hubclusters(site['id'])
+    response = sdk.get.hubclusters(site['id'])
     if not response.cgx_status:
         throw_error("LAN networks get failed: ", response)
     hubclusters = response.cgx_content['items']
@@ -645,7 +646,7 @@ def _pull_config_for_single_site(site_name_id):
     # Get Spoke Clusters
     dup_name_dict = {}
     site[SPOKECLUSTER_CONFIG_STR] = {}
-    response = cgx_session.get.spokeclusters(site['id'])
+    response = sdk.get.spokeclusters(site['id'])
     if not response.cgx_status:
         throw_error("LAN networks get failed: ", response)
     spokeclusters = response.cgx_content['items']
@@ -665,7 +666,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get DHCP Servers
     site[DHCP_SERVERS_STR] = []
-    response = cgx_session.get.dhcpservers(site['id'])
+    response = sdk.get.dhcpservers(site['id'])
     if not response.cgx_status:
         throw_error("DHCP Servers networks get failed: ", response)
     dhcpservers = response.cgx_content['items']
@@ -680,7 +681,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get Site Extensions
     site[SITE_EXTENSIONS_STR] = {}
-    response = cgx_session.get.site_extensions(site['id'])
+    response = sdk.get.site_extensions(site['id'])
     if not response.cgx_status:
         throw_error("Site Extensions get failed: ", response)
     site_extensions = response.cgx_content['items']
@@ -701,7 +702,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get Site Security Zones
     site[SITE_SECURITYZONES_STR] = []
-    response = cgx_session.get.sitesecurityzones(site['id'])
+    response = sdk.get.sitesecurityzones(site['id'])
     if not response.cgx_status:
         throw_error("Site Security Zones get failed: ", response)
     site_securityzones = response.cgx_content['items']
@@ -727,7 +728,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get Site NAT Localprefixes
     site[NATLOCALPREFIX_STR] = []
-    response = cgx_session.get.site_natlocalprefixes(site['id'])
+    response = sdk.get.site_natlocalprefixes(site['id'])
     if not response.cgx_status:
         throw_error("Site NAT Local Prefixes get failed: ", response)
     site_natlocalprefixes = response.cgx_content['items']
@@ -751,7 +752,7 @@ def _pull_config_for_single_site(site_name_id):
         # Get interfaces
         element[INTERFACES_STR] = {}
         dup_name_dict = {}
-        response = cgx_session.get.interfaces(site['id'], element['id'])
+        response = sdk.get.interfaces(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Element interfaces get failed: ", response)
         interfaces = response.cgx_content['items']
@@ -895,7 +896,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get static routes
         element['routing'][STATIC_STR] = []
-        response = cgx_session.get.staticroutes(site['id'], element['id'])
+        response = sdk.get.staticroutes(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Static routes get failed: ", response)
         staticroutes = response.cgx_content['items']
@@ -921,22 +922,22 @@ def _pull_config_for_single_site(site_name_id):
         element['routing']['bgp'] = {}
 
         # grab all queries now so we can update id_name_cache.
-        bgp_global_response = cgx_session.get.bgpconfigs(site['id'], element['id'])
+        bgp_global_response = sdk.get.bgpconfigs(site['id'], element['id'])
         bgp_global_cache, _ = extract_items(bgp_global_response, 'bgp_global_config')
 
-        bgp_peers_response = cgx_session.get.bgppeers(site['id'], element['id'])
+        bgp_peers_response = sdk.get.bgppeers(site['id'], element['id'])
         bgp_peers_cache, _ = extract_items(bgp_peers_response, 'bgp_peer_config')
 
-        routemaps_response = cgx_session.get.routing_routemaps(site['id'], element['id'])
+        routemaps_response = sdk.get.routing_routemaps(site['id'], element['id'])
         routemaps_cache, _ = extract_items(routemaps_response, 'routemap_config')
 
-        aspath_access_lists_response = cgx_session.get.routing_aspathaccesslists(site['id'], element['id'])
+        aspath_access_lists_response = sdk.get.routing_aspathaccesslists(site['id'], element['id'])
         aspath_access_lists_cache, _ = extract_items(aspath_access_lists_response, 'aspath_access_list_config')
 
-        routing_prefixlists_response = cgx_session.get.routing_prefixlists(site['id'], element['id'])
+        routing_prefixlists_response = sdk.get.routing_prefixlists(site['id'], element['id'])
         routing_prefixlists_cache, _ = extract_items(routing_prefixlists_response, 'routing_prefixlists_config')
 
-        ip_community_lists_response = cgx_session.get.routing_ipcommunitylists(site['id'], element['id'])
+        ip_community_lists_response = sdk.get.routing_ipcommunitylists(site['id'], element['id'])
         ip_community_lists_cache, _ = extract_items(ip_community_lists_response, 'ip_community_lists_config')
 
         # add responses to id_name_cache.
@@ -1079,7 +1080,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get syslog
         element[SYSLOG_STR] = []
-        response = cgx_session.get.syslogservers(site['id'], element['id'])
+        response = sdk.get.syslogservers(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Syslog servers get failed: ", response)
         syslogservers = response.cgx_content['items']
@@ -1094,7 +1095,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get NTP configs
         element[NTP_STR] = []
-        response = cgx_session.get.ntp(element['id'])
+        response = sdk.get.ntp(element['id'])
         if not response.cgx_status:
             throw_error("NTP config get failed: ", response)
         ntps = response.cgx_content['items']
@@ -1108,7 +1109,7 @@ def _pull_config_for_single_site(site_name_id):
         # Get element_extension configs
         element[ELEMENT_EXTENSIONS_STR] = {}
         dup_name_dict = {}
-        response = cgx_session.get.element_extensions(site['id'], element['id'])
+        response = sdk.get.element_extensions(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Element Extension config get failed: ", response)
         element_extensions = response.cgx_content['items']
@@ -1128,7 +1129,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get Site Security Zones
         element[ELEMENT_SECURITYZONES_STR] = []
-        response = cgx_session.get.elementsecurityzones(site['id'], element['id'])
+        response = sdk.get.elementsecurityzones(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Element Security Zones get failed: ", response)
         element_securityzones = response.cgx_content['items']
@@ -1176,7 +1177,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get SNMP Traps
         element['snmp'][TRAPS_STR] = []
-        response = cgx_session.get.snmptraps(site['id'], element['id'])
+        response = sdk.get.snmptraps(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("SNMP traps get failed: ", response)
         snmptraps = response.cgx_content['items']
@@ -1191,7 +1192,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get SNMP Agent
         element['snmp'][AGENT_STR] = []
-        response = cgx_session.get.snmpagents(site['id'], element['id'])
+        response = sdk.get.snmpagents(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("SNMP agents get failed: ", response)
         snmpagents = response.cgx_content['items']
@@ -1206,7 +1207,7 @@ def _pull_config_for_single_site(site_name_id):
         delete_if_empty(element, 'snmp')
 
         # Get toolkit
-        response = cgx_session.get.elementaccessconfigs(element['id'])
+        response = sdk.get.elementaccessconfigs(element['id'])
         if not response.cgx_status:
             throw_error("Toolkit get failed: ", response)
         elementaccessconfig = response.cgx_content
@@ -1307,11 +1308,11 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     global REPORT_ID
     global STRIP_VERSIONS
     global FORCE_PARENTS
-    global cgx_session
+    global sdk
 
     # check passed vars
     if passed_sdk is not None:
-        cgx_session = passed_sdk
+        sdk = passed_sdk
     if passed_report_id is not None:
         REPORT_ID = passed_report_id
     if passed_strip_versions is not None:
@@ -1368,8 +1369,8 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
             # write header by default, but skip if asked.
             if not no_header:
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-                if cgx_session.email:
-                    config_yml.write("# by {0}\n".format(cgx_session.email))
+                if sdk.email:
+                    config_yml.write("# by {0}\n".format(sdk.email))
             yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
             config_yml.close()
 
@@ -1418,8 +1419,8 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-                    if cgx_session.email:
-                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                    if sdk.email:
+                        config_yml.write("# by {0}\n".format(sdk.email))
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
@@ -1459,14 +1460,13 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-                    if cgx_session.email:
-                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                    if sdk.email:
+                        config_yml.write("# by {0}\n".format(sdk.email))
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
                 # jd(CONFIG)
                 # jd(id_name_cache)
-
 
     return
 
@@ -1483,7 +1483,7 @@ def go():
     global REPORT_ID
     global STRIP_VERSIONS
     global FORCE_PARENTS
-    global cgx_session
+    global sdk
 
     parser = argparse.ArgumentParser()
     # Allow Controller modification and debug level sets.
@@ -1555,20 +1555,20 @@ def go():
 
     # Build SDK Constructor
     if args['controller'] and args['insecure']:
-        cgx_session = cloudgenix.API(controller=args['controller'], ssl_verify=False)
+        sdk = cloudgenix.API(controller=args['controller'], ssl_verify=False)
     elif args['controller']:
-        cgx_session = cloudgenix.API(controller=args['controller'])
+        sdk = cloudgenix.API(controller=args['controller'])
     elif args['insecure']:
-        cgx_session = cloudgenix.API(ssl_verify=False)
+        sdk = cloudgenix.API(ssl_verify=False)
     else:
-        cgx_session = cloudgenix.API()
+        sdk = cloudgenix.API()
 
     # check for region ignore
     if args['ignore_region']:
-        cgx_session.ignore_region = True
+        sdk.ignore_region = True
 
     if args['debug']:
-        cgx_session.set_debug(int(args['debug']))
+        sdk.set_debug(int(args['debug']))
 
     # login logic. Use cmdline if set, use AUTH_TOKEN next, finally user/pass from config file, then prompt.
     # figure out user
@@ -1589,15 +1589,15 @@ def go():
 
     # check for token
     if CLOUDGENIX_AUTH_TOKEN and not args["email"] and not args["password"]:
-        cgx_session.interactive.use_token(CLOUDGENIX_AUTH_TOKEN)
-        if cgx_session.tenant_id is None:
+        sdk.interactive.use_token(CLOUDGENIX_AUTH_TOKEN)
+        if sdk.tenant_id is None:
             throw_error("AUTH_TOKEN login failure, please check token.")
 
     else:
-        while cgx_session.tenant_id is None:
-            cgx_session.interactive.login(user_email, user_password)
+        while sdk.tenant_id is None:
+            sdk.interactive.login(user_email, user_password)
             # clear after one failed login, force relogin.
-            if not cgx_session.tenant_id:
+            if not sdk.tenant_id:
                 user_email = None
                 user_password = None
 

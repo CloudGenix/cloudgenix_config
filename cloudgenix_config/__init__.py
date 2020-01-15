@@ -299,23 +299,23 @@ def get_default_ifconfig_from_model_string(model_string):
     :return: Dict of default config.
     """
     if model_string == "ion 2000":
-        return yaml.load(ion_2000)
+        return yaml.safe_load(ion_2000)
     elif model_string == "ion 3000":
-        return yaml.load(ion_3000)
+        return yaml.safe_load(ion_3000)
     elif model_string == "ion 7000":
-        return yaml.load(ion_7000)
+        return yaml.safe_load(ion_7000)
     elif model_string == "ion 3102v":
-        return yaml.load(ion_3102v)
+        return yaml.safe_load(ion_3102v)
     elif model_string == "ion 3104v":
-        return yaml.load(ion_3104v)
+        return yaml.safe_load(ion_3104v)
     elif model_string == "ion 3108v":
-        return yaml.load(ion_3108v)
+        return yaml.safe_load(ion_3108v)
     elif model_string == "ion 7108v":
-        return yaml.load(ion_7108v)
+        return yaml.safe_load(ion_7108v)
     elif model_string == "ion 7116v":
-        return yaml.load(ion_7116v)
+        return yaml.safe_load(ion_7116v)
     elif model_string == "ion 7132v":
-        return yaml.load(ion_7132v)
+        return yaml.safe_load(ion_7132v)
     else:
         # model not found, return empty dict
         return {}
@@ -326,7 +326,7 @@ def get_member_default_config():
     Return default ION Interface config to use when being set as a bypasspair or pppoe or subif root interface.
     :return: Dict of default config.
     """
-    return yaml.load(member_port)
+    return yaml.safe_load(member_port)
 
 
 def name_lookup_in_template(template, key, lookup_dict):
