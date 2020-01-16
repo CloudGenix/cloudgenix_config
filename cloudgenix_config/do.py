@@ -1764,13 +1764,12 @@ def create_waninterface(config_waninterface, waninterfaces_n2id, site_id):
             waninterface_name = config_waninterface.get('name')
             # conflict - network_id in both and no disambiguation metadata found.
             network_id_candidate = None
-            error_detail_object = [wannetworks_publicwan_n2id.get(config_network_id),
-                                   wannetworks_privatewan_n2id.get(config_network_id)]
+            error_detail_object = [wn for wn in wannetworks_cache if wn.get('name') == config_network_id]
             throw_error("WAN Interface {0} 'network_id' name matched both a 'publicwan' network and 'privatewan' "
                         "network, and no 'network_type' value present to let do_site determine which one should be "
                         "used. Both matching networks printed below. To resolve, select one of these networks, and take"
                         "the 'type' value (publicwan/privatewan) and add that value to the WAN Interface configuration"
-                        "under a 'network_type' key.", error_detail_object)
+                        "under a 'network_type' key.".format(waninterface_name), error_detail_object)
         elif config_network_id in wannetworks_publicwan_n2id:
             # matches public network
             network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id)
@@ -1844,13 +1843,12 @@ def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id
             waninterface_name = config_waninterface.get('name')
             # conflict - network_id in both and no disambiguation metadata found.
             network_id_candidate = None
-            error_detail_object = [wannetworks_publicwan_n2id.get(config_network_id),
-                                   wannetworks_privatewan_n2id.get(config_network_id)]
+            error_detail_object = [wn for wn in wannetworks_cache if wn.get('name') == config_network_id]
             throw_error("WAN Interface {0} 'network_id' name matched both a 'publicwan' network and 'privatewan' "
                         "network, and no 'network_type' value present to let do_site determine which one should be "
                         "used. Both matching networks printed below. To resolve, select one of these networks, and take"
                         "the 'type' value (publicwan/privatewan) and add that value to the WAN Interface configuration"
-                        "under a 'network_type' key.", error_detail_object)
+                        "under a 'network_type' key.".format(waninterface_name), error_detail_object)
         elif config_network_id in wannetworks_publicwan_n2id:
             # matches public network
             network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id)
