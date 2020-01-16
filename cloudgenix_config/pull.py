@@ -178,6 +178,7 @@ natzones_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
+wannetworks_id2type = {}
 dup_name_dict_sites = {}
 
 # Define constructor globally for now.
@@ -268,6 +269,7 @@ def update_global_cache():
     global natzones_cache
 
     global id_name_cache
+    global wannetworks_id2type
     global sites_n2id
 
     # sites
@@ -416,6 +418,10 @@ def update_global_cache():
 
     # NAT zones name
     id_name_cache.update(build_lookup_dict(natzones_cache, key_val='id', value_val='name'))
+
+    # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
+    # the same name at the SWI level.
+    wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
 
     return
 
@@ -579,6 +585,7 @@ def _pull_config_for_single_site(site_name_id):
         waninterface_template = copy.deepcopy(waninterface)
         name_lookup_in_template(waninterface_template, 'label_id', id_name_cache)
         name_lookup_in_template(waninterface_template, 'network_id', id_name_cache)
+
         # if name is not set, set to "Circuit to <WAN Network Name>"
         ui_normalized_name = waninterface.get('name')
         if not ui_normalized_name:
@@ -587,14 +594,25 @@ def _pull_config_for_single_site(site_name_id):
             throw_warning('Site WAN Interface is missing a name. Please correct this in UI. '
                           'Setting to "{0}" in YAML file, but this may cause issues if configuration is re-applied '
                           'to site.'.format(ui_normalized_name), waninterface)
+
+        # create a new construct, 'network_type'. This will be used for disambiguation when
+        # doing name->ID translation when reapplying this configuration, and will be removed before apply.
+        network_id = waninterface.get('network_id')
+        if network_id:
+            # look up type by network id
+            wannetwork_type = wannetworks_id2type.get(network_id)
+            if wannetwork_type:
+                # was able to get the type string (publicwan, privatewan), use it in template.
+                waninterface_template['network_type'] = wannetwork_type
+
         strip_meta_attributes(waninterface_template)
         # check name for duplicates
-        checked_wannetwork_name = check_name(ui_normalized_name, dup_name_dict, 'Waninterface',
-                                             error_site_txt="{0}({1})".format(error_site_name,
-                                                                              site_id))
+        checked_waninterface_name = check_name(ui_normalized_name, dup_name_dict, 'Waninterface',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
         # update id name cache in case name changed.
-        id_name_cache[waninterface['id']] = checked_wannetwork_name
-        site[WANINTERFACES_STR][checked_wannetwork_name] = waninterface_template
+        id_name_cache[waninterface['id']] = checked_waninterface_name
+        site[WANINTERFACES_STR][checked_waninterface_name] = waninterface_template
     delete_if_empty(site, WANINTERFACES_STR)
 
     # Get LAN Networks

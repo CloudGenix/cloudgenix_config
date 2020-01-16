@@ -214,7 +214,8 @@ securityzones_n2id = {}
 network_policysetstack_n2id = {}
 priority_policysetstack_n2id = {}
 waninterfacelabels_n2id = {}
-wannetworks_n2id = {}
+wannetworks_publicwan_n2id = {}
+wannetworks_privatewan_n2id = {}
 wanoverlays_n2id = {}
 servicebindingmaps_n2id = {}
 serviceendpoints_n2id = {}
@@ -395,7 +396,8 @@ def update_global_cache():
     global network_policysetstack_n2id
     global priority_policysetstack_n2id
     global waninterfacelabels_n2id
-    global wannetworks_n2id
+    global wannetworks_publicwan_n2id
+    global wannetworks_privatewan_n2id
     global wanoverlays_n2id
     global servicebindingmaps_n2id
     global serviceendpoints_n2id
@@ -522,8 +524,11 @@ def update_global_cache():
     # waninterfacelabels name
     waninterfacelabels_n2id = build_lookup_dict(waninterfacelabels_cache)
 
-    # wannetworks name
-    wannetworks_n2id = build_lookup_dict(wannetworks_cache)
+    # wannetworks public name
+    wannetworks_publicwan_n2id = build_lookup_dict([wn for wn in wannetworks_cache if wn.get('type') == 'publicwan'])
+
+    # wannetworks public name
+    wannetworks_privatewan_n2id = build_lookup_dict([wn for wn in wannetworks_cache if wn.get('type') == 'privatewan'])
 
     # wannetworks name
     wanoverlays_n2id = build_lookup_dict(wanoverlays_cache)
@@ -1740,8 +1745,48 @@ def create_waninterface(config_waninterface, waninterfaces_n2id, site_id):
     waninterface_template = copy.deepcopy(config_waninterface)
 
     # perform name -> ID lookups
-    name_lookup_in_template(waninterface_template, 'network_id', wannetworks_n2id)
     name_lookup_in_template(waninterface_template, 'label_id', waninterfacelabels_n2id)
+
+    # perform network_id name -> ID lookups. There is a hint value if present that will let us disambiguate
+    # PublicWAN names vs PrivateWAN names. If present, use and remove it.
+    config_network_type = config_waninterface.get('network_type')
+    config_network_id = config_waninterface.get('network_id')
+    if config_network_type and str(config_network_type).lower() in ['publicwan', 'privatewan']:
+        # pub/priv hint is there, and usable.
+        if str(config_network_type).lower() == 'publicwan':
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id, config_network_id)
+        else:  # privatewan only other option. add more elif if other state in future.
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id, config_network_id)
+
+    else:
+        # no network_type metadata. Check for conflicts first.
+        if config_network_id in wannetworks_publicwan_n2id and config_network_id in wannetworks_privatewan_n2id:
+            waninterface_name = config_waninterface.get('name')
+            # conflict - network_id in both and no disambiguation metadata found.
+            network_id_candidate = None
+            error_detail_object = [wannetworks_publicwan_n2id.get(config_network_id),
+                                   wannetworks_privatewan_n2id.get(config_network_id)]
+            throw_error("WAN Interface {0} 'network_id' name matched both a 'publicwan' network and 'privatewan' "
+                        "network, and no 'network_type' value present to let do_site determine which one should be "
+                        "used. Both matching networks printed below. To resolve, select one of these networks, and take"
+                        "the 'type' value (publicwan/privatewan) and add that value to the WAN Interface configuration"
+                        "under a 'network_type' key.", error_detail_object)
+        elif config_network_id in wannetworks_publicwan_n2id:
+            # matches public network
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id)
+        elif config_network_id in wannetworks_privatewan_n2id:
+            # matches private network
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id)
+        else:
+            # doesnt match anything, use value as entered.
+            network_id_candidate = config_network_id
+
+    # Finally, update the template. It should either be the appropriate ID, or original value if no ID match found.
+    waninterface_template['network_id'] = network_id_candidate
+
+    # No matter what, remove 'network_type' from template if it exists, as it's not a valid value for API (just used by
+    # pull_site and do_site as metadata.
+    waninterface_template.pop('network_type', None)
 
     local_debug("WANINTERFACE TEMPLATE: " + str(json.dumps(waninterface_template, indent=4)))
 
@@ -1780,8 +1825,48 @@ def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id
     waninterface_template = copy.deepcopy(config_waninterface)
 
     # perform name -> ID lookups
-    name_lookup_in_template(waninterface_template, 'network_id', wannetworks_n2id)
     name_lookup_in_template(waninterface_template, 'label_id', waninterfacelabels_n2id)
+
+    # perform network_id name -> ID lookups. There is a hint value if present that will let us disambiguate
+    # PublicWAN names vs PrivateWAN names. If present, use and remove it.
+    config_network_type = config_waninterface.get('network_type')
+    config_network_id = config_waninterface.get('network_id')
+    if config_network_type and str(config_network_type).lower() in ['publicwan', 'privatewan']:
+        # pub/priv hint is there, and usable.
+        if str(config_network_type).lower() == 'publicwan':
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id, config_network_id)
+        else:  # privatewan only other option. add more elif if other state in future.
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id, config_network_id)
+
+    else:
+        # no network_type metadata. Check for conflicts first.
+        if config_network_id in wannetworks_publicwan_n2id and config_network_id in wannetworks_privatewan_n2id:
+            waninterface_name = config_waninterface.get('name')
+            # conflict - network_id in both and no disambiguation metadata found.
+            network_id_candidate = None
+            error_detail_object = [wannetworks_publicwan_n2id.get(config_network_id),
+                                   wannetworks_privatewan_n2id.get(config_network_id)]
+            throw_error("WAN Interface {0} 'network_id' name matched both a 'publicwan' network and 'privatewan' "
+                        "network, and no 'network_type' value present to let do_site determine which one should be "
+                        "used. Both matching networks printed below. To resolve, select one of these networks, and take"
+                        "the 'type' value (publicwan/privatewan) and add that value to the WAN Interface configuration"
+                        "under a 'network_type' key.", error_detail_object)
+        elif config_network_id in wannetworks_publicwan_n2id:
+            # matches public network
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id)
+        elif config_network_id in wannetworks_privatewan_n2id:
+            # matches private network
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id)
+        else:
+            # doesnt match anything, use value as entered.
+            network_id_candidate = config_network_id
+
+    # Finally, update the template. It should either be the appropriate ID, or original value if no ID match found.
+    waninterface_template['network_id'] = network_id_candidate
+
+    # No matter what, remove 'network_type' from template if it exists, as it's not a valid value for API (just used by
+    # pull_site and do_site as metadata.
+    waninterface_template.pop('network_type', None)
 
     local_debug("WANINTERFACE TEMPLATE: " + str(json.dumps(waninterface_template, indent=4)))
 
