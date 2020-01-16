@@ -127,21 +127,23 @@ DEFAULT_WAIT_INTERVAL = 10  # seconds
 
 # Const structs
 element_put_items = [
-    "cluster_member_id",
-    "cluster_insertion_mode",
-    "description",
-    "site_id",
-    "_schema",
     "_etag",
-    "sw_obj",
+    "_schema",
+    "cluster_insertion_mode",
+    "cluster_member_id",
+    "description",
     "id",
-    "name",
     "l3_direct_private_wan_forwarding",
     "l3_lan_forwarding",
+    "name",
+    "nat_policysetstack_id",
     "network_policysetstack_id",
     "priority_policysetstack_id",
+    "site_id",
     "spoke_ha_config",
-    "tags"
+    "sw_obj",
+    "tags",
+    "vpn_to_vpn_forwarding"
 ]
 
 createable_interface_types = [
@@ -813,7 +815,7 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
     if not serial or not machine_id:
         throw_error("unable to get machine serial or ID:", machine)
 
-    output_message(" Checking {0}..".format(serial))
+    output_message(" Checking Machine {0}..".format(serial))
     claimed = False
     claim_pending = False
 
@@ -850,11 +852,11 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
                     connected = machines_describe_response.cgx_content.get('connected', False)
 
                 if time_elapsed > wait_if_offline:
-                    throw_error("ION {0} Offline for longer than {1} seconds. Exiting."
+                    throw_error("Machine {0} Offline for longer than {1} seconds. Exiting."
                                 "".format(serial, wait_if_offline))
 
                 if not connected:
-                    output_message("  ION {0} Offline, waited so far {1} seconds out of {2}."
+                    output_message("  Machine {0} Offline, waited so far {1} seconds out of {2}."
                                    "".format(serial, time_elapsed, wait_if_offline))
                     time.sleep(wait_interval)
                     time_elapsed += wait_interval
@@ -869,7 +871,7 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
             machines_claim_response = sdk.post.tenant_machine_operations(machine_id, machines_claim)
 
             if not machines_claim_response.cgx_status:
-                throw_error("Machine '{0}' CLAIM failed.", machines_claim_response.cgx_content)
+                throw_error("Machine '{0}' CLAIM failed.".format(serial), machines_claim_response.cgx_content)
         else:
             output_message("  Claim already in process ({0})..".format(machine_state))
         # wait and make sure that the ION moves to "claimed" state.
@@ -888,11 +890,11 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
 
             if time_elapsed > wait_verify_success:
                 # failed waiting.
-                throw_error("ION {0} Claim took longer than {1} seconds. Exiting."
+                throw_error("Machine {0} Claim took longer than {1} seconds. Exiting."
                             "".format(serial, wait_verify_success))
 
             if not claimed:
-                output_message("  ION {0} still claiming, waited so far {1} seconds out of {2}."
+                output_message("  Machine {0} still claiming, waited so far {1} seconds out of {2}."
                                "".format(serial, time_elapsed, wait_verify_success))
                 time.sleep(wait_interval)
                 time_elapsed += wait_interval
@@ -904,21 +906,29 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
 
 
 def wait_for_element_state(matching_element, state_list=None, wait_verify_success=DEFAULT_WAIT_MAX_TIME,
-                           wait_interval=DEFAULT_WAIT_INTERVAL):
+                           wait_interval=DEFAULT_WAIT_INTERVAL, declaim=False):
     """
     Wait for Element to reach a specific state or list of states.
     :param matching_element: Element API response for element to wait for
     :param state_list: Optional - List of state strings, default ['ready', 'bound']
     :param wait_verify_success: Optional - Time to wait for system to reach specific state (in seconds)
     :param wait_interval: Optinal - Interval to check API for updated statuses during wait.
+    :param declaim: Bool, if waiting for an element that may be declaiming or deleted (element may not exist anymore.)
     :return: Element API final response
     """
     if not state_list:
-        state_list = ['ready', 'bound']
+        if declaim:
+            state_list = ['ready', 'declaim_in_progress']
+        else:
+            state_list = ['ready', 'bound']
 
     # check status
     element = matching_element
     element_id = element.get('id')
+    element_serial = element.get('serial_number')
+    element_name = element.get('name')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
     final_element = matching_element
 
     # ensure element is "state": "ready"
@@ -927,19 +937,33 @@ def wait_for_element_state(matching_element, state_list=None, wait_verify_succes
     while not ready:
         elem_resp = sdk.get.elements(element_id)
         if not elem_resp.cgx_status:
-            throw_error("Could not query element {0}.".format(element_id), elem_resp.cgx_status)
+            # we could be waiting on a declaim. When declaim finishes, element will be non-existent, and
+            # this query will fail. Return if so.
+            if declaim:
+                # declaim is finished. return empty
+                return {}
+            else:
+                # not a declaim, there is a problem.
+                throw_error("Could not query element {0}({1}).".format(element_id,
+                                                                       element_serial),
+                            elem_resp)
+
         state = str(elem_resp.cgx_content.get('state', ''))
 
         if time_elapsed > wait_verify_success:
             # failed waiting.
             throw_error("Element {0} state transition took longer than {1} seconds. Exiting."
-                        "".format(element_id, wait_verify_success))
+                        "".format(element_descriptive_text, wait_verify_success))
 
         if state not in state_list:
             # element not ready, wait.
             output_message("  Element {0} not yet in requested state(s): {1} (is {2}). "
-                           "Waited so far {3} seconds out of {4}.".format(element_id, ", ".join(state_list), state,
-                                                                          time_elapsed, wait_verify_success))
+                           "Waited so far {3} seconds out of {4}."
+                           "".format(element_descriptive_text,
+                                     ", ".join(state_list),
+                                     state,
+                                     time_elapsed,
+                                     wait_verify_success))
             time.sleep(wait_interval)
             time_elapsed += wait_interval
         else:
@@ -966,6 +990,10 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     # check status
     element = matching_element
     element_id = element.get('id')
+    element_name = element.get('name')
+    element_serial = element.get('serial_number')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
 
     # get config info.
     elem_config_version = config_element.get('software_version', '')
@@ -997,7 +1025,8 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     # check current image
     software_state_resp = sdk.get.software_status(element_id)
     if not software_state_resp.cgx_status:
-        throw_error("Could not query element software status {0}.".format(element_id), software_state_resp)
+        throw_error("Could not query element software status of Element {0}."
+                    "".format(element_descriptive_text), software_state_resp)
     backup_active_name = None
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
@@ -1067,7 +1096,8 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
         while not ready:
             software_state_resp = sdk.get.software_status(element_id)
             if not software_state_resp.cgx_status:
-                throw_error("Could not query element software status {0}.".format(element_id), software_state_resp)
+                throw_error("Could not query element software status for Element {0}."
+                            "".format(element_descriptive_text), software_state_resp)
 
             # Get the list of software statuses
             software_status_list = software_state_resp.cgx_content.get('items', [])
@@ -1089,7 +1119,7 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
             if time_elapsed > wait_upgrade_timeout:
                 # failed waiting.
                 throw_error("Element {0} state transition took longer than {1} seconds. Exiting."
-                            "".format(element_id, wait_upgrade_timeout))
+                            "".format(element_descriptive_text, wait_upgrade_timeout))
 
             if active_image_id != str(image_id):
                 # element not ready, wait.
@@ -1100,11 +1130,12 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
                         active_image_id if active_image_id else "Unknown"
 
                 output_message("  Element {0} not yet at requested image: {1} (is {2}). "
-                               "Waited so far {3} seconds out of {4}.".format(element_id,
-                                                                              images_id2n.get(upgrade_image_id,
-                                                                                              upgrade_image_id),
-                                                                              active_name if active_name else "Unknown",
-                                                                              time_elapsed, wait_upgrade_timeout))
+                               "Waited so far {3} seconds out of {4}."
+                               "".format(element_descriptive_text,
+                                         images_id2n.get(upgrade_image_id,
+                                                         upgrade_image_id),
+                                         active_name if active_name else "Unknown",
+                                         time_elapsed, wait_upgrade_timeout))
                 time.sleep(wait_interval)
                 time_elapsed += wait_interval
             else:
@@ -1130,15 +1161,18 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     # Change added after HA config was failing due to etag mismatch (Issue#27)
 
     element_id = matching_element.get('id')
+    element_serial = matching_element.get('serial_number')
     elem_get_resp = sdk.get.elements(element_id=element_id)
     if not elem_get_resp.cgx_status:
-        throw_error("Element Get {0} failed: ".format(element_id), elem_get_resp)
+        throw_error("Element Get {0} failed: ".format(element_serial if element_serial else element_id), elem_get_resp)
 
     matching_element = elem_get_resp.cgx_content
     element = matching_element
     element_serial = element.get('serial_number')
     element_id = element.get('id')
-    element_name_or_id = element.get('name', element_id)
+    element_name = element.get('name')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
     element_site_id = element.get("site_id")
 
     # when here, element should always be in assigned state.
@@ -1193,13 +1227,13 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
     if not force_update and elem_template == element_change_check:
         # no change in config, pass.
-        output_message("   No Change for Spoke HA in Element {0}.".format(element_name_or_id))
+        output_message("   No Change for Spoke HA in Element {0}.".format(element_descriptive_text))
         return
 
     if debuglevel >= 3:
         local_debug("ELEMENT SPOKEHA DIFF: {0}".format(find_diff(element_change_check, elem_template)))
 
-    output_message("   Updating Spoke HA for Element {0}.".format(element_name_or_id))
+    output_message("   Updating Spoke HA for Element {0}.".format(element_descriptive_text))
 
     # clean up element template.
     for key in copy.deepcopy(elem_template).keys():
@@ -1214,7 +1248,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     elem_update_resp = sdk.put.elements(element_id, elem_template)
 
     if not elem_update_resp.cgx_status:
-        throw_error("Element Spoke HA {0} Update failed: ".format(element_id), elem_update_resp)
+        throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text), elem_update_resp)
 
     return
 
@@ -1231,7 +1265,10 @@ def assign_modify_element(matching_element, site_id, config_element):
     element = matching_element
     element_serial = element.get('serial_number')
     element_id = element.get('id')
+    element_name = element.get('name')
     element_site_id = element.get("site_id")
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
 
     # 5.0.1 element_site_id is set to 1 instead of None when unassigned.
     if element_site_id and element_site_id not in ['1', 1]:
@@ -1273,13 +1310,13 @@ def assign_modify_element(matching_element, site_id, config_element):
             if not force_update and elem_template == element_change_check:
                 # no change in config, pass.
                 element_name = matching_element.get('name')
-                output_message("  No Change for Element {0}.".format(element_name))
+                output_message("  No Change for Element {0}.".format(element_descriptive_text))
                 return
 
             if debuglevel >= 3:
                 local_debug("ELEMENT DIFF: {0}".format(find_diff(element_change_check, elem_template)))
 
-            output_message("  Updating Element {0}.".format(element_id))
+            output_message("  Updating Element {0}.".format(element_descriptive_text))
 
             # clean up element template.
             for key in copy.deepcopy(elem_template).keys():
@@ -1294,7 +1331,8 @@ def assign_modify_element(matching_element, site_id, config_element):
             elem_update_resp = sdk.put.elements(element_id, elem_template)
 
             if not elem_update_resp.cgx_status:
-                throw_error("Element {0} Update failed: ".format(element_id), elem_update_resp)
+                throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                            elem_update_resp)
 
             return
 
@@ -1303,13 +1341,13 @@ def assign_modify_element(matching_element, site_id, config_element):
             # build sites ID to name map from cache.
             sites_id2n = build_lookup_dict(sites_cache, key_val='id', value_val='name')
             throw_error("Element {0}({1}) is already assigned to site {2}. It needs to be in 'Claimed' state before"
-                        "assigning to a new site.".format(element_id,
+                        "assigning to a new site.".format(element_descriptive_text,
                                                           element_serial,
                                                           sites_id2n.get(element_site_id, element_site_id)))
 
     else:
         # Element needs assigned.
-        output_message("  Assigning Element {0}.".format(element_id))
+        output_message("  Assigning Element {0}.".format(element_descriptive_text))
         # check status
         element_id = element.get('id')
 
@@ -1318,6 +1356,8 @@ def assign_modify_element(matching_element, site_id, config_element):
 
         # update from the config
         elem_template.update(config_element)
+
+        local_debug("ELEM_TEMPLATE_PRE_KEYPURGE:" + str(json.dumps(elem_template, indent=4)))
 
         # clean up element template.
         for key in copy.deepcopy(elem_template).keys():
@@ -1336,16 +1376,18 @@ def assign_modify_element(matching_element, site_id, config_element):
         elem_update_resp = sdk.put.elements(element_id, elem_template)
 
         if not elem_update_resp.cgx_status:
-            throw_error("Element {0} Assign failed: ".format(element_id), elem_update_resp)
+            throw_error("Element {0} Assign failed: ".format(element_descriptive_text),
+                        elem_update_resp)
 
     return
 
 
-def unbind_elements(element_id_list, site_id):
+def unbind_elements(element_id_list, site_id, declaim=False):
     """
-    Unbind element(s) from a site
+    Unbind (unassign) element(s) from a site
     :param element_id_list: List of element IDs to unbind.
     :param site_id: Site ID to unbind element from.
+    :param declaim: Bool, if true do an declaim (put back in inventory) after unassign.
     :return:
     """
     # get the element records from cache that match the element IDs we want to unbind from the site.
@@ -1355,17 +1397,29 @@ def unbind_elements(element_id_list, site_id):
         element_item_id = element_item.get('id')
         element_item_name = element_item.get('name')
         element_item_site_id = element_item.get('site_id')
+        element_item_serial_number = element_item.get('serial_number')
+        element_item_descriptive_text = element_item_name if element_item_name else \
+            "Serial: {0}".format(element_item_serial_number) if element_item_serial_number else \
+            "ID: {0}".format(element_item_id)
 
         # select this element to destroy, but double verify it is assigned to the site.
         if element_item_site_id == site_id:
-            output_message("Un-assigning element {0}({1}) bound to {2}.".format(element_item_name, element_item_id,
-                                                                                site_id))
+            if declaim:
+                output_message("Un-assigning and de-claiming Element {0}({1}) bound to {2}."
+                               "".format(element_item_descriptive_text,
+                                         element_item_serial_number if element_item_serial_number else element_item_id,
+                                         site_id))
+            else:
+                output_message("Un-assigning Element {0}({1}) bound to {2}."
+                               "".format(element_item_descriptive_text,
+                                         element_item_serial_number if element_item_serial_number else element_item_id,
+                                         site_id))
 
             # Remove LAN/WAN labels from intefaces.
             intf_resp = sdk.get.interfaces(site_id, element_item_id)
 
             if not intf_resp.cgx_status:
-                throw_error("Could not get list of element {0} interfaces: ".format(element_item_name),
+                throw_error("Could not get list of Element {0} interfaces: ".format(element_item_descriptive_text),
                             intf_resp)
 
             intf_list = intf_resp.cgx_content.get('items', [])
@@ -1460,6 +1514,8 @@ def unbind_elements(element_id_list, site_id):
             # update the template with the refreshed ETAG.
             elem_template = dict(element_resp.cgx_content)
 
+            local_debug("ELEM_TEMPLATE_PRE_KEYPURGE:" + str(json.dumps(elem_template, indent=4)))
+
             # clean up element template.
             for key in copy.deepcopy(elem_template).keys():
                 if key not in element_put_items:
@@ -1469,13 +1525,30 @@ def unbind_elements(element_id_list, site_id):
             elem_template['sw_obj'] = None
             elem_template['site_id'] = 1
 
+            local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
+
             # Wipe them out. All of them..
             elem_resp = sdk.put.elements(element_item_id, elem_template)
             if not elem_resp.cgx_status:
-                throw_error("Could not unbind element {0}: ".format(element_item_name), elem_resp)
+                if declaim:
+                    # element may be stuck offline, and we are going to do a declaim.
+                    output_message(" Could not unbind Element {0}, proceeding to declaim. "
+                                   "".format(element_item_descriptive_text))
+                else:
+                    throw_error("Could not unbind Element {0}: ".format(element_item_descriptive_text), elem_resp)
+            if declaim:
+                # Declaim is set. Fire a declaim at this point as well. (really wipe this guy out.)
+                declaim_data = {
+                    "action": "declaim",
+                    "parameters": None
+                }
+                declaim_resp = sdk.post.tenant_element_operations(element_item_id, declaim_data)
+                if not declaim_resp.cgx_status:
+                    throw_error("Could not declaim #lement {0}: ".format(element_item_descriptive_text), declaim_resp)
 
         else:
-            throw_warning("Element {0}({1}) not bound to {2}.".format(element_item_name, element_item_id,
+            throw_warning("Element {0}({1}) not bound to {2}.".format(element_item_descriptive_text,
+                                                                      element_item_serial_number,
                                                                       site_id))
 
     # return the unbound element object entries.
@@ -5871,7 +5944,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # deal with claiming elements
                 while config_serial != matching_element.get('serial_number'):
-                    output_message(" Serial {0} is not CLAIMED, attempting to claim..".format(config_serial))
+                    output_message(" Machine {0} is not CLAIMED, attempting to claim..".format(config_serial))
 
                     claim_element(matching_machine, wait_if_offline=timeout_offline, wait_verify_success=timeout_claim,
                                   wait_interval=interval_timeout)
@@ -7275,8 +7348,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # BEGIN SITE CLEANUP.
 
             # unbind any remaining elements.
-            unbind_elements(leftover_elements, site_id)
-            # add declaim for failed unbind in future.
+            unbind_elements(leftover_elements, site_id, declaim=declaim)
 
             # delete remaining spokecluster configs
             # build a spokecluster_id to name mapping.
@@ -7354,7 +7426,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             site_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == del_site_id]
 
             # unbind the elements
-            unbound_elements = unbind_elements(site_elements, del_site_id)
+            unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
             # -- End Elements
 
             # -- Start WAN Interfaces
@@ -7374,10 +7446,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             config_site['admin_state'] = 'disabled'
             set_site_state(config_site, del_site_id)
 
-            # wait for element unbinds to complete
+            # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:
-                wait_for_element_state(del_element, ['ready'], wait_verify_success=timeout_state,
-                                       wait_interval=interval_timeout)
+                wait_for_element_state(del_element, ['ready', 'declaim_in_progress'], wait_verify_success=timeout_state,
+                                       wait_interval=interval_timeout, declaim=declaim)
 
             # Delete site
             output_message("Deleting Site {0}..".format(del_site_name))
@@ -7435,6 +7507,10 @@ def go():
                                                            "this script. This is a safety switch to prevent the script"
                                                            " from inadvertently modifying a large number of sites.",
                               default=1, type=int)
+    config_group.add_argument("--declaim", help="If a device/element needs to be unassigned in an operation,"
+                                                "automatically de-claim it as well. This is REQUIRED if"
+                                                "devices/elements are OFFLINE that need to be removed.",
+                              default=False, action="store_true")
     config_group.add_argument("--destroy", help="DESTROY site and all connected items (WAN Interfaces, LAN Networks).",
                               default=False, action="store_true")
 
@@ -7468,6 +7544,7 @@ def go():
     args = vars(parser.parse_args())
 
     destroy = args['destroy']
+    declaim = args['declaim']
     config_file = args['Config File'][0]
 
     # load config file
@@ -7569,7 +7646,7 @@ def go():
                 user_password = None
     # Do the real work
     try:
-        do_site(loaded_config, destroy)
+        do_site(loaded_config, destroy, declaim=declaim)
     except CloudGenixConfigError:
         # Exit silently if error hit.
         sys.exit(1)

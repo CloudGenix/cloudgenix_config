@@ -16,7 +16,7 @@ configuration is designed to be run on file change, to maintain configuration st
 * Active CloudGenix Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.1.1b1 - <https://github.com/CloudGenix/sdk-python>
+    * CloudGenix Python SDK >= 5.2.1b1 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
@@ -65,7 +65,7 @@ MIT
  
 ### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Requires 5.1.1b1 SDK
+ - Requires 5.2.1b1 SDK
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
      - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
@@ -74,12 +74,15 @@ MIT
  - Deletion of sites using `do_site.py` DESTROYS all objects under the Site. This operation is done by running `do_site.py` with the `--destroy` option.
    - Delete WILL happily auto-destroy EVERY SITE in the referenced YAML config file (Even FULLY-CONFIGURED SITES). Use with caution.
    - Site safety factor also applies to `--destroy` operations.
+ - If Element is permanently offline or in other broken state, it will fail to be removed from a site. To force-removal, 
+ use the `--declaim` option. This will unassign AND declaim (AKA "put back in inventory") the permanently offline or broken device. 
+ It will also force revocation of all credentials and certificates for that device.
  - Element Extensions with specific PATH IDs are not currently templatable across multiple sites using this script.
 
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.2.0** | **b1** | CloudGenix SDK 5.2.1b1 support|
+| **1.2.0** | **b1** | Added CloudGenix SDK 5.2.1b1 support, removed SDK 5.1.1b1 support|
 | **1.1.0** | **b2** | Fix for Github issues #25, #26, #27, #28, #30|
 | **1.1.0** | **b1** | CloudGenix SDK 5.1.1b1 support|
 | **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|
