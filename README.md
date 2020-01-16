@@ -1,3 +1,11 @@
+
+[![CloudGenix Logo](https://raw.githubusercontent.com/CloudGenix/sdk-python/master/docs/CloudGenix_Logo.png)](https://www.cloudgenix.com)
+
+[![image](https://img.shields.io/pypi/v/cloudgenix_config.svg)](https://pypi.org/project/cloudgenix_config/)
+[![image](https://img.shields.io/pypi/pyversions/cloudgenix_config.svg)](https://pypi.org/project/cloudgenix_config/)
+[![Downloads](https://pepy.tech/badge/cloudgenix-config)](https://pepy.tech/project/cloudgenix-config)
+[![License: MIT](https://img.shields.io/pypi/l/cloudgenix_config.svg?color=brightgreen)](https://pypi.org/project/cloudgenix_config/)
+[![GitHub issues open](https://img.shields.io/github/issues/CloudGenix/cloudgenix_config.svg)](https://github.com/CloudGenix/cloudgenix_config/issues)
 # CloudGenix Config (Preview)
 Configuration exporting and Continuous Integration (CI) capable configuration importing for the CloudGenix Cloud Controller.
 
