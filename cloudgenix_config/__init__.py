@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.1.0b1
+**Version:** 1.2.0b1
 
 **Author:** CloudGenix
 
@@ -49,7 +49,8 @@ else:
 
 
 # Version for reference
-version = "1.1.0b1"
+__version__ = "1.2.0b1"
+version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
 __email__ = "developers@cloudgenix.com"
@@ -298,23 +299,23 @@ def get_default_ifconfig_from_model_string(model_string):
     :return: Dict of default config.
     """
     if model_string == "ion 2000":
-        return yaml.load(ion_2000)
+        return yaml.safe_load(ion_2000)
     elif model_string == "ion 3000":
-        return yaml.load(ion_3000)
+        return yaml.safe_load(ion_3000)
     elif model_string == "ion 7000":
-        return yaml.load(ion_7000)
+        return yaml.safe_load(ion_7000)
     elif model_string == "ion 3102v":
-        return yaml.load(ion_3102v)
+        return yaml.safe_load(ion_3102v)
     elif model_string == "ion 3104v":
-        return yaml.load(ion_3104v)
+        return yaml.safe_load(ion_3104v)
     elif model_string == "ion 3108v":
-        return yaml.load(ion_3108v)
+        return yaml.safe_load(ion_3108v)
     elif model_string == "ion 7108v":
-        return yaml.load(ion_7108v)
+        return yaml.safe_load(ion_7108v)
     elif model_string == "ion 7116v":
-        return yaml.load(ion_7116v)
+        return yaml.safe_load(ion_7116v)
     elif model_string == "ion 7132v":
-        return yaml.load(ion_7132v)
+        return yaml.safe_load(ion_7132v)
     else:
         # model not found, return empty dict
         return {}
@@ -325,7 +326,7 @@ def get_member_default_config():
     Return default ION Interface config to use when being set as a bypasspair or pppoe or subif root interface.
     :return: Dict of default config.
     """
-    return yaml.load(member_port)
+    return yaml.safe_load(member_port)
 
 
 def name_lookup_in_template(template, key, lookup_dict):
@@ -542,12 +543,13 @@ def find_diff(d1, d2, path=""):
     return return_str
 
 
-def check_name(name, dup_check_dict, function_text):
+def check_name(name, dup_check_dict, function_text, error_site_txt=None):
     """
     Look up name in template, if has been used before, append count to it.
     :param name: Name to check.
     :param dup_check_dict: Dict with previously looked up values as keys, counts as items.
     :param function_text: Text to display for function in error.
+    :param error_site_txt: Optional text with site name for error message.
     :return: The final name after modification.
     """
 
@@ -560,8 +562,13 @@ def check_name(name, dup_check_dict, function_text):
         fixed_name = "{0} {1}".format(function_text, name_count)
         # update dup check dict
         dup_check_dict[text_type(name)] = name_count
-        throw_warning("No name on {0}, defaulting to '{0} {1}'".format(function_text,
-                                                                       name_count))
+        if not error_site_txt:
+            throw_warning("No name on {0}, defaulting to '{0} {1}'".format(function_text,
+                                                                           name_count))
+        else:
+            throw_warning("No name on {0}@{2}, defaulting to '{0} {1}'".format(function_text,
+                                                                               name_count,
+                                                                               error_site_txt))
         return fixed_name
 
     else:
@@ -575,9 +582,15 @@ def check_name(name, dup_check_dict, function_text):
             fixed_name = "{0} {1}".format(name, name_count)
             # update dup check dict
             dup_check_dict[text_type(name)] = name_count
-            throw_warning("Duplicate name {0} on a {1}, renaming to '{0} {2}'".format(name,
-                                                                                      function_text,
-                                                                                      name_count))
+            if not error_site_txt:
+                throw_warning("Duplicate name {0} on a {1}, renaming to '{0} {2}'".format(name,
+                                                                                          function_text,
+                                                                                          name_count))
+            else:
+                throw_warning("Duplicate name {0} on a {1}@{3}, renaming to '{0} {2}'".format(name,
+                                                                                              function_text,
+                                                                                              name_count,
+                                                                                              error_site_txt))
             return fixed_name
 
         else:

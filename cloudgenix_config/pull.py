@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.1.0b1
+**Version:** 1.2.0b1
 
 **Author:** CloudGenix
 
@@ -30,6 +30,7 @@ MIT
 """
 
 import yaml
+import json
 import re
 import sys
 import os
@@ -53,6 +54,7 @@ except ImportError as e:
 # import module specific
 from cloudgenix_config import throw_error, throw_warning, name_lookup_in_template, extract_items, build_lookup_dict, \
     check_name, nameable_interface_types, skip_interface_list, get_function_default_args
+from cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -117,14 +119,6 @@ __license__ = """
 """
 
 
-# replace NULL exported YAML values with blanks. Semantically the same, but easier to read.
-def represent_none(self, _):
-    return self.represent_scalar('tag:yaml.org,2002:null', '')
-
-
-yaml.add_representer(type(None), represent_none, Dumper=yaml.SafeDumper)
-
-
 # Globals
 CONFIG = {}
 SITES = {}
@@ -156,6 +150,7 @@ PREFIXLISTS_CONFIG_STR = "prefix_lists"
 IPCOMMUNITYLISTS_CONFIG_STR = "ip_community_lists"
 HUBCLUSTER_CONFIG_STR = "hubclusters"
 SPOKECLUSTER_CONFIG_STR = "spokeclusters"
+NATLOCALPREFIX_STR = "site_nat_localprefixes"
 
 
 # Global Config Cache holders
@@ -175,18 +170,75 @@ serviceendpoints_cache = []
 ipsecprofiles_cache = []
 networkcontexts_cache = []
 appdefs_cache = []
+natglobalprefixes_cache = []
+natlocalprefixes_cache = []
+natpolicypools_cache = []
+natpolicysetstacks_cache = []
+natzones_cache = []
+
 id_name_cache = {}
 sites_n2id = {}
+wannetworks_id2type = {}
 dup_name_dict_sites = {}
 
 # Define constructor globally for now.
-cgx_session = cloudgenix.API()
+sdk = cloudgenix.API()
 jd = cloudgenix.jd
 
 # Set logging to use function name
 logger = logging.getLogger(__name__)
 
 idreg = re.compile('^[0-9]+$')
+
+
+# replace NULL exported YAML values with blanks. Semantically the same, but easier to read.
+def represent_none(self, _):
+    return self.represent_scalar('tag:yaml.org,2002:null', '')
+
+
+yaml.add_representer(type(None), represent_none, Dumper=yaml.SafeDumper)
+
+
+def dump_version():
+    """
+    Dump version info to string and exit.
+    :return: Multiline String.
+    """
+    # Got request for versions. Dump and exit
+    try:
+        python_ver = sys.version
+    except NameError:
+        python_ver = "Unknown"
+    try:
+        cloudgenix_config_ver = import_cloudgenix_config_version
+    except NameError:
+        cloudgenix_config_ver = "Unknown"
+    try:
+        cloudgenix_ver = cloudgenix.version
+    except NameError:
+        cloudgenix_ver = "Unknown"
+    try:
+        json_ver = json.__version__
+    except NameError:
+        json_ver = "Unknown"
+    try:
+        yaml_ver = yaml.__version__
+    except NameError:
+        yaml_ver = "Unknown"
+    try:
+        logging_ver = logging.__version__
+    except NameError:
+        logging_ver = "Unknown"
+
+    output = ""
+    output += "**PROGRAM VERSIONS**, "
+    output += "Python version: {0}, ".format(python_ver)
+    output += "'cloudgenix_config' version: {0}, ".format(cloudgenix_config_ver)
+    output += "'cloudgenix' version: {0}, ".format(cloudgenix_ver)
+    output += "'json' version: {0}, ".format(json_ver)
+    output += "'yaml' version: {0}, ".format(yaml_ver)
+    output += "'logging' version: {0}, ".format(logging_ver)
+    return output
 
 
 def update_global_cache():
@@ -210,72 +262,99 @@ def update_global_cache():
     global ipsecprofiles_cache
     global networkcontexts_cache
     global appdefs_cache
+    global natglobalprefixes_cache
+    global natlocalprefixes_cache
+    global natpolicypools_cache
+    global natpolicysetstacks_cache
+    global natzones_cache
+
     global id_name_cache
+    global wannetworks_id2type
     global sites_n2id
 
     # sites
-    sites_resp = cgx_session.get.sites()
+    sites_resp = sdk.get.sites()
     sites_cache, _ = extract_items(sites_resp, 'sites')
 
     # elements
-    elements_resp = cgx_session.get.elements()
+    elements_resp = sdk.get.elements()
     elements_cache, _ = extract_items(elements_resp, 'elements')
 
     # machines
-    machines_resp = cgx_session.get.machines()
+    machines_resp = sdk.get.machines()
     machines_cache, _ = extract_items(machines_resp, 'machines')
 
     # policysets
-    policysets_resp = cgx_session.get.policysets()
+    policysets_resp = sdk.get.policysets()
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
     # secuirity_policysets
-    security_policysets_resp = cgx_session.get.securitypolicysets()
+    security_policysets_resp = sdk.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'secuirity_policysets')
 
     # secuirityzones
-    securityzones_resp = cgx_session.get.securityzones()
+    securityzones_resp = sdk.get.securityzones()
     securityzones_cache, _ = extract_items(securityzones_resp, 'secuirityzones')
 
     # network_policysetstack
-    network_policysetstack_resp = cgx_session.get.networkpolicysetstacks()
+    network_policysetstack_resp = sdk.get.networkpolicysetstacks()
     network_policysetstack_cache, _ = extract_items(network_policysetstack_resp, 'network_policysetstack')
 
     # prioroty_policysetstack
-    prioroty_policysetstack_resp = cgx_session.get.prioritypolicysetstacks()
+    prioroty_policysetstack_resp = sdk.get.prioritypolicysetstacks()
     prioroty_policysetstack_cache, _ = extract_items(prioroty_policysetstack_resp, 'prioroty_policysetstack')
 
     # waninterfacelabels
-    waninterfacelabels_resp = cgx_session.get.waninterfacelabels()
+    waninterfacelabels_resp = sdk.get.waninterfacelabels()
     waninterfacelabels_cache, _ = extract_items(waninterfacelabels_resp, 'waninterfacelabels')
 
     # wannetworks
-    wannetworks_resp = cgx_session.get.wannetworks()
+    wannetworks_resp = sdk.get.wannetworks()
     wannetworks_cache, _ = extract_items(wannetworks_resp, 'wannetworks')
 
     # wanoverlays
-    wanoverlays_resp = cgx_session.get.wanoverlays()
+    wanoverlays_resp = sdk.get.wanoverlays()
     wanoverlays_cache, _ = extract_items(wanoverlays_resp, 'wanoverlays')
 
     # servicebindingmaps
-    servicebindingmaps_resp = cgx_session.get.servicebindingmaps()
+    servicebindingmaps_resp = sdk.get.servicebindingmaps()
     servicebindingmaps_cache, _ = extract_items(servicebindingmaps_resp, 'servicebindingmaps')
 
     # serviceendpoints
-    serviceendpoints_resp = cgx_session.get.serviceendpoints()
+    serviceendpoints_resp = sdk.get.serviceendpoints()
     serviceendpoints_cache, _ = extract_items(serviceendpoints_resp, 'serviceendpoints')
 
     # ipsecprofiles
-    ipsecprofiles_resp = cgx_session.get.ipsecprofiles()
+    ipsecprofiles_resp = sdk.get.ipsecprofiles()
     ipsecprofiles_cache, _ = extract_items(ipsecprofiles_resp, 'ipsecprofiles')
 
     # networkcontexts
-    networkcontexts_resp = cgx_session.get.networkcontexts()
+    networkcontexts_resp = sdk.get.networkcontexts()
     networkcontexts_cache, _ = extract_items(networkcontexts_resp, 'networkcontexts')
 
     # appdef
-    appdefs_resp = cgx_session.get.appdefs()
+    appdefs_resp = sdk.get.appdefs()
     appdefs_cache, _ = extract_items(appdefs_resp, 'appdefs')
+
+    # NAT Global Prefixes
+    natglobalprefixes_resp = sdk.get.natglobalprefixes()
+    natglobalprefixes_cache, _ = extract_items(natglobalprefixes_resp, 'natglobalprefixes')
+
+    # NAT Local Prefixes
+    natlocalprefixes_resp = sdk.get.natlocalprefixes()
+    natlocalprefixes_cache, _ = extract_items(natlocalprefixes_resp, 'natlocalprefixes')
+
+    # NAT Policy Pools
+    natpolicypools_resp = sdk.get.natpolicypools()
+    natpolicypools_cache, _ = extract_items(natpolicypools_resp, 'natpolicypools')
+
+    # NAT natpolicysetstacks
+    natpolicysetstacks_resp = sdk.get.natpolicysetstacks()
+    natpolicysetstacks_cache, _ = extract_items(natpolicysetstacks_resp, 'natpolicysetstacks')
+
+    # NAT zones
+    natzones_resp = sdk.get.natzones()
+    natzones_cache, _ = extract_items(natzones_resp, 'natzones')
 
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
@@ -325,17 +404,36 @@ def update_global_cache():
     # appdefs name
     id_name_cache.update(build_lookup_dict(appdefs_cache, key_val='id', value_val='name'))
 
+    # NAT Global Prefixes name
+    id_name_cache.update(build_lookup_dict(natglobalprefixes_cache, key_val='id', value_val='name'))
+
+    # NAT Local Prefixes name
+    id_name_cache.update(build_lookup_dict(natlocalprefixes_cache, key_val='id', value_val='name'))
+
+    # NAT Policy Pools name
+    id_name_cache.update(build_lookup_dict(natpolicypools_cache, key_val='id', value_val='name'))
+
+    # NAT natpolicysetstacks name
+    id_name_cache.update(build_lookup_dict(natpolicysetstacks_cache, key_val='id', value_val='name'))
+
+    # NAT zones name
+    id_name_cache.update(build_lookup_dict(natzones_cache, key_val='id', value_val='name'))
+
+    # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
+    # the same name at the SWI level.
+    wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
+
     return
 
 
-def add_version_to_object(cgx_session_func, input_string):
+def add_version_to_object(sdk_func, input_string):
     """
     Adds API version as version key to string
-    :param cgx_session_func: CloudGenix CGX_SESSION function
+    :param sdk_func: CloudGenix sdk function
     :param input_string: Config section
     :return: input_string + ' ' + API version.
     """
-    args = get_function_default_args(cgx_session_func)
+    args = get_function_default_args(sdk_func)
     # extract API version
     api_version = args.get('api_version')
     # if invalid API version, set to default value
@@ -373,35 +471,37 @@ def build_version_strings():
     global IPCOMMUNITYLISTS_CONFIG_STR
     global HUBCLUSTER_CONFIG_STR
     global SPOKECLUSTER_CONFIG_STR
+    global NATLOCALPREFIX_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
-        SITES_STR = add_version_to_object(cgx_session.get.sites, "sites")
-        ELEMENTS_STR = add_version_to_object(cgx_session.get.elements, "elements")
-        WANINTERFACES_STR = add_version_to_object(cgx_session.get.waninterfaces, "waninterfaces")
-        LANNETWORKS_STR = add_version_to_object(cgx_session.get.lannetworks, "lannetworks")
-        INTERFACES_STR = add_version_to_object(cgx_session.get.interfaces, "interfaces")
-        STATIC_STR = add_version_to_object(cgx_session.get.staticroutes, "static")
-        AGENT_STR = add_version_to_object(cgx_session.get.snmpagents, "agent")
-        TRAPS_STR = add_version_to_object(cgx_session.get.snmptraps, "traps")
-        NTP_STR = add_version_to_object(cgx_session.get.ntp, "ntp")
-        SYSLOG_STR = add_version_to_object(cgx_session.get.syslogservers, "syslog")
-        TOOLKIT_STR = add_version_to_object(cgx_session.get.elementaccessconfigs, "toolkit")
-        SITE_SECURITYZONES_STR = add_version_to_object(cgx_session.get.sitesecurityzones, "site_security_zones")
-        ELEMENT_SECURITYZONES_STR = add_version_to_object(cgx_session.get.elementsecurityzones,
+        SITES_STR = add_version_to_object(sdk.get.sites, "sites")
+        ELEMENTS_STR = add_version_to_object(sdk.get.elements, "elements")
+        WANINTERFACES_STR = add_version_to_object(sdk.get.waninterfaces, "waninterfaces")
+        LANNETWORKS_STR = add_version_to_object(sdk.get.lannetworks, "lannetworks")
+        INTERFACES_STR = add_version_to_object(sdk.get.interfaces, "interfaces")
+        STATIC_STR = add_version_to_object(sdk.get.staticroutes, "static")
+        AGENT_STR = add_version_to_object(sdk.get.snmpagents, "agent")
+        TRAPS_STR = add_version_to_object(sdk.get.snmptraps, "traps")
+        NTP_STR = add_version_to_object(sdk.get.ntp, "ntp")
+        SYSLOG_STR = add_version_to_object(sdk.get.syslogservers, "syslog")
+        TOOLKIT_STR = add_version_to_object(sdk.get.elementaccessconfigs, "toolkit")
+        SITE_SECURITYZONES_STR = add_version_to_object(sdk.get.sitesecurityzones, "site_security_zones")
+        ELEMENT_SECURITYZONES_STR = add_version_to_object(sdk.get.elementsecurityzones,
                                                           "element_security_zones")
-        ELEMENT_EXTENSIONS_STR = add_version_to_object(cgx_session.get.element_extensions, "element_extensions")
-        SITE_EXTENSIONS_STR = add_version_to_object(cgx_session.get.site_extensions, "site_extensions")
-        DHCP_SERVERS_STR = add_version_to_object(cgx_session.get.dhcpservers, "dhcpservers")
-        BGP_GLOBAL_CONFIG_STR = add_version_to_object(cgx_session.get.bgpconfigs, "global_config")
-        BGP_PEERS_CONFIG_STR = add_version_to_object(cgx_session.get.bgppeers, "peers")
-        ROUTEMAP_CONFIG_STR = add_version_to_object(cgx_session.get.routing_routemaps, "route_maps")
-        ASPATHACL_CONFIG_STR = add_version_to_object(cgx_session.get.routing_aspathaccesslists, "as_path_access_lists")
-        PREFIXLISTS_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "prefix_lists")
-        IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(cgx_session.get.routing_ipcommunitylists,
+        ELEMENT_EXTENSIONS_STR = add_version_to_object(sdk.get.element_extensions, "element_extensions")
+        SITE_EXTENSIONS_STR = add_version_to_object(sdk.get.site_extensions, "site_extensions")
+        DHCP_SERVERS_STR = add_version_to_object(sdk.get.dhcpservers, "dhcpservers")
+        BGP_GLOBAL_CONFIG_STR = add_version_to_object(sdk.get.bgpconfigs, "global_config")
+        BGP_PEERS_CONFIG_STR = add_version_to_object(sdk.get.bgppeers, "peers")
+        ROUTEMAP_CONFIG_STR = add_version_to_object(sdk.get.routing_routemaps, "route_maps")
+        ASPATHACL_CONFIG_STR = add_version_to_object(sdk.get.routing_aspathaccesslists, "as_path_access_lists")
+        PREFIXLISTS_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "prefix_lists")
+        IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(sdk.get.routing_ipcommunitylists,
                                                             "ip_community_lists")
-        HUBCLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.routing_prefixlists, "hubclusters")
-        SPOKECLUSTER_CONFIG_STR = add_version_to_object(cgx_session.get.spokeclusters, "spokeclusters")
+        HUBCLUSTER_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "hubclusters")
+        SPOKECLUSTER_CONFIG_STR = add_version_to_object(sdk.get.spokeclusters, "spokeclusters")
+        NATLOCALPREFIX_STR = add_version_to_object(sdk.get.site_natlocalprefixes, "site_nat_localprefixes")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -446,7 +546,7 @@ def delete_if_empty(variable_dict, key):
 def _pull_config_for_single_site(site_name_id):
     """
     Function to pull configuration from CloudGenix controller, and save as YAML file.
-    Needs cloudgenix_config globals set (cgx_session, cache, etc). Rework eventually to allow running
+    Needs cloudgenix_config globals set (sdk, cache, etc). Rework eventually to allow running
     directly.
     :param site_name_id: Site name or ID.
     :return: No return, mutates CONFIG var in place.
@@ -468,10 +568,14 @@ def _pull_config_for_single_site(site_name_id):
         throw_warning("Site name/id \"{0}\" not found.".format(site_name_id))
         return
 
+    # Get site name from object for error messages. This may differ from what is put into yml
+    # if this site name is a duplicate with another site.
+    error_site_name = site['name']
+
     # Get WAN interfaces
     dup_name_dict = {}
     site[WANINTERFACES_STR] = {}
-    response = cgx_session.get.waninterfaces(site['id'])
+    response = sdk.get.waninterfaces(site['id'])
     if not response.cgx_status:
         throw_error("WAN interfaces get failed: ", response)
     waninterfaces = response.cgx_content['items']
@@ -481,6 +585,7 @@ def _pull_config_for_single_site(site_name_id):
         waninterface_template = copy.deepcopy(waninterface)
         name_lookup_in_template(waninterface_template, 'label_id', id_name_cache)
         name_lookup_in_template(waninterface_template, 'network_id', id_name_cache)
+
         # if name is not set, set to "Circuit to <WAN Network Name>"
         ui_normalized_name = waninterface.get('name')
         if not ui_normalized_name:
@@ -489,18 +594,31 @@ def _pull_config_for_single_site(site_name_id):
             throw_warning('Site WAN Interface is missing a name. Please correct this in UI. '
                           'Setting to "{0}" in YAML file, but this may cause issues if configuration is re-applied '
                           'to site.'.format(ui_normalized_name), waninterface)
+
+        # create a new construct, 'network_type'. This will be used for disambiguation when
+        # doing name->ID translation when reapplying this configuration, and will be removed before apply.
+        network_id = waninterface.get('network_id')
+        if network_id:
+            # look up type by network id
+            wannetwork_type = wannetworks_id2type.get(network_id)
+            if wannetwork_type:
+                # was able to get the type string (publicwan, privatewan), use it in template.
+                waninterface_template['network_type'] = wannetwork_type
+
         strip_meta_attributes(waninterface_template)
         # check name for duplicates
-        checked_wannetwork_name = check_name(ui_normalized_name, dup_name_dict, 'Waninterface')
+        checked_waninterface_name = check_name(ui_normalized_name, dup_name_dict, 'Waninterface',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
         # update id name cache in case name changed.
-        id_name_cache[waninterface['id']] = checked_wannetwork_name
-        site[WANINTERFACES_STR][checked_wannetwork_name] = waninterface_template
+        id_name_cache[waninterface['id']] = checked_waninterface_name
+        site[WANINTERFACES_STR][checked_waninterface_name] = waninterface_template
     delete_if_empty(site, WANINTERFACES_STR)
 
     # Get LAN Networks
     dup_name_dict = {}
     site[LANNETWORKS_STR] = {}
-    response = cgx_session.get.lannetworks(site['id'])
+    response = sdk.get.lannetworks(site['id'])
     if not response.cgx_status:
         throw_error("LAN networks get failed: ", response)
     lannetworks = response.cgx_content['items']
@@ -512,7 +630,9 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(lannetwork_template, 'security_policy_set', id_name_cache)
         strip_meta_attributes(lannetwork_template)
         # check name for duplicates
-        checked_lannetwork_name = check_name(lannetwork['name'], dup_name_dict, 'Laninterface')
+        checked_lannetwork_name = check_name(lannetwork['name'], dup_name_dict, 'Laninterface',
+                                             error_site_txt="{0}({1})".format(error_site_name,
+                                                                              site_id))
         # update id name cache in case name changed.
         id_name_cache[lannetwork['id']] = checked_lannetwork_name
         site[LANNETWORKS_STR][checked_lannetwork_name] = lannetwork_template
@@ -521,7 +641,7 @@ def _pull_config_for_single_site(site_name_id):
     # Get Hub Clusters
     dup_name_dict = {}
     site[HUBCLUSTER_CONFIG_STR] = {}
-    response = cgx_session.get.hubclusters(site['id'])
+    response = sdk.get.hubclusters(site['id'])
     if not response.cgx_status:
         throw_error("LAN networks get failed: ", response)
     hubclusters = response.cgx_content['items']
@@ -533,16 +653,18 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(hubcluster_template, 'security_policy_set', id_name_cache)
         strip_meta_attributes(hubcluster_template)
         # check name for duplicates
-        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster')
+        checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster',
+                                             error_site_txt="{0}({1})".format(error_site_name,
+                                                                              site_id))
         # update id name cache in case name changed.
         id_name_cache[hubcluster['id']] = checked_hubcluster_name
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
     delete_if_empty(site, HUBCLUSTER_CONFIG_STR)
 
-    # Get Hub Clusters
+    # Get Spoke Clusters
     dup_name_dict = {}
     site[SPOKECLUSTER_CONFIG_STR] = {}
-    response = cgx_session.get.spokeclusters(site['id'])
+    response = sdk.get.spokeclusters(site['id'])
     if not response.cgx_status:
         throw_error("LAN networks get failed: ", response)
     spokeclusters = response.cgx_content['items']
@@ -552,7 +674,9 @@ def _pull_config_for_single_site(site_name_id):
         spokecluster_template = copy.deepcopy(spokecluster)
         strip_meta_attributes(spokecluster_template)
         # check name for duplicates
-        checked_spokecluster_name = check_name(spokecluster['name'], dup_name_dict, 'Spokecluster')
+        checked_spokecluster_name = check_name(spokecluster['name'], dup_name_dict, 'Spokecluster',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
         # update id name cache in case name changed.
         id_name_cache[spokecluster['id']] = checked_spokecluster_name
         site[SPOKECLUSTER_CONFIG_STR][checked_spokecluster_name] = spokecluster_template
@@ -560,7 +684,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get DHCP Servers
     site[DHCP_SERVERS_STR] = []
-    response = cgx_session.get.dhcpservers(site['id'])
+    response = sdk.get.dhcpservers(site['id'])
     if not response.cgx_status:
         throw_error("DHCP Servers networks get failed: ", response)
     dhcpservers = response.cgx_content['items']
@@ -575,7 +699,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get Site Extensions
     site[SITE_EXTENSIONS_STR] = {}
-    response = cgx_session.get.site_extensions(site['id'])
+    response = sdk.get.site_extensions(site['id'])
     if not response.cgx_status:
         throw_error("Site Extensions get failed: ", response)
     site_extensions = response.cgx_content['items']
@@ -586,7 +710,9 @@ def _pull_config_for_single_site(site_name_id):
         name_lookup_in_template(site_extension_template, 'entity_id', id_name_cache)
         strip_meta_attributes(site_extension_template)
         # check for duplicate names
-        checked_site_extension_name = check_name(site_extension['name'], dup_name_dict, 'Site Extension')
+        checked_site_extension_name = check_name(site_extension['name'], dup_name_dict, 'Site Extension',
+                                                 error_site_txt="{0}({1})".format(error_site_name,
+                                                                                  site_id))
         # update id name cache in case name changed.
         id_name_cache[site_extension['id']] = checked_site_extension_name
         site[SITE_EXTENSIONS_STR][checked_site_extension_name] = site_extension_template
@@ -594,7 +720,7 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get Site Security Zones
     site[SITE_SECURITYZONES_STR] = []
-    response = cgx_session.get.sitesecurityzones(site['id'])
+    response = sdk.get.sitesecurityzones(site['id'])
     if not response.cgx_status:
         throw_error("Site Security Zones get failed: ", response)
     site_securityzones = response.cgx_content['items']
@@ -618,6 +744,22 @@ def _pull_config_for_single_site(site_name_id):
         site[SITE_SECURITYZONES_STR].append(site_securityzone_template)
     delete_if_empty(site, SITE_SECURITYZONES_STR)
 
+    # Get Site NAT Localprefixes
+    site[NATLOCALPREFIX_STR] = []
+    response = sdk.get.site_natlocalprefixes(site['id'])
+    if not response.cgx_status:
+        throw_error("Site NAT Local Prefixes get failed: ", response)
+    site_natlocalprefixes = response.cgx_content['items']
+
+    for site_natlocalprefix in site_natlocalprefixes:
+        site_natlocalprefix_template = copy.deepcopy(site_natlocalprefix)
+        # replace flat name
+        name_lookup_in_template(site_natlocalprefix_template, 'prefix_id', id_name_cache)
+        strip_meta_attributes(site_natlocalprefix_template)
+
+        site[NATLOCALPREFIX_STR].append(site_natlocalprefix_template)
+    delete_if_empty(site, NATLOCALPREFIX_STR)
+
     # Get Elements
     site[ELEMENTS_STR] = {}
     dup_name_dict_elements = {}
@@ -628,7 +770,7 @@ def _pull_config_for_single_site(site_name_id):
         # Get interfaces
         element[INTERFACES_STR] = {}
         dup_name_dict = {}
-        response = cgx_session.get.interfaces(site['id'], element['id'])
+        response = sdk.get.interfaces(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Element interfaces get failed: ", response)
         interfaces = response.cgx_content['items']
@@ -734,15 +876,34 @@ def _pull_config_for_single_site(site_name_id):
 
                 interface_template['dhcp_relay'] = dhcp_relay_template
 
+            nat_pools_list = interface.get('nat_pools', None)
+            if nat_pools_list and isinstance(nat_pools_list, list):
+                nat_pools_list_template = []
+                for nat_pools_dict in nat_pools_list:
+
+                    nat_pools_template = copy.deepcopy(nat_pools_dict)
+
+                    # replace names
+                    name_lookup_in_template(nat_pools_template, 'nat_pool_id', id_name_cache)
+
+                    # update list with dict template
+                    nat_pools_list_template.append(nat_pools_template)
+
+                # assign list of dict templates back to object.
+                interface_template['nat_pools'] = nat_pools_list_template
+
             # replace flat names in interface itself
             name_lookup_in_template(interface_template, 'parent', id_name_cache)
+            name_lookup_in_template(interface_template, 'nat_zone_id', id_name_cache)
 
             # strip metadata/names
             strip_meta_attributes(interface_template)
             # ok. Check for duplicates if it is a namable interface. If a dup is found, rename.
             interface_type = interface_template.get('type', "Unknown Interface")
             if interface_type in nameable_interface_types:
-                checked_interface_name = check_name(interface['name'], dup_name_dict, interface_type)
+                checked_interface_name = check_name(interface['name'], dup_name_dict, interface_type,
+                                                    error_site_txt="{0}({1})".format(error_site_name,
+                                                                                     site_id))
                 # update id name cache in case name changed.
                 id_name_cache[interface['id']] = checked_interface_name
                 element[INTERFACES_STR][checked_interface_name] = interface_template
@@ -753,7 +914,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get static routes
         element['routing'][STATIC_STR] = []
-        response = cgx_session.get.staticroutes(site['id'], element['id'])
+        response = sdk.get.staticroutes(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Static routes get failed: ", response)
         staticroutes = response.cgx_content['items']
@@ -779,22 +940,22 @@ def _pull_config_for_single_site(site_name_id):
         element['routing']['bgp'] = {}
 
         # grab all queries now so we can update id_name_cache.
-        bgp_global_response = cgx_session.get.bgpconfigs(site['id'], element['id'])
+        bgp_global_response = sdk.get.bgpconfigs(site['id'], element['id'])
         bgp_global_cache, _ = extract_items(bgp_global_response, 'bgp_global_config')
 
-        bgp_peers_response = cgx_session.get.bgppeers(site['id'], element['id'])
+        bgp_peers_response = sdk.get.bgppeers(site['id'], element['id'])
         bgp_peers_cache, _ = extract_items(bgp_peers_response, 'bgp_peer_config')
 
-        routemaps_response = cgx_session.get.routing_routemaps(site['id'], element['id'])
+        routemaps_response = sdk.get.routing_routemaps(site['id'], element['id'])
         routemaps_cache, _ = extract_items(routemaps_response, 'routemap_config')
 
-        aspath_access_lists_response = cgx_session.get.routing_aspathaccesslists(site['id'], element['id'])
+        aspath_access_lists_response = sdk.get.routing_aspathaccesslists(site['id'], element['id'])
         aspath_access_lists_cache, _ = extract_items(aspath_access_lists_response, 'aspath_access_list_config')
 
-        routing_prefixlists_response = cgx_session.get.routing_prefixlists(site['id'], element['id'])
+        routing_prefixlists_response = sdk.get.routing_prefixlists(site['id'], element['id'])
         routing_prefixlists_cache, _ = extract_items(routing_prefixlists_response, 'routing_prefixlists_config')
 
-        ip_community_lists_response = cgx_session.get.routing_ipcommunitylists(site['id'], element['id'])
+        ip_community_lists_response = sdk.get.routing_ipcommunitylists(site['id'], element['id'])
         ip_community_lists_cache, _ = extract_items(ip_community_lists_response, 'ip_community_lists_config')
 
         # add responses to id_name_cache.
@@ -823,7 +984,9 @@ def _pull_config_for_single_site(site_name_id):
             name_lookup_in_template(bgp_peer_template, 'route_map_out_id', id_name_cache)
             strip_meta_attributes(bgp_peer_template)
             # check for duplicate names
-            checked_bgp_peer_name = check_name(bgp_peer['name'], dup_name_dict, 'BGP Peer')
+            checked_bgp_peer_name = check_name(bgp_peer['name'], dup_name_dict, 'BGP Peer',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
             # update id name cache in case name changed.
             id_name_cache[bgp_peer['id']] = checked_bgp_peer_name
             element['routing']['bgp'][BGP_PEERS_CONFIG_STR][checked_bgp_peer_name] = bgp_peer_template
@@ -870,7 +1033,9 @@ def _pull_config_for_single_site(site_name_id):
             # name_lookup_in_template(routemap_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(routemap_template)
             # check for duplicate names
-            checked_routemap_name = check_name(routemap['name'], dup_name_dict, 'Route Map')
+            checked_routemap_name = check_name(routemap['name'], dup_name_dict, 'Route Map',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
             # update id name cache in case name changed.
             id_name_cache[routemap['id']] = checked_routemap_name
             element['routing'][ROUTEMAP_CONFIG_STR][checked_routemap_name] = routemap_template
@@ -886,7 +1051,9 @@ def _pull_config_for_single_site(site_name_id):
             strip_meta_attributes(aspath_access_list_template)
             # check for duplicate names
             checked_aspath_access_list_name = check_name(aspath_access_list['name'], dup_name_dict,
-                                                         'AS-PATH Access List')
+                                                         'AS-PATH Access List',
+                                                         error_site_txt="{0}({1})".format(error_site_name,
+                                                                                          site_id))
             # update id name cache in case name changed.
             id_name_cache[aspath_access_list['id']] = checked_aspath_access_list_name
             element['routing'][ASPATHACL_CONFIG_STR][checked_aspath_access_list_name] = aspath_access_list_template
@@ -901,7 +1068,9 @@ def _pull_config_for_single_site(site_name_id):
             # name_lookup_in_template(routing_prefixlist_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(routing_prefixlist_template)
             # check for duplicate names
-            checked_routing_prefixlist_name = check_name(routing_prefixlist['name'], dup_name_dict, 'Prefix List')
+            checked_routing_prefixlist_name = check_name(routing_prefixlist['name'], dup_name_dict, 'Prefix List',
+                                                         error_site_txt="{0}({1})".format(error_site_name,
+                                                                                          site_id))
             # update id name cache in case name changed.
             id_name_cache[routing_prefixlist['id']] = checked_routing_prefixlist_name
             element['routing'][PREFIXLISTS_CONFIG_STR][checked_routing_prefixlist_name] = routing_prefixlist_template
@@ -916,7 +1085,9 @@ def _pull_config_for_single_site(site_name_id):
             # name_lookup_in_template(ip_community_list_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(ip_community_list_template)
             # check for duplicate names
-            checked_ip_community_list_name = check_name(ip_community_list['name'], dup_name_dict, 'IP-Community List')
+            checked_ip_community_list_name = check_name(ip_community_list['name'], dup_name_dict, 'IP-Community List',
+                                                        error_site_txt="{0}({1})".format(error_site_name,
+                                                                                         site_id))
             # update id name cache in case name changed.
             id_name_cache[ip_community_list['id']] = checked_ip_community_list_name
             element['routing'][IPCOMMUNITYLISTS_CONFIG_STR][checked_ip_community_list_name] = ip_community_list_template
@@ -927,7 +1098,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get syslog
         element[SYSLOG_STR] = []
-        response = cgx_session.get.syslogservers(site['id'], element['id'])
+        response = sdk.get.syslogservers(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Syslog servers get failed: ", response)
         syslogservers = response.cgx_content['items']
@@ -942,7 +1113,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get NTP configs
         element[NTP_STR] = []
-        response = cgx_session.get.ntp(element['id'])
+        response = sdk.get.ntp(element['id'])
         if not response.cgx_status:
             throw_error("NTP config get failed: ", response)
         ntps = response.cgx_content['items']
@@ -956,7 +1127,7 @@ def _pull_config_for_single_site(site_name_id):
         # Get element_extension configs
         element[ELEMENT_EXTENSIONS_STR] = {}
         dup_name_dict = {}
-        response = cgx_session.get.element_extensions(site['id'], element['id'])
+        response = sdk.get.element_extensions(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Element Extension config get failed: ", response)
         element_extensions = response.cgx_content['items']
@@ -966,7 +1137,9 @@ def _pull_config_for_single_site(site_name_id):
             name_lookup_in_template(element_extension_template, 'entity_id', id_name_cache)
             strip_meta_attributes(element_extension_template)
             # check for duplicate names
-            checked_element_extension_name = check_name(element_extension['name'], dup_name_dict, 'Element Extension')
+            checked_element_extension_name = check_name(element_extension['name'], dup_name_dict, 'Element Extension',
+                                                        error_site_txt="{0}({1})".format(error_site_name,
+                                                                                         site_id))
             # update id name cache in case name changed.
             id_name_cache[element_extension['id']] = checked_element_extension_name
             element[ELEMENT_EXTENSIONS_STR][checked_element_extension_name] = element_extension_template
@@ -974,7 +1147,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get Site Security Zones
         element[ELEMENT_SECURITYZONES_STR] = []
-        response = cgx_session.get.elementsecurityzones(site['id'], element['id'])
+        response = sdk.get.elementsecurityzones(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Element Security Zones get failed: ", response)
         element_securityzones = response.cgx_content['items']
@@ -1022,7 +1195,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get SNMP Traps
         element['snmp'][TRAPS_STR] = []
-        response = cgx_session.get.snmptraps(site['id'], element['id'])
+        response = sdk.get.snmptraps(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("SNMP traps get failed: ", response)
         snmptraps = response.cgx_content['items']
@@ -1037,7 +1210,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # Get SNMP Agent
         element['snmp'][AGENT_STR] = []
-        response = cgx_session.get.snmpagents(site['id'], element['id'])
+        response = sdk.get.snmpagents(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("SNMP agents get failed: ", response)
         snmpagents = response.cgx_content['items']
@@ -1052,7 +1225,7 @@ def _pull_config_for_single_site(site_name_id):
         delete_if_empty(element, 'snmp')
 
         # Get toolkit
-        response = cgx_session.get.elementaccessconfigs(element['id'])
+        response = sdk.get.elementaccessconfigs(element['id'])
         if not response.cgx_status:
             throw_error("Toolkit get failed: ", response)
         elementaccessconfig = response.cgx_content
@@ -1098,7 +1271,9 @@ def _pull_config_for_single_site(site_name_id):
             element_template['spoke_ha_config'] = spoke_ha_config_template
 
         # check for duplicate names
-        checked_element_name = check_name(element['name'], dup_name_dict_elements, 'Element')
+        checked_element_name = check_name(element['name'], dup_name_dict_elements, 'Element',
+                                          error_site_txt="{0}({1})".format(error_site_name,
+                                                                           site_id))
         # update id name cache in case name changed.
         id_name_cache[element['id']] = checked_element_name
         site[ELEMENTS_STR][checked_element_name] = element_template
@@ -1114,6 +1289,7 @@ def _pull_config_for_single_site(site_name_id):
     name_lookup_in_template(site_template, 'network_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'service_binding', id_name_cache)
+    name_lookup_in_template(site_template, 'nat_policysetstack_id', id_name_cache)
 
     strip_meta_attributes(site_template)
     # check for duplicate names
@@ -1150,11 +1326,11 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     global REPORT_ID
     global STRIP_VERSIONS
     global FORCE_PARENTS
-    global cgx_session
+    global sdk
 
     # check passed vars
     if passed_sdk is not None:
-        cgx_session = passed_sdk
+        sdk = passed_sdk
     if passed_report_id is not None:
         REPORT_ID = passed_report_id
     if passed_strip_versions is not None:
@@ -1211,8 +1387,8 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
             # write header by default, but skip if asked.
             if not no_header:
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-                if cgx_session.email:
-                    config_yml.write("# by {0}\n".format(cgx_session.email))
+                if sdk.email:
+                    config_yml.write("# by {0}\n".format(sdk.email))
             yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
             config_yml.close()
 
@@ -1261,8 +1437,8 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-                    if cgx_session.email:
-                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                    if sdk.email:
+                        config_yml.write("# by {0}\n".format(sdk.email))
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
@@ -1302,14 +1478,13 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
-                    if cgx_session.email:
-                        config_yml.write("# by {0}\n".format(cgx_session.email))
+                    if sdk.email:
+                        config_yml.write("# by {0}\n".format(sdk.email))
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
                 # jd(CONFIG)
                 # jd(id_name_cache)
-
 
     return
 
@@ -1326,7 +1501,7 @@ def go():
     global REPORT_ID
     global STRIP_VERSIONS
     global FORCE_PARENTS
-    global cgx_session
+    global sdk
 
     parser = argparse.ArgumentParser()
     # Allow Controller modification and debug level sets.
@@ -1384,6 +1559,8 @@ def go():
                        default=False)
     debug_group.add_argument("--debug", "-D", help="API Debug info, levels 0-2",
                              type=int, default=0)
+    debug_group.add_argument("--version", help="Dump Version(s) of script and modules and exit.", action='version',
+                             version=dump_version())
 
     args = vars(parser.parse_args())
 
@@ -1396,20 +1573,20 @@ def go():
 
     # Build SDK Constructor
     if args['controller'] and args['insecure']:
-        cgx_session = cloudgenix.API(controller=args['controller'], ssl_verify=False)
+        sdk = cloudgenix.API(controller=args['controller'], ssl_verify=False)
     elif args['controller']:
-        cgx_session = cloudgenix.API(controller=args['controller'])
+        sdk = cloudgenix.API(controller=args['controller'])
     elif args['insecure']:
-        cgx_session = cloudgenix.API(ssl_verify=False)
+        sdk = cloudgenix.API(ssl_verify=False)
     else:
-        cgx_session = cloudgenix.API()
+        sdk = cloudgenix.API()
 
     # check for region ignore
     if args['ignore_region']:
-        cgx_session.ignore_region = True
+        sdk.ignore_region = True
 
     if args['debug']:
-        cgx_session.set_debug(int(args['debug']))
+        sdk.set_debug(int(args['debug']))
 
     # login logic. Use cmdline if set, use AUTH_TOKEN next, finally user/pass from config file, then prompt.
     # figure out user
@@ -1430,15 +1607,15 @@ def go():
 
     # check for token
     if CLOUDGENIX_AUTH_TOKEN and not args["email"] and not args["password"]:
-        cgx_session.interactive.use_token(CLOUDGENIX_AUTH_TOKEN)
-        if cgx_session.tenant_id is None:
+        sdk.interactive.use_token(CLOUDGENIX_AUTH_TOKEN)
+        if sdk.tenant_id is None:
             throw_error("AUTH_TOKEN login failure, please check token.")
 
     else:
-        while cgx_session.tenant_id is None:
-            cgx_session.interactive.login(user_email, user_password)
+        while sdk.tenant_id is None:
+            sdk.interactive.login(user_email, user_password)
             # clear after one failed login, force relogin.
-            if not cgx_session.tenant_id:
+            if not sdk.tenant_id:
                 user_email = None
                 user_password = None
 

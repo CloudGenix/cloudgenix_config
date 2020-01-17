@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.1.0b1
+**Version:** 1.2.0b1
 
 **Author:** CloudGenix
 
@@ -55,6 +55,7 @@ from cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lowe
     list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
     order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
     nameable_interface_types, skip_interface_list, CloudGenixConfigError
+from cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -126,21 +127,23 @@ DEFAULT_WAIT_INTERVAL = 10  # seconds
 
 # Const structs
 element_put_items = [
-    "cluster_member_id",
-    "cluster_insertion_mode",
-    "description",
-    "site_id",
-    "_schema",
     "_etag",
-    "sw_obj",
+    "_schema",
+    "cluster_insertion_mode",
+    "cluster_member_id",
+    "description",
     "id",
-    "name",
     "l3_direct_private_wan_forwarding",
     "l3_lan_forwarding",
+    "name",
+    "nat_policysetstack_id",
     "network_policysetstack_id",
     "priority_policysetstack_id",
+    "site_id",
     "spoke_ha_config",
-    "tags"
+    "sw_obj",
+    "tags",
+    "vpn_to_vpn_forwarding"
 ]
 
 createable_interface_types = [
@@ -196,6 +199,13 @@ serviceendpoints_cache = []
 ipsecprofiles_cache = []
 networkcontexts_cache = []
 appdefs_cache = []
+natglobalprefixes_cache = []
+natlocalprefixes_cache = []
+natpolicypools_cache = []
+natpolicysetstacks_cache = []
+natzones_cache = []
+
+# Most items need Name to ID maps.
 sites_n2id = {}
 elements_n2id = {}
 policysets_n2id = {}
@@ -204,16 +214,27 @@ securityzones_n2id = {}
 network_policysetstack_n2id = {}
 priority_policysetstack_n2id = {}
 waninterfacelabels_n2id = {}
-wannetworks_n2id = {}
+wannetworks_publicwan_n2id = {}
+wannetworks_privatewan_n2id = {}
 wanoverlays_n2id = {}
 servicebindingmaps_n2id = {}
 serviceendpoints_n2id = {}
 ipsecprofiles_n2id = {}
 networkcontexts_n2id = {}
 appdefs_n2id = {}
+natglobalprefixes_n2id = {}
+natlocalprefixes_n2id = {}
+natpolicypools_n2id = {}
+natpolicysetstacks_n2id = {}
+natzones_n2id = {}
+
+# Machines/elements need serial to ID mappings
 elements_byserial = {}
 machines_byserial = {}
+
+# Some items need id to zone mappings
 securityzones_id2n = {}
+natlocalprefixes_id2n = {}
 
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
@@ -233,6 +254,48 @@ jd = cloudgenix.jd
 logger = logging.getLogger(__name__)
 debuglevel = 1
 sdk_debuglevel = 0
+
+
+def dump_version():
+    """
+    Dump version info to string and exit.
+    :return: Multiline String.
+    """
+    # Got request for versions. Dump and exit
+    try:
+        python_ver = sys.version
+    except NameError:
+        python_ver = "Unknown"
+    try:
+        cloudgenix_config_ver = import_cloudgenix_config_version
+    except NameError:
+        cloudgenix_config_ver = "Unknown"
+    try:
+        cloudgenix_ver = cloudgenix.version
+    except NameError:
+        cloudgenix_ver = "Unknown"
+    try:
+        json_ver = json.__version__
+    except NameError:
+        json_ver = "Unknown"
+    try:
+        yaml_ver = yaml.__version__
+    except NameError:
+        yaml_ver = "Unknown"
+    try:
+        logging_ver = logging.__version__
+    except NameError:
+        logging_ver = "Unknown"
+
+    output = ""
+    output += "**PROGRAM VERSIONS**, "
+    output += "Python version: {0}, ".format(python_ver)
+    output += "'cloudgenix_config' version: {0}, ".format(cloudgenix_config_ver)
+    output += "'cloudgenix' version: {0}, ".format(cloudgenix_ver)
+    output += "'json' version: {0}, ".format(json_ver)
+    output += "'yaml' version: {0}, ".format(yaml_ver)
+    output += "'logging' version: {0}, ".format(logging_ver)
+    return output
 
 
 def local_info(message, resp=None, cr=True):
@@ -319,6 +382,12 @@ def update_global_cache():
     global ipsecprofiles_cache
     global networkcontexts_cache
     global appdefs_cache
+    global natglobalprefixes_cache
+    global natlocalprefixes_cache
+    global natpolicypools_cache
+    global natpolicysetstacks_cache
+    global natzones_cache
+
     global sites_n2id
     global elements_n2id
     global policysets_n2id
@@ -327,16 +396,25 @@ def update_global_cache():
     global network_policysetstack_n2id
     global priority_policysetstack_n2id
     global waninterfacelabels_n2id
-    global wannetworks_n2id
+    global wannetworks_publicwan_n2id
+    global wannetworks_privatewan_n2id
     global wanoverlays_n2id
     global servicebindingmaps_n2id
     global serviceendpoints_n2id
     global ipsecprofiles_n2id
     global networkcontexts_n2id
     global appdefs_n2id
+    global natglobalprefixes_n2id
+    global natlocalprefixes_n2id
+    global natpolicypools_n2id
+    global natpolicysetstacks_n2id
+    global natzones_n2id
+
     global elements_byserial
     global machines_byserial
+
     global securityzones_id2n
+    global natlocalprefixes_id2n
 
     # sites
     sites_resp = sdk.get.sites()
@@ -402,6 +480,26 @@ def update_global_cache():
     appdefs_resp = sdk.get.appdefs()
     appdefs_cache, _ = extract_items(appdefs_resp, 'appdefs')
 
+    # NAT Global Prefixes
+    natglobalprefixes_resp = sdk.get.natglobalprefixes()
+    natglobalprefixes_cache, _ = extract_items(natglobalprefixes_resp, 'natglobalprefixes')
+
+    # NAT Local Prefixes
+    natlocalprefixes_resp = sdk.get.natlocalprefixes()
+    natlocalprefixes_cache, _ = extract_items(natlocalprefixes_resp, 'natlocalprefixes')
+
+    # NAT Policy Pools
+    natpolicypools_resp = sdk.get.natpolicypools()
+    natpolicypools_cache, _ = extract_items(natpolicypools_resp, 'natpolicypools')
+
+    # NAT natpolicysetstacks
+    natpolicysetstacks_resp = sdk.get.natpolicysetstacks()
+    natpolicysetstacks_cache, _ = extract_items(natpolicysetstacks_resp, 'natpolicysetstacks')
+
+    # NAT zones
+    natzones_resp = sdk.get.natzones()
+    natzones_cache, _ = extract_items(natzones_resp, 'natzones')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -426,8 +524,11 @@ def update_global_cache():
     # waninterfacelabels name
     waninterfacelabels_n2id = build_lookup_dict(waninterfacelabels_cache)
 
-    # wannetworks name
-    wannetworks_n2id = build_lookup_dict(wannetworks_cache)
+    # wannetworks public name
+    wannetworks_publicwan_n2id = build_lookup_dict([wn for wn in wannetworks_cache if wn.get('type') == 'publicwan'])
+
+    # wannetworks public name
+    wannetworks_privatewan_n2id = build_lookup_dict([wn for wn in wannetworks_cache if wn.get('type') == 'privatewan'])
 
     # wannetworks name
     wanoverlays_n2id = build_lookup_dict(wanoverlays_cache)
@@ -447,6 +548,21 @@ def update_global_cache():
     # appdefs name
     appdefs_n2id = build_lookup_dict(appdefs_cache)
 
+    # NAT Global Prefixes name
+    natglobalprefixes_n2id = build_lookup_dict(natglobalprefixes_cache)
+
+    # NAT Local Prefixes name
+    natlocalprefixes_n2id = build_lookup_dict(natlocalprefixes_cache)
+
+    # NAT Policy Pools name
+    natpolicypools_n2id = build_lookup_dict(natpolicypools_cache)
+
+    # NAT natpolicysetstacks name
+    natpolicysetstacks_n2id = build_lookup_dict(natpolicysetstacks_cache)
+
+    # NAT zones name
+    natzones_n2id = build_lookup_dict(natzones_cache)
+
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
 
@@ -454,6 +570,10 @@ def update_global_cache():
 
     # id to name for security zones
     securityzones_id2n = build_lookup_dict(securityzones_cache, key_val='id', value_val='name')
+
+    # id to name for natlocalprefixes (not site specific)
+    natlocalprefixes_id2n = build_lookup_dict(natlocalprefixes_cache, key_val='id', value_val='name')
+
 
     return
 
@@ -536,9 +656,11 @@ def parse_site_config(config_site):
     config_site_security_zones, _ = config_lower_version_get(config_site, 'site_security_zones',
                                                              sdk.put.sitesecurityzones, default=[])
     config_spokeclusters, _ = config_lower_version_get(config_site, 'spokeclusters', sdk.put.spokeclusters, default={})
+    config_site_nat_localprefixes, _ = config_lower_version_get(config_site, 'site_nat_localprefixes',
+                                                                sdk.put.site_natlocalprefixes, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes
 
 
 def parse_element_config(config_element):
@@ -698,7 +820,7 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
     if not serial or not machine_id:
         throw_error("unable to get machine serial or ID:", machine)
 
-    output_message(" Checking {0}..".format(serial))
+    output_message(" Checking Machine {0}..".format(serial))
     claimed = False
     claim_pending = False
 
@@ -735,11 +857,11 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
                     connected = machines_describe_response.cgx_content.get('connected', False)
 
                 if time_elapsed > wait_if_offline:
-                    throw_error("ION {0} Offline for longer than {1} seconds. Exiting."
+                    throw_error("Machine {0} Offline for longer than {1} seconds. Exiting."
                                 "".format(serial, wait_if_offline))
 
                 if not connected:
-                    output_message("  ION {0} Offline, waited so far {1} seconds out of {2}."
+                    output_message("  Machine {0} Offline, waited so far {1} seconds out of {2}."
                                    "".format(serial, time_elapsed, wait_if_offline))
                     time.sleep(wait_interval)
                     time_elapsed += wait_interval
@@ -754,7 +876,7 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
             machines_claim_response = sdk.post.tenant_machine_operations(machine_id, machines_claim)
 
             if not machines_claim_response.cgx_status:
-                throw_error("Machine '{0}' CLAIM failed.", machines_claim_response.cgx_content)
+                throw_error("Machine '{0}' CLAIM failed.".format(serial), machines_claim_response.cgx_content)
         else:
             output_message("  Claim already in process ({0})..".format(machine_state))
         # wait and make sure that the ION moves to "claimed" state.
@@ -773,11 +895,11 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
 
             if time_elapsed > wait_verify_success:
                 # failed waiting.
-                throw_error("ION {0} Claim took longer than {1} seconds. Exiting."
+                throw_error("Machine {0} Claim took longer than {1} seconds. Exiting."
                             "".format(serial, wait_verify_success))
 
             if not claimed:
-                output_message("  ION {0} still claiming, waited so far {1} seconds out of {2}."
+                output_message("  Machine {0} still claiming, waited so far {1} seconds out of {2}."
                                "".format(serial, time_elapsed, wait_verify_success))
                 time.sleep(wait_interval)
                 time_elapsed += wait_interval
@@ -789,21 +911,29 @@ def claim_element(matching_machine, wait_if_offline=DEFAULT_WAIT_MAX_TIME,
 
 
 def wait_for_element_state(matching_element, state_list=None, wait_verify_success=DEFAULT_WAIT_MAX_TIME,
-                           wait_interval=DEFAULT_WAIT_INTERVAL):
+                           wait_interval=DEFAULT_WAIT_INTERVAL, declaim=False):
     """
     Wait for Element to reach a specific state or list of states.
     :param matching_element: Element API response for element to wait for
     :param state_list: Optional - List of state strings, default ['ready', 'bound']
     :param wait_verify_success: Optional - Time to wait for system to reach specific state (in seconds)
     :param wait_interval: Optinal - Interval to check API for updated statuses during wait.
+    :param declaim: Bool, if waiting for an element that may be declaiming or deleted (element may not exist anymore.)
     :return: Element API final response
     """
     if not state_list:
-        state_list = ['ready', 'bound']
+        if declaim:
+            state_list = ['ready', 'declaim_in_progress']
+        else:
+            state_list = ['ready', 'bound']
 
     # check status
     element = matching_element
     element_id = element.get('id')
+    element_serial = element.get('serial_number')
+    element_name = element.get('name')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
     final_element = matching_element
 
     # ensure element is "state": "ready"
@@ -812,19 +942,33 @@ def wait_for_element_state(matching_element, state_list=None, wait_verify_succes
     while not ready:
         elem_resp = sdk.get.elements(element_id)
         if not elem_resp.cgx_status:
-            throw_error("Could not query element {0}.".format(element_id), elem_resp.cgx_status)
+            # we could be waiting on a declaim. When declaim finishes, element will be non-existent, and
+            # this query will fail. Return if so.
+            if declaim:
+                # declaim is finished. return empty
+                return {}
+            else:
+                # not a declaim, there is a problem.
+                throw_error("Could not query element {0}({1}).".format(element_id,
+                                                                       element_serial),
+                            elem_resp)
+
         state = str(elem_resp.cgx_content.get('state', ''))
 
         if time_elapsed > wait_verify_success:
             # failed waiting.
             throw_error("Element {0} state transition took longer than {1} seconds. Exiting."
-                        "".format(element_id, wait_verify_success))
+                        "".format(element_descriptive_text, wait_verify_success))
 
         if state not in state_list:
             # element not ready, wait.
             output_message("  Element {0} not yet in requested state(s): {1} (is {2}). "
-                           "Waited so far {3} seconds out of {4}.".format(element_id, ", ".join(state_list), state,
-                                                                          time_elapsed, wait_verify_success))
+                           "Waited so far {3} seconds out of {4}."
+                           "".format(element_descriptive_text,
+                                     ", ".join(state_list),
+                                     state,
+                                     time_elapsed,
+                                     wait_verify_success))
             time.sleep(wait_interval)
             time_elapsed += wait_interval
         else:
@@ -851,6 +995,10 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     # check status
     element = matching_element
     element_id = element.get('id')
+    element_name = element.get('name')
+    element_serial = element.get('serial_number')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
 
     # get config info.
     elem_config_version = config_element.get('software_version', '')
@@ -882,7 +1030,8 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
     # check current image
     software_state_resp = sdk.get.software_status(element_id)
     if not software_state_resp.cgx_status:
-        throw_error("Could not query element software status {0}.".format(element_id), software_state_resp)
+        throw_error("Could not query element software status of Element {0}."
+                    "".format(element_descriptive_text), software_state_resp)
     backup_active_name = None
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
@@ -952,7 +1101,8 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
         while not ready:
             software_state_resp = sdk.get.software_status(element_id)
             if not software_state_resp.cgx_status:
-                throw_error("Could not query element software status {0}.".format(element_id), software_state_resp)
+                throw_error("Could not query element software status for Element {0}."
+                            "".format(element_descriptive_text), software_state_resp)
 
             # Get the list of software statuses
             software_status_list = software_state_resp.cgx_content.get('items', [])
@@ -974,7 +1124,7 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
             if time_elapsed > wait_upgrade_timeout:
                 # failed waiting.
                 throw_error("Element {0} state transition took longer than {1} seconds. Exiting."
-                            "".format(element_id, wait_upgrade_timeout))
+                            "".format(element_descriptive_text, wait_upgrade_timeout))
 
             if active_image_id != str(image_id):
                 # element not ready, wait.
@@ -985,11 +1135,12 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
                         active_image_id if active_image_id else "Unknown"
 
                 output_message("  Element {0} not yet at requested image: {1} (is {2}). "
-                               "Waited so far {3} seconds out of {4}.".format(element_id,
-                                                                              images_id2n.get(upgrade_image_id,
-                                                                                              upgrade_image_id),
-                                                                              active_name if active_name else "Unknown",
-                                                                              time_elapsed, wait_upgrade_timeout))
+                               "Waited so far {3} seconds out of {4}."
+                               "".format(element_descriptive_text,
+                                         images_id2n.get(upgrade_image_id,
+                                                         upgrade_image_id),
+                                         active_name if active_name else "Unknown",
+                                         time_elapsed, wait_upgrade_timeout))
                 time.sleep(wait_interval)
                 time_elapsed += wait_interval
             else:
@@ -1002,17 +1153,31 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
 def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
-    :param matching_element: Element ID to work on
+    :param matching_element: Element object (containing ID) to work on
     :param site_id: Site ID to work on
     :param config_element: Element config struct
+    :param interfaces_n2id: Intertfaces Name -> ID map.
     :param spokecluster_n2id: Spoke Cluster Name -> ID map.
     :return:
     """
-    # check status
+    # Due to changes on the backend after the element is assigned to a site, etag for the element changes and is not in
+    # sync with the element in cache.
+    # To avoid updating the entire cache, just do a get on this individual element
+    # Change added after HA config was failing due to etag mismatch (Issue#27)
+
+    element_id = matching_element.get('id')
+    element_serial = matching_element.get('serial_number')
+    elem_get_resp = sdk.get.elements(element_id=element_id)
+    if not elem_get_resp.cgx_status:
+        throw_error("Element Get {0} failed: ".format(element_serial if element_serial else element_id), elem_get_resp)
+
+    matching_element = elem_get_resp.cgx_content
     element = matching_element
     element_serial = element.get('serial_number')
     element_id = element.get('id')
-    element_name_or_id = element.get('name', element_id)
+    element_name = element.get('name')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
     element_site_id = element.get("site_id")
 
     # when here, element should always be in assigned state.
@@ -1067,13 +1232,13 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
     if not force_update and elem_template == element_change_check:
         # no change in config, pass.
-        output_message("   No Change for Spoke HA in Element {0}.".format(element_name_or_id))
+        output_message("   No Change for Spoke HA in Element {0}.".format(element_descriptive_text))
         return
 
     if debuglevel >= 3:
         local_debug("ELEMENT SPOKEHA DIFF: {0}".format(find_diff(element_change_check, elem_template)))
 
-    output_message("   Updating Spoke HA for Element {0}.".format(element_name_or_id))
+    output_message("   Updating Spoke HA for Element {0}.".format(element_descriptive_text))
 
     # clean up element template.
     for key in copy.deepcopy(elem_template).keys():
@@ -1088,7 +1253,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     elem_update_resp = sdk.put.elements(element_id, elem_template)
 
     if not elem_update_resp.cgx_status:
-        throw_error("Element Spoke HA {0} Update failed: ".format(element_id), elem_update_resp)
+        throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text), elem_update_resp)
 
     return
 
@@ -1105,7 +1270,10 @@ def assign_modify_element(matching_element, site_id, config_element):
     element = matching_element
     element_serial = element.get('serial_number')
     element_id = element.get('id')
+    element_name = element.get('name')
     element_site_id = element.get("site_id")
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
 
     # 5.0.1 element_site_id is set to 1 instead of None when unassigned.
     if element_site_id and element_site_id not in ['1', 1]:
@@ -1147,13 +1315,13 @@ def assign_modify_element(matching_element, site_id, config_element):
             if not force_update and elem_template == element_change_check:
                 # no change in config, pass.
                 element_name = matching_element.get('name')
-                output_message("  No Change for Element {0}.".format(element_name))
+                output_message("  No Change for Element {0}.".format(element_descriptive_text))
                 return
 
             if debuglevel >= 3:
                 local_debug("ELEMENT DIFF: {0}".format(find_diff(element_change_check, elem_template)))
 
-            output_message("  Updating Element {0}.".format(element_id))
+            output_message("  Updating Element {0}.".format(element_descriptive_text))
 
             # clean up element template.
             for key in copy.deepcopy(elem_template).keys():
@@ -1168,7 +1336,8 @@ def assign_modify_element(matching_element, site_id, config_element):
             elem_update_resp = sdk.put.elements(element_id, elem_template)
 
             if not elem_update_resp.cgx_status:
-                throw_error("Element {0} Update failed: ".format(element_id), elem_update_resp)
+                throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                            elem_update_resp)
 
             return
 
@@ -1177,13 +1346,13 @@ def assign_modify_element(matching_element, site_id, config_element):
             # build sites ID to name map from cache.
             sites_id2n = build_lookup_dict(sites_cache, key_val='id', value_val='name')
             throw_error("Element {0}({1}) is already assigned to site {2}. It needs to be in 'Claimed' state before"
-                        "assigning to a new site.".format(element_id,
+                        "assigning to a new site.".format(element_descriptive_text,
                                                           element_serial,
                                                           sites_id2n.get(element_site_id, element_site_id)))
 
     else:
         # Element needs assigned.
-        output_message("  Assigning Element {0}.".format(element_id))
+        output_message("  Assigning Element {0}.".format(element_descriptive_text))
         # check status
         element_id = element.get('id')
 
@@ -1192,6 +1361,8 @@ def assign_modify_element(matching_element, site_id, config_element):
 
         # update from the config
         elem_template.update(config_element)
+
+        local_debug("ELEM_TEMPLATE_PRE_KEYPURGE:" + str(json.dumps(elem_template, indent=4)))
 
         # clean up element template.
         for key in copy.deepcopy(elem_template).keys():
@@ -1210,16 +1381,18 @@ def assign_modify_element(matching_element, site_id, config_element):
         elem_update_resp = sdk.put.elements(element_id, elem_template)
 
         if not elem_update_resp.cgx_status:
-            throw_error("Element {0} Assign failed: ".format(element_id), elem_update_resp)
+            throw_error("Element {0} Assign failed: ".format(element_descriptive_text),
+                        elem_update_resp)
 
     return
 
 
-def unbind_elements(element_id_list, site_id):
+def unbind_elements(element_id_list, site_id, declaim=False):
     """
-    Unbind element(s) from a site
+    Unbind (unassign) element(s) from a site
     :param element_id_list: List of element IDs to unbind.
     :param site_id: Site ID to unbind element from.
+    :param declaim: Bool, if true do an declaim (put back in inventory) after unassign.
     :return:
     """
     # get the element records from cache that match the element IDs we want to unbind from the site.
@@ -1229,17 +1402,29 @@ def unbind_elements(element_id_list, site_id):
         element_item_id = element_item.get('id')
         element_item_name = element_item.get('name')
         element_item_site_id = element_item.get('site_id')
+        element_item_serial_number = element_item.get('serial_number')
+        element_item_descriptive_text = element_item_name if element_item_name else \
+            "Serial: {0}".format(element_item_serial_number) if element_item_serial_number else \
+            "ID: {0}".format(element_item_id)
 
         # select this element to destroy, but double verify it is assigned to the site.
         if element_item_site_id == site_id:
-            output_message("Un-assigning element {0}({1}) bound to {2}.".format(element_item_name, element_item_id,
-                                                                                site_id))
+            if declaim:
+                output_message("Un-assigning and de-claiming Element {0}({1}) bound to {2}."
+                               "".format(element_item_descriptive_text,
+                                         element_item_serial_number if element_item_serial_number else element_item_id,
+                                         site_id))
+            else:
+                output_message("Un-assigning Element {0}({1}) bound to {2}."
+                               "".format(element_item_descriptive_text,
+                                         element_item_serial_number if element_item_serial_number else element_item_id,
+                                         site_id))
 
             # Remove LAN/WAN labels from intefaces.
             intf_resp = sdk.get.interfaces(site_id, element_item_id)
 
             if not intf_resp.cgx_status:
-                throw_error("Could not get list of element {0} interfaces: ".format(element_item_name),
+                throw_error("Could not get list of Element {0} interfaces: ".format(element_item_descriptive_text),
                             intf_resp)
 
             intf_list = intf_resp.cgx_content.get('items', [])
@@ -1285,6 +1470,19 @@ def unbind_elements(element_id_list, site_id):
                             throw_error("Could not strip config from {0}: ".format(intf_name),
                                         reconf_resp.cgx_content)
 
+            # Delete element securityzones for this element, if they exist
+            output_message(" Removing any leftover Element Security Zones and Spoke HA from {0}:"
+                           "".format(element_item_name))
+            element_securityzones_resp = sdk.get.elementsecurityzones(site_id, element_item_id)
+            element_securityzones_cache, leftover_element_securityzones = extract_items(element_securityzones_resp,
+                                                                                        'elementsecurityzones')
+
+            # build a element_securityzone_id to zone name mapping.
+            element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
+                                                                value_val='zone_id')
+            delete_element_securityzones(leftover_element_securityzones, site_id, element_item_id,
+                                         id2n=element_securityzones_id2zoneid)
+
             # Remove static routes from device.
             static_routes_resp = sdk.get.staticroutes(site_id, element_item_id)
 
@@ -1303,6 +1501,26 @@ def unbind_elements(element_id_list, site_id):
             # prepare to unbind element.
             elem_template = copy.deepcopy(element_item)
 
+            # clear out any Spoke HA configurations
+            elem_template['spoke_ha_config'] = None
+
+            # create a temp element object to flush the configs.
+            matching_element = {"id": element_item_id}
+
+            # use the temp fake element to flush the Spoke HA configuration prior to unbind.
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {})
+
+            # refresh the element
+            element_resp = sdk.get.elements(element_item_id)
+
+            if not element_resp.cgx_status:
+                throw_warning('Could not refresh element after Spoke HA flush: ', element_resp)
+
+            # update the template with the refreshed ETAG.
+            elem_template = dict(element_resp.cgx_content)
+
+            local_debug("ELEM_TEMPLATE_PRE_KEYPURGE:" + str(json.dumps(elem_template, indent=4)))
+
             # clean up element template.
             for key in copy.deepcopy(elem_template).keys():
                 if key not in element_put_items:
@@ -1312,13 +1530,30 @@ def unbind_elements(element_id_list, site_id):
             elem_template['sw_obj'] = None
             elem_template['site_id'] = 1
 
+            local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
+
             # Wipe them out. All of them..
             elem_resp = sdk.put.elements(element_item_id, elem_template)
             if not elem_resp.cgx_status:
-                throw_error("Could not unbind element {0}: ".format(element_item_name), elem_resp.cgx_content)
+                if declaim:
+                    # element may be stuck offline, and we are going to do a declaim.
+                    output_message(" Could not unbind Element {0}, proceeding to declaim. "
+                                   "".format(element_item_descriptive_text))
+                else:
+                    throw_error("Could not unbind Element {0}: ".format(element_item_descriptive_text), elem_resp)
+            if declaim:
+                # Declaim is set. Fire a declaim at this point as well. (really wipe this guy out.)
+                declaim_data = {
+                    "action": "declaim",
+                    "parameters": None
+                }
+                declaim_resp = sdk.post.tenant_element_operations(element_item_id, declaim_data)
+                if not declaim_resp.cgx_status:
+                    throw_error("Could not declaim #lement {0}: ".format(element_item_descriptive_text), declaim_resp)
 
         else:
-            throw_warning("Element {0}({1}) not bound to {2}.".format(element_item_name, element_item_id,
+            throw_warning("Element {0}({1}) not bound to {2}.".format(element_item_descriptive_text,
+                                                                      element_item_serial_number,
                                                                       site_id))
 
     # return the unbound element object entries.
@@ -1345,12 +1580,14 @@ def create_site(config_site):
     site_template = fuzzy_pop(site_template, 'site_extensions')
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
+    site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
+    name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
@@ -1398,12 +1635,14 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'site_extensions')
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
+    site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
+    name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
@@ -1473,7 +1712,7 @@ def set_site_state(config_site, site_id):
     site_resp = sdk.get.sites(site_id)
 
     if not site_resp.cgx_status:
-        throw_error("Get of site {0} failed: ".format(site_id), site_resp.cgx_content)
+        throw_error("Get of site {0} failed: ".format(site_id), site_resp)
 
     # check state
     cur_state = site_resp.cgx_content.get('admin_state')
@@ -1487,7 +1726,7 @@ def set_site_state(config_site, site_id):
     # put it back
     site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content)
     if not site_modify_resp.cgx_status:
-        throw_error("Set of site {0} status failed: ".format(site_id), site_modify_resp.cgx_content)
+        throw_error("Set of site {0} status failed: ".format(site_id), site_modify_resp)
 
     output_message("Updated Site {0} to state {1}.".format(site_name, site_state))
 
@@ -1506,8 +1745,47 @@ def create_waninterface(config_waninterface, waninterfaces_n2id, site_id):
     waninterface_template = copy.deepcopy(config_waninterface)
 
     # perform name -> ID lookups
-    name_lookup_in_template(waninterface_template, 'network_id', wannetworks_n2id)
     name_lookup_in_template(waninterface_template, 'label_id', waninterfacelabels_n2id)
+
+    # perform network_id name -> ID lookups. There is a hint value if present that will let us disambiguate
+    # PublicWAN names vs PrivateWAN names. If present, use and remove it.
+    config_network_type = config_waninterface.get('network_type')
+    config_network_id = config_waninterface.get('network_id')
+    if config_network_type and str(config_network_type).lower() in ['publicwan', 'privatewan']:
+        # pub/priv hint is there, and usable.
+        if str(config_network_type).lower() == 'publicwan':
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id, config_network_id)
+        else:  # privatewan only other option. add more elif if other state in future.
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id, config_network_id)
+
+    else:
+        # no network_type metadata. Check for conflicts first.
+        if config_network_id in wannetworks_publicwan_n2id and config_network_id in wannetworks_privatewan_n2id:
+            waninterface_name = config_waninterface.get('name')
+            # conflict - network_id in both and no disambiguation metadata found.
+            network_id_candidate = None
+            error_detail_object = [wn for wn in wannetworks_cache if wn.get('name') == config_network_id]
+            throw_error("WAN Interface {0} 'network_id' name matched both a 'publicwan' network and 'privatewan' "
+                        "network, and no 'network_type' value present to let do_site determine which one should be "
+                        "used. Both matching networks printed below. To resolve, select one of these networks, and take"
+                        "the 'type' value (publicwan/privatewan) and add that value to the WAN Interface configuration"
+                        "under a 'network_type' key.".format(waninterface_name), error_detail_object)
+        elif config_network_id in wannetworks_publicwan_n2id:
+            # matches public network
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id)
+        elif config_network_id in wannetworks_privatewan_n2id:
+            # matches private network
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id)
+        else:
+            # doesnt match anything, use value as entered.
+            network_id_candidate = config_network_id
+
+    # Finally, update the template. It should either be the appropriate ID, or original value if no ID match found.
+    waninterface_template['network_id'] = network_id_candidate
+
+    # No matter what, remove 'network_type' from template if it exists, as it's not a valid value for API (just used by
+    # pull_site and do_site as metadata.
+    waninterface_template.pop('network_type', None)
 
     local_debug("WANINTERFACE TEMPLATE: " + str(json.dumps(waninterface_template, indent=4)))
 
@@ -1546,8 +1824,47 @@ def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id
     waninterface_template = copy.deepcopy(config_waninterface)
 
     # perform name -> ID lookups
-    name_lookup_in_template(waninterface_template, 'network_id', wannetworks_n2id)
     name_lookup_in_template(waninterface_template, 'label_id', waninterfacelabels_n2id)
+
+    # perform network_id name -> ID lookups. There is a hint value if present that will let us disambiguate
+    # PublicWAN names vs PrivateWAN names. If present, use and remove it.
+    config_network_type = config_waninterface.get('network_type')
+    config_network_id = config_waninterface.get('network_id')
+    if config_network_type and str(config_network_type).lower() in ['publicwan', 'privatewan']:
+        # pub/priv hint is there, and usable.
+        if str(config_network_type).lower() == 'publicwan':
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id, config_network_id)
+        else:  # privatewan only other option. add more elif if other state in future.
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id, config_network_id)
+
+    else:
+        # no network_type metadata. Check for conflicts first.
+        if config_network_id in wannetworks_publicwan_n2id and config_network_id in wannetworks_privatewan_n2id:
+            waninterface_name = config_waninterface.get('name')
+            # conflict - network_id in both and no disambiguation metadata found.
+            network_id_candidate = None
+            error_detail_object = [wn for wn in wannetworks_cache if wn.get('name') == config_network_id]
+            throw_error("WAN Interface {0} 'network_id' name matched both a 'publicwan' network and 'privatewan' "
+                        "network, and no 'network_type' value present to let do_site determine which one should be "
+                        "used. Both matching networks printed below. To resolve, select one of these networks, and take"
+                        "the 'type' value (publicwan/privatewan) and add that value to the WAN Interface configuration"
+                        "under a 'network_type' key.".format(waninterface_name), error_detail_object)
+        elif config_network_id in wannetworks_publicwan_n2id:
+            # matches public network
+            network_id_candidate = wannetworks_publicwan_n2id.get(config_network_id)
+        elif config_network_id in wannetworks_privatewan_n2id:
+            # matches private network
+            network_id_candidate = wannetworks_privatewan_n2id.get(config_network_id)
+        else:
+            # doesnt match anything, use value as entered.
+            network_id_candidate = config_network_id
+
+    # Finally, update the template. It should either be the appropriate ID, or original value if no ID match found.
+    waninterface_template['network_id'] = network_id_candidate
+
+    # No matter what, remove 'network_type' from template if it exists, as it's not a valid value for API (just used by
+    # pull_site and do_site as metadata.
+    waninterface_template.pop('network_type', None)
 
     local_debug("WANINTERFACE TEMPLATE: " + str(json.dumps(waninterface_template, indent=4)))
 
@@ -2195,9 +2512,149 @@ def delete_site_securityzones(leftover_site_securityzones, site_id, id2n=None):
                        "".format(ssz_zone_name))
         site_securityzone_del_resp = sdk.delete.sitesecurityzones(site_id, site_securityzone_id)
         if not site_securityzone_del_resp.cgx_status:
-            throw_error("Could not delete Site Securityzone {0}: ".format(id2n.get(site_securityzone_id,
-                                                                                   site_securityzone_id)),
+            throw_error("Could not delete Site Securityzone {0}: ".format(ssz_zone_name),
                         site_securityzone_del_resp)
+    return
+
+
+def create_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefixes_prefixid2id, site_id):
+    """
+    Create a Site NAT Local Prefix mapping
+    :param config_site_nat_localprefix: Site nat localprefix config dict
+    :param site_nat_localprefixes_prefixid2id: Site NAT localprefix ID to NAT Localprefix ID dict
+    :param site_id: Site ID to use
+    :return: Site nat localprefix ID
+    """
+    # make a copy of site_nat_localprefix to modify
+    site_nat_localprefix_template = copy.deepcopy(config_site_nat_localprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_nat_localprefix_template, 'prefix_id', natlocalprefixes_n2id)
+
+    # replace complex names (none for site nat localprefixes)
+
+    local_debug("SITE_NAT_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_nat_localprefix_template, indent=4)))
+
+    # create site_nat_localprefix
+    site_nat_localprefix_resp = sdk.post.site_natlocalprefixes(site_id, site_nat_localprefix_template)
+
+    if not site_nat_localprefix_resp.cgx_status:
+        throw_error("Site NAT Localprefix creation failed: ", site_nat_localprefix_resp)
+
+    site_nat_localprefix_id = site_nat_localprefix_resp.cgx_content.get('id')
+    site_nat_localprefix_prefix_id = site_nat_localprefix_resp.cgx_content.get('prefix_id')
+
+    if not site_nat_localprefix_id or not site_nat_localprefix_prefix_id:
+        throw_error("Unable to determine site_nat_localprefix attributes (ID {0}, Zone ID {1}).."
+                    "".format(site_nat_localprefix_id, site_nat_localprefix_prefix_id))
+
+    # Try to get prefix name this is for.
+    snlp_name = natlocalprefixes_id2n.get(site_nat_localprefix_prefix_id, site_nat_localprefix_prefix_id)
+
+    output_message(" Created Site NAT Localprefix mapping for Localprefix '{0}'.".format(snlp_name))
+
+    return site_nat_localprefix_id
+
+
+def modify_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefix_id,
+                                site_nat_localprefixes_prefixid2id, site_id):
+    """
+    Modify Existing Site NAT Local Prefix mapping
+    :param config_site_nat_localprefix: Site nat localprefix config dict
+    :param site_nat_localprefix_id: Existing Site nat localprefix ID
+    :param site_nat_localprefixes_prefixid2id: Site NAT localprefix ID to NAT Localprefix ID dict
+    :param site_id: Site ID to use
+    :return: Returned Site nat localprefix ID
+    """
+    site_nat_localprefix_config = {}
+    # make a copy of site_nat_localprefix to modify
+    site_nat_localprefix_template = copy.deepcopy(config_site_nat_localprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_nat_localprefix_template, 'prefix_id', natlocalprefixes_n2id)
+
+    # replace complex names (none for site_nat_localprefixes)
+
+    local_debug("SITE_NAT_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_nat_localprefix_template, indent=4)))
+
+    # get current site_nat_localprefix
+    site_nat_localprefix_resp = sdk.get.site_natlocalprefixes(site_id, site_nat_localprefix_id)
+    if site_nat_localprefix_resp.cgx_status:
+        site_nat_localprefix_config = site_nat_localprefix_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Site NAT Localprefix: ", site_nat_localprefix_resp)
+
+    # extract prev_revision
+    prev_revision = site_nat_localprefix_config.get("_etag")
+
+    # Check for changes:
+    site_nat_localprefix_change_check = copy.deepcopy(site_nat_localprefix_config)
+    site_nat_localprefix_config.update(site_nat_localprefix_template)
+    if not force_update and site_nat_localprefix_config == site_nat_localprefix_change_check:
+        # no change in config, pass.
+        site_nat_localprefix_id = site_nat_localprefix_change_check.get('id')
+        site_nat_localprefix_prefix_id = site_nat_localprefix_resp.cgx_content.get('prefix_id')
+        # Try to get prefix name this is for.
+        snlp_name = natlocalprefixes_id2n.get(site_nat_localprefix_prefix_id, site_nat_localprefix_prefix_id)
+        output_message(" No Change for Site NAT Localprefix mapping for Localprefix {0}.".format(snlp_name))
+        return site_nat_localprefix_id
+
+    if debuglevel >= 3:
+        local_debug("SITE_NAT_LOCALPREFIX DIFF: {0}".format(find_diff(site_nat_localprefix_change_check,
+                                                                      site_nat_localprefix_config)))
+
+    # Update Site_nat_localprefix.
+    site_nat_localprefix_resp2 = sdk.put.site_natlocalprefixes(site_id, site_nat_localprefix_id,
+                                                               site_nat_localprefix_config)
+
+    if not site_nat_localprefix_resp2.cgx_status:
+        throw_error("Site NAT Localprefix update failed: ", site_nat_localprefix_resp2)
+
+    site_nat_localprefix_prefix_id = site_nat_localprefix_resp.cgx_content.get('prefix_id')
+    site_nat_localprefix_id = site_nat_localprefix_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = site_nat_localprefix_resp2.cgx_content.get("_etag")
+
+    if not site_nat_localprefix_prefix_id or not site_nat_localprefix_id:
+        throw_error("Unable to determine Site NAT Localprefix attributes (ID {0}, Zone {1}).."
+                    "".format(site_nat_localprefix_id, site_nat_localprefix_prefix_id))
+
+    # Try to get prefix name this is for.
+    snlp_name = natlocalprefixes_id2n.get(site_nat_localprefix_prefix_id, site_nat_localprefix_prefix_id)
+
+    output_message(" Updated Site NAT Localprefix mapping for Localprefix '{0}' (Etag {1} -> {2})."
+                   "".format(snlp_name, prev_revision, current_revision))
+
+    return site_nat_localprefix_id
+
+
+def delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id, id2n=None):
+    """
+    Delete Site nat localprefix Mappings
+    :param leftover_site_nat_localprefixes: List of Site nat localprefix IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for site_nat_localprefix_id in leftover_site_nat_localprefixes:
+        # delete all leftover site_nat_localprefixes.
+
+        # Try to get zone name
+        snlp_name = natlocalprefixes_id2n.get(id2n.get(site_nat_localprefix_id, site_nat_localprefix_id),
+                                              site_nat_localprefix_id)
+
+        output_message(" Deleting Unconfigured Site NAT Localprefix mapping for Localprefix '{0}'."
+                       "".format(snlp_name))
+        site_nat_localprefix_del_resp = sdk.delete.site_natlocalprefixes(site_id, site_nat_localprefix_id)
+        if not site_nat_localprefix_del_resp.cgx_status:
+            throw_error("Could not delete Site NAT Localprefix mapping for Localprefix {0}: "
+                        "".format(snlp_name),
+                        site_nat_localprefix_del_resp)
     return
 
 
@@ -2470,12 +2927,29 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             else:
                 interface_template["dhcp_relay"] = None
 
+        elif key == "nat_pools":
+
+            # look for key in config, xlate name to ID.
+            config_nat_pools = config_interface.get('nat_pools', [])
+            if config_nat_pools and isinstance(config_nat_pools, list):
+                # clone list to modify
+                n2id_np_template = copy.deepcopy(config_nat_pools)
+
+                # replace flat names in dict
+                name_lookup_in_template(n2id_np_template, 'nat_pool_id', natpolicypools_n2id)
+
+                # update template
+                interface_template["nat_pools"] = n2id_np_template
+            else:
+                interface_template["nat_pools"] = None
+
         else:
             # just set the key.
             interface_template[key] = value
 
     # replace flat names
     name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -2703,12 +3177,35 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             else:
                 interface_template["dhcp_relay"] = None
 
+        elif key == "nat_pools":
+
+            # look for key in config, xlate name to ID.
+            config_nat_pools = config_interface.get('nat_pools', [])
+            if config_nat_pools and isinstance(config_nat_pools, list):
+                # create a new list and copy over entries as we replace names
+                n2id_nat_pool_template = []
+                for config_nat_pool_entry in config_nat_pools:
+                    # clone dict to modify
+                    n2id_nat_pool_entry_template = copy.deepcopy(config_nat_pool_entry)
+
+                    # replace flat names in dict
+                    name_lookup_in_template(n2id_nat_pool_entry_template, 'nat_pool_id', natpolicypools_n2id)
+
+                    # update new list
+                    n2id_nat_pool_template.append(n2id_nat_pool_entry_template)
+
+                # update template
+                interface_template["nat_pools"] = n2id_nat_pool_template
+            else:
+                interface_template["nat_pools"] = None
+
         else:
             # just set the key.
             interface_template[key] = value
 
     # replace flat names
     name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -4687,12 +5184,14 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
     # make a copy of element_extension to modify
     element_extension_template = copy.deepcopy(config_element_extension)
 
-    # Entity ID can be a multitude of things. Try them all.
-    name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
-    # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
-    name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
+    # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
+    element_extension_namespace = config_element_extension.get('namespace')
+    if element_extension_namespace not in ["dnsmasq/prod"]:
+        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
+        # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
+        name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
 
     local_debug("ELEMENT_EXTENSION TEMPLATE: " + str(json.dumps(element_extension_template, indent=4)))
 
@@ -4735,12 +5234,14 @@ def modify_element_extension(config_element_extension, element_extension_id, ele
     # make a copy of element_extension to modify
     element_extension_template = copy.deepcopy(config_element_extension)
 
-    # Entity ID can be a multitude of things. Try them all.
-    name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
-    name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
-    # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
-    name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
+    # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
+    element_extension_namespace = config_element_extension.get('namespace')
+    if element_extension_namespace not in ["dnsmasq/prod"]:
+        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
+        name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
+        # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
+        name_lookup_in_template(element_extension_template, 'entity_id', appdefs_n2id)
 
     local_debug("ELEMENT_EXTENSION TEMPLATE: " + str(json.dumps(element_extension_template, indent=4)))
 
@@ -5032,13 +5533,14 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
     return
 
 
-def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None, passed_timeout_claim=None,
-            passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
+def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
+            passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None):
     """
     Main Site config/deploy worker function.
     :param loaded_config: Loaded config in Python Dict format
     :param destroy: Bool, True = Create site/objects, False = Destroy (completely, use with caution).
+    :param declaim: Bool, True = on unassign, automatically declaim element.
     :param passed_sdk: Authenticated `cloudgenix.API()` constructor.
     :param passed_timeout_offline: Optional - Time to wait if ION is offline (seconds)
     :param passed_timeout_claim: Optional - Time to wait for ION to claim (seconds)
@@ -5107,7 +5609,8 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters = parse_site_config(config_site)
+                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes \
+                = parse_site_config(config_site)
 
             # Determine site ID.
             # look for implicit ID in object.
@@ -5435,6 +5938,78 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
             # -- End Spoke Clusters
 
+            # -- Start Site_nat_localprefixes
+            site_nat_localprefixes_resp = sdk.get.site_natlocalprefixes(site_id)
+            # TODO remove this MESSY HACK to work around CGB-15068.
+            if site_nat_localprefixes_resp.cgx_status and site_nat_localprefixes_resp.cgx_content == {}:
+                # Welcome to the land of CGB-15068. Fix in progress.
+                site_nat_localprefixes_resp.cgx_content = {
+                    "_etag": 1,  # Hopefully this should work
+                    "_content_length": "0",
+                    "_schema": 0,
+                    "_created_on_utc": 15791094199340006,
+                    "_updated_on_utc": 0,
+                    "_status_code": "200",
+                    "_request_id": "1579109419923000400002492011547730241671",
+                    "count": 0,
+                    "items": []
+                }
+            # END MESSY HACK for CGB-15068
+
+            site_nat_localprefixes_cache, leftover_site_nat_localprefixes = extract_items(site_nat_localprefixes_resp,
+                                                                                          'site_nat_localprefixes')
+            # build lookup cache based on prefix id.
+            site_nat_localprefixes_prefixid2id = build_lookup_dict(site_nat_localprefixes_cache, key_val='prefix_id')
+
+            # iterate configs (list)
+            for config_site_nat_localprefix_entry in config_site_nat_localprefixes:
+
+                # deepcopy to modify.
+                config_site_nat_localprefix = copy.deepcopy(config_site_nat_localprefix_entry)
+
+                # no need to get site_nat_localprefix config, no child config objects.
+
+                # Determine site_nat_localprefix ID.
+                # look for implicit ID in object.
+                implicit_site_nat_localprefix_id = config_site_nat_localprefix.get('id')
+                # if no ID, select by zone ID
+                config_site_nat_localprefix_prefix = config_site_nat_localprefix.get('prefix_id')
+                # do name to id lookup
+                config_site_nat_localprefix_prefix_id = natlocalprefixes_n2id.get(config_site_nat_localprefix_prefix,
+                                                                                  config_site_nat_localprefix_prefix)
+                # finally, get securityzone ID from zone_id
+                config_site_nat_localprefix_id = \
+                    site_nat_localprefixes_prefixid2id.get(config_site_nat_localprefix_prefix_id)
+
+                if implicit_site_nat_localprefix_id is not None:
+                    site_nat_localprefix_id = implicit_site_nat_localprefix_id
+
+                elif config_site_nat_localprefix_id is not None:
+                    # look up ID by prefix_id on existing site_nat_localprefix.
+                    site_nat_localprefix_id = config_site_nat_localprefix_id
+
+                else:
+                    # no site_nat_localprefix object.
+                    site_nat_localprefix_id = None
+
+                # Create or modify site_nat_localprefix.
+                if site_nat_localprefix_id is not None:
+                    # Site_securityzone exists, modify.
+                    site_nat_localprefix_id = modify_site_nat_localprefix(config_site_nat_localprefix,
+                                                                          site_nat_localprefix_id,
+                                                                          site_nat_localprefixes_prefixid2id, site_id)
+
+                else:
+                    # Site_securityzone does not exist, create.
+                    site_nat_localprefix_id = create_site_nat_localprefix(config_site_nat_localprefix,
+                                                                          site_nat_localprefixes_prefixid2id, site_id)
+
+                # remove from delete queue
+                leftover_site_nat_localprefixes = [entry for entry in leftover_site_nat_localprefixes
+                                                   if entry != site_nat_localprefix_id]
+
+            # -- End Site_nat_localprefixes
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -5452,7 +6027,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
 
                 # deal with claiming elements
                 while config_serial != matching_element.get('serial_number'):
-                    output_message(" Serial {0} is not CLAIMED, attempting to claim..".format(config_serial))
+                    output_message(" Machine {0} is not CLAIMED, attempting to claim..".format(config_serial))
 
                     claim_element(matching_machine, wait_if_offline=timeout_offline, wait_verify_success=timeout_claim,
                                   wait_interval=interval_timeout)
@@ -6856,13 +7431,19 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             # BEGIN SITE CLEANUP.
 
             # unbind any remaining elements.
-            unbind_elements(leftover_elements, site_id)
-            # add declaim for failed unbind in future.
+            unbind_elements(leftover_elements, site_id, declaim=declaim)
 
             # delete remaining spokecluster configs
             # build a spokecluster_id to name mapping.
-            spokeclusters_id2n= build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
+            spokeclusters_id2n = build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
             delete_spokeclusters(leftover_spokeclusters, site_id, id2n=spokeclusters_id2n)
+
+            # delete remaining site_nat_localprefix configs
+            # build a site_nat_localprefix_id to zone name mapping.
+            site_nat_localprefixes_id2prefixid = build_lookup_dict(site_nat_localprefixes_cache, key_val='id',
+                                                                   value_val='prefix_id')
+            delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id,
+                                          id2n=site_nat_localprefixes_id2prefixid)
 
             # delete remaining site_securityzone configs
             # build a site_securityzone_id to zone name mapping.
@@ -6928,7 +7509,7 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             site_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == del_site_id]
 
             # unbind the elements
-            unbound_elements = unbind_elements(site_elements, del_site_id)
+            unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
             # -- End Elements
 
             # -- Start WAN Interfaces
@@ -6948,10 +7529,10 @@ def do_site(loaded_config, destroy, passed_sdk=None, passed_timeout_offline=None
             config_site['admin_state'] = 'disabled'
             set_site_state(config_site, del_site_id)
 
-            # wait for element unbinds to complete
+            # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:
-                wait_for_element_state(del_element, ['ready'], wait_verify_success=timeout_state,
-                                       wait_interval=interval_timeout)
+                wait_for_element_state(del_element, ['ready', 'declaim_in_progress'], wait_verify_success=timeout_state,
+                                       wait_interval=interval_timeout, declaim=declaim)
 
             # Delete site
             output_message("Deleting Site {0}..".format(del_site_name))
@@ -7009,6 +7590,10 @@ def go():
                                                            "this script. This is a safety switch to prevent the script"
                                                            " from inadvertently modifying a large number of sites.",
                               default=1, type=int)
+    config_group.add_argument("--declaim", help="If a device/element needs to be unassigned in an operation,"
+                                                "automatically de-claim it as well. This is REQUIRED if"
+                                                "devices/elements are OFFLINE that need to be removed.",
+                              default=False, action="store_true")
     config_group.add_argument("--destroy", help="DESTROY site and all connected items (WAN Interfaces, LAN Networks).",
                               default=False, action="store_true")
 
@@ -7036,15 +7621,18 @@ def go():
                              default=1)
     debug_group.add_argument("--sdkdebug", "-D", help="Enable SDK Debug output, levels 0-2", type=int,
                              default=0)
+    debug_group.add_argument("--version", help="Dump Version(s) of script and modules and exit.", action='version',
+                             version=dump_version())
 
     args = vars(parser.parse_args())
 
     destroy = args['destroy']
+    declaim = args['declaim']
     config_file = args['Config File'][0]
 
     # load config file
     with open(config_file, 'r') as datafile:
-        loaded_config = yaml.load(datafile)
+        loaded_config = yaml.safe_load(datafile)
 
     # set verbosity and SDK debug
     debuglevel = args["verbose"]
@@ -7141,7 +7729,7 @@ def go():
                 user_password = None
     # Do the real work
     try:
-        do_site(loaded_config, destroy)
+        do_site(loaded_config, destroy, declaim=declaim)
     except CloudGenixConfigError:
         # Exit silently if error hit.
         sys.exit(1)
