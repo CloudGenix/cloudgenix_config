@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.2.0b1
+**Version:** 1.2.0b2
 
 **Author:** CloudGenix
 
@@ -749,6 +749,22 @@ def _pull_config_for_single_site(site_name_id):
     response = sdk.get.site_natlocalprefixes(site['id'])
     if not response.cgx_status:
         throw_error("Site NAT Local Prefixes get failed: ", response)
+    # TODO remove this MESSY HACK to work around CGB-15068.
+    if response.cgx_content == {}:
+        # Welcome to the land of CGB-15068. Fix in progress.
+        response.cgx_content = {
+            "_etag": 1,  # Hopefully this should work
+            "_content_length": "0",
+            "_schema": 0,
+            "_created_on_utc": 15791094199340006,
+            "_updated_on_utc": 0,
+            "_status_code": "200",
+            "_request_id": "1579109419923000400002492011547730241671",
+            "count": 0,
+            "items": []
+        }
+    # END MESSY HACK for CGB-15068
+
     site_natlocalprefixes = response.cgx_content['items']
 
     for site_natlocalprefix in site_natlocalprefixes:
