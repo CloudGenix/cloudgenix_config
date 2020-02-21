@@ -105,7 +105,7 @@ nameable_interface_types = [
 ]
 
 skip_interface_list = [
-    'controller 2'
+    # 'controller 2'
 ]
 
 
