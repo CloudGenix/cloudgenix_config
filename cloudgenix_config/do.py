@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.2.0b2
+**Version:** 1.2.0b3
 
 **Author:** CloudGenix
 
@@ -4817,66 +4817,53 @@ def delete_syslogs(leftover_syslogs, site_id, element_id, id2n=None):
     return
 
 
-def create_ntp(config_ntp, interfaces_n2id, site_id, element_id):
+def modify_ntp(config_ntp, site_id, element_id):
     """
-    Create an NTP config
-    :param config_ntp: NTP config dict
-    :param interfaces_n2id: Interfaces Name to ID dict
+    Modify Device NTP. No Create or delete needed, always exists.
+    For UI flow, templates are copied from ntp_templates. This utility just takes them in from the config file.
+    :param config_ntp: Ntp Config dict
     :param site_id: Site ID to use
     :param element_id: Element ID to use
-    :return: Created NTP ID
-    """
-    # make a copy of ntp to modify
-    ntp_template = copy.deepcopy(config_ntp)
-
-    local_debug("NTP TEMPLATE: " + str(json.dumps(ntp_template, indent=4)))
-
-    # create ntp
-    ntp_resp = sdk.post.ntp(element_id, ntp_template)
-
-    if not ntp_resp.cgx_status:
-        throw_error("Ntp creation failed: ", ntp_resp)
-
-    ntp_id = ntp_resp.cgx_content.get('id')
-    ntp_name = ntp_resp.cgx_content.get('name', ntp_id)
-
-    if not ntp_id:
-        throw_error("Unable to determine ntp attributes (ID {0})..".format(ntp_id))
-
-    output_message("   Created ntp {0}.".format(ntp_name))
-
-    return ntp_id
-
-
-def modify_ntp(config_ntp, ntp_id, interfaces_n2id,
-               site_id, element_id):
-    """
-    Modify an existing NTP config
-    :param config_ntp: NTP config dict
-    :param ntp_id: Existing NTP ID
-    :param interfaces_n2id: Interfaces Name to ID
-    :param site_id: Site ID to use
-    :param element_id: Element ID to use
-    :return: Returned NTP ID
+    :return: Returned Ntp ID
     """
     ntp_config = {}
-    # make a copy of ntp to modify
-    ntp_template = copy.deepcopy(config_ntp)
 
-    # replace flat names
-    name_lookup_in_template(ntp_template, 'source_interface', interfaces_n2id)
+    # check if the NTP config is a list. It gets exported as one, but need the dict entry.
+    if isinstance(config_ntp, list):
+        if len(config_ntp) > 1:
+            throw_error("Passed YAML configuration has more than one NTP configuration item. This is not supported.",
+                        config_ntp)
+            return None
+        else:
+            # make a copy to modify from list.
+            ntp_template = copy.deepcopy(config_ntp[0])
+
+    else:
+        # assume it's a dict object.
+        # just make a copy of ntp to modify
+        ntp_template = copy.deepcopy(config_ntp)
 
     local_debug("NTP TEMPLATE: " + str(json.dumps(ntp_template, indent=4)))
 
     # get current ntp
-    ntp_resp = sdk.get.ntp(element_id, ntp_id)
+    ntp_resp = sdk.get.ntp(element_id)
     if ntp_resp.cgx_status:
-        ntp_config = ntp_resp.cgx_content
+        # extract items.
+        ntp_config_list, _ = extract_items(ntp_resp, 'ntp')
+        
+        if len(ntp_config_list) > 1:
+            throw_error("Element API configuration returned more than one NTP configuration. This is not supported.",
+                        ntp_resp)
+            return None
+        ntp_config = ntp_config_list[0]
+
     else:
-        throw_error("Unable to retrieve ntp: ", ntp_resp)
+        throw_error("Unable to retrieve NTP config: ", ntp_resp)
 
     # extract prev_revision
     prev_revision = ntp_config.get("_etag")
+    # extract NTP id
+    ntp_id = ntp_config.get('id')
 
     # Check for changes:
     ntp_change_check = copy.deepcopy(ntp_config)
@@ -4884,8 +4871,7 @@ def modify_ntp(config_ntp, ntp_id, interfaces_n2id,
     if not force_update and ntp_config == ntp_change_check:
         # no change in config, pass.
         ntp_id = ntp_change_check.get('id')
-        ntp_name = ntp_change_check.get('name')
-        output_message("   No Change for Ntp {0}.".format(ntp_name))
+        output_message("   No Change for NTP {0}.".format(ntp_id))
         return ntp_id
 
     if debuglevel >= 3:
@@ -4895,10 +4881,9 @@ def modify_ntp(config_ntp, ntp_id, interfaces_n2id,
     ntp_resp2 = sdk.put.ntp(element_id, ntp_id, ntp_config)
 
     if not ntp_resp2.cgx_status:
-        throw_error("Ntp update failed: ", ntp_resp2)
+        throw_error("NTP update failed: ", ntp_resp2)
 
-    ntp_id = ntp_resp.cgx_content.get('id')
-    ntp_name = ntp_resp.cgx_content.get('name', ntp_id)
+    ntp_id = ntp_resp2.cgx_content.get('id')
 
     # extract current_revision
     current_revision = ntp_resp2.cgx_content.get("_etag")
@@ -4906,34 +4891,10 @@ def modify_ntp(config_ntp, ntp_id, interfaces_n2id,
     if not ntp_id:
         throw_error("Unable to determine ntp attributes (ID {0})..".format(ntp_id))
 
-    output_message("   Updated Ntp {0} (Etag {1} -> {2}).".format(ntp_name, prev_revision,
+    output_message("   Updated NTP {0} (Etag {1} -> {2}).".format(ntp_id, prev_revision,
                                                                   current_revision))
 
     return ntp_id
-
-
-def delete_ntps(leftover_ntps, site_id, element_id, id2n=None):
-    """
-    Delete a list of NTP configs
-    :param leftover_ntps: List of NTP IDs
-    :param site_id: Site ID to use
-    :param element_id: Element ID to use
-    :param id2n: Optional - ID to Name lookup dict
-    :return: None
-    """
-    # ensure id2n is empty dict if not set.
-    if id2n is None:
-        id2n = {}
-
-    for ntp_id in leftover_ntps:
-        # delete all leftover ntps.
-
-        output_message("   Deleting Unconfigured Ntp {0}.".format(id2n.get(ntp_id, ntp_id)))
-        ntp_del_resp = sdk.delete.ntp(element_id, ntp_id)
-        if not ntp_del_resp.cgx_status:
-            throw_error("Could not delete Ntp {0}: ".format(id2n.get(ntp_id, ntp_id)),
-                        ntp_del_resp)
-    return
 
 
 def create_snmp_agent(config_snmp_agent, interfaces_n2id, site_id, element_id):
@@ -4967,7 +4928,7 @@ def create_snmp_agent(config_snmp_agent, interfaces_n2id, site_id, element_id):
 
 
 def modify_snmp_agent(config_snmp_agent, snmp_agent_id, interfaces_n2id,
-                  site_id, element_id):
+                      site_id, element_id):
     """
     Modify Existing SNMP Agent config
     :param config_snmp_agent: SNMP Agent config dict
@@ -7201,47 +7162,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # -- End SYSLOG config
 
                 # -- Start NTP config
-                ntps_resp = sdk.get.ntp(element_id)
-                ntps_cache, leftover_ntps = extract_items(ntps_resp, 'ntp')
-                # build lookup cache based on prefix.
-                ntps_n2id = build_lookup_dict(ntps_cache)
+                # no need to get NTP config, no child config objects.
+                # No need to determine NTP ID, one object per element.
 
-                # iterate configs (list)
-                for config_ntp_entry in config_ntp:
+                ntp_id = modify_ntp(config_ntp, site_id, element_id)
 
-                    # deepcopy to modify.
-                    config_ntp_record = copy.deepcopy(config_ntp_entry)
-
-                    # no need to get ntp config, no child config objects.
-
-                    # Determine ntp ID.
-                    # look for implicit ID in object.
-                    implicit_ntp_id = config_ntp_entry.get('id')
-                    config_ntp_name = config_ntp_entry.get('name')
-                    name_ntp_id = ntps_n2id.get(config_ntp_name)
-
-                    if implicit_ntp_id is not None:
-                        ntp_id = implicit_ntp_id
-
-                    elif name_ntp_id is not None:
-                        # look up ID by name on existing interfaces.
-                        ntp_id = name_ntp_id
-
-                    else:
-                        # no ntp object.
-                        ntp_id = None
-
-                    # Create or modify ntp.
-                    if ntp_id is not None:
-                        # Ntp exists, modify.
-                        ntp_id = modify_ntp(config_ntp_record, ntp_id, interfaces_n2id, site_id, element_id)
-
-                    else:
-                        # Ntp does not exist, create.
-                        ntp_id = create_ntp(config_ntp_record, interfaces_n2id, site_id, element_id)
-
-                    # remove from delete queue
-                    leftover_ntps = [entry for entry in leftover_ntps if entry != ntp_id]
                 # -- End NTP config
 
                 # -- Start Element_extensions
@@ -7382,10 +7307,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 element_extensions_id2n = build_lookup_dict(element_extensions_cache, key_val='id', value_val='name')
                 delete_element_extensions(leftover_element_extensions, site_id, element_id,
                                           id2n=element_extensions_id2n)
-
-                # delete remaining ntp configs
-                ntps_id2n = build_lookup_dict(ntps_cache, key_val='id', value_val='name')
-                delete_ntps(leftover_ntps, site_id, element_id, id2n=ntps_id2n)
 
                 # delete remaining syslog configs
                 syslogs_id2n = build_lookup_dict(syslogs_cache, key_val='id', value_val='name')
