@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.2.0b2
+**Version:** 1.2.0b4
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "1.2.0b2"
+__version__ = "1.2.0b4"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
@@ -105,7 +105,7 @@ nameable_interface_types = [
 ]
 
 skip_interface_list = [
-    'controller 2'
+    # 'controller 2'
 ]
 
 
