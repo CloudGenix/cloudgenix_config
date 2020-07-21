@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.2.0b3
+**Version:** 1.2.0b4
 
 **Author:** CloudGenix
 
@@ -4850,7 +4850,7 @@ def modify_ntp(config_ntp, site_id, element_id):
     if ntp_resp.cgx_status:
         # extract items.
         ntp_config_list, _ = extract_items(ntp_resp, 'ntp')
-        
+
         if len(ntp_config_list) > 1:
             throw_error("Element API configuration returned more than one NTP configuration. This is not supported.",
                         ntp_resp)

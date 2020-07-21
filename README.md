@@ -90,16 +90,18 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.2.0** | **b2** | Fix for Github issue #32|
-| **1.2.0** | **b1** | Added CloudGenix SDK 5.2.1b1 support, removed SDK 5.1.1b1 support|
+| **1.2.0** | **b3** | Support for CloudGenix SDK 5.3.1b1|
+|           | **b3** | Fix for Github issue #34|
+|           | **b2** | Fix for Github issue #32|
+|           | **b1** | Added CloudGenix SDK 5.2.1b1 support, removed SDK 5.1.1b1 support|
 | **1.1.0** | **b2** | Fix for Github issues #25, #26, #27, #28, #30|
-| **1.1.0** | **b1** | CloudGenix SDK 5.1.1b1 support|
+|           | **b1** | CloudGenix SDK 5.1.1b1 support|
 | **1.0.0** | **b6** | PIP setup will now limit CloudGenix SDK to 5.0.3b2 for v1.0.0|
-| **1.0.0** | **b5** | Hotfix for #16 |
-| **1.0.0** | **b4** | Fix issues #8 #11 #12 and #13 |
-| **1.0.0** | **b3** | More Bug fixes. |
-| **1.0.0** | **b2** | Bug fixes. |
-| **1.0.0** | **b1** | Initial Release. |
+|           | **b5** | Hotfix for #16 |
+|           | **b4** | Fix issues #8 #11 #12 and #13 |
+|           | **b3** | More Bug fixes. |
+|           | **b2** | Bug fixes. |
+|           | **b1** | Initial Release. |
 
 
 #### For more info
