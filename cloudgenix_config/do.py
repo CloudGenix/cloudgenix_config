@@ -50,12 +50,20 @@ except ImportError as e:
     sys.exit(1)
 
 # import module specific
-from cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lower_version_get, \
-    config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
-    list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
-    order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-    nameable_interface_types, skip_interface_list, CloudGenixConfigError
-from cloudgenix_config import __version__ as import_cloudgenix_config_version
+try:
+    from cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lower_version_get, \
+        config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
+        list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
+        order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
+        nameable_interface_types, skip_interface_list, CloudGenixConfigError
+    from cloudgenix_config import __version__ as import_cloudgenix_config_version
+except Exception:
+    from cloudgenix_config.cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lower_version_get, \
+        config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
+        list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
+        order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
+        nameable_interface_types, skip_interface_list, CloudGenixConfigError
+    from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -124,6 +132,9 @@ FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
+
+# Handle cloudblade calls
+FROM_CLOUDBLADE = 0
 
 # Const structs
 element_put_items = [
@@ -204,6 +215,8 @@ natlocalprefixes_cache = []
 natpolicypools_cache = []
 natpolicysetstacks_cache = []
 natzones_cache = []
+dnsserviceprofiles_cache = []
+dnsserviceroles_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -227,6 +240,8 @@ natlocalprefixes_n2id = {}
 natpolicypools_n2id = {}
 natpolicysetstacks_n2id = {}
 natzones_n2id = {}
+dnsserviceprofiles_n2id = {}
+dnsserviceroles_n2id = {}
 
 # Machines/elements need serial to ID mappings
 elements_byserial = {}
@@ -387,6 +402,8 @@ def update_global_cache():
     global natpolicypools_cache
     global natpolicysetstacks_cache
     global natzones_cache
+    global dnsserviceprofiles_cache
+    global dnsserviceroles_cache
 
     global sites_n2id
     global elements_n2id
@@ -409,6 +426,8 @@ def update_global_cache():
     global natpolicypools_n2id
     global natpolicysetstacks_n2id
     global natzones_n2id
+    global dnsserviceprofiles_n2id
+    global dnsserviceroles_n2id
 
     global elements_byserial
     global machines_byserial
@@ -500,6 +519,14 @@ def update_global_cache():
     natzones_resp = sdk.get.natzones()
     natzones_cache, _ = extract_items(natzones_resp, 'natzones')
 
+    # dnsservice profile
+    dnsserviceprofiles_resp = sdk.get.dnsserviceprofiles()
+    dnsserviceprofiles_cache, _ = extract_items(dnsserviceprofiles_resp, 'dnsserviceprofiles')
+
+    # dnsservice roles
+    dnsserviceroles_resp = sdk.get.dnsserviceroles()
+    dnsserviceroles_cache, _ = extract_items(dnsserviceroles_resp, 'dnsserviceroles')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -563,6 +590,12 @@ def update_global_cache():
     # NAT zones name
     natzones_n2id = build_lookup_dict(natzones_cache)
 
+    # dnsservice profiles name
+    dnsserviceprofiles_n2id = build_lookup_dict(dnsserviceprofiles_cache)
+
+    # dnsservice roles name
+    dnsserviceroles_n2id = build_lookup_dict(dnsserviceroles_cache)
+
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
 
@@ -615,20 +648,22 @@ def parse_root_config(data_file):
     :return: Site configuration dict
     """
     # Verify template.
-    yml_type = str(config_lower_get(data_file, 'type'))
-    yml_ver = str(config_lower_get(data_file, 'version'))
+    if not FROM_CLOUDBLADE:
+        # Verify template.
+        yml_type = str(config_lower_get(data_file, 'type'))
+        yml_ver = str(config_lower_get(data_file, 'version'))
 
-    detect_msg = {
+        detect_msg = {
             "Expected Type": FILE_TYPE_REQUIRED,
             "Read Type": yml_type,
             "Expected Version": FILE_VERSION_REQUIRED,
             "Read Version": yml_ver
         }
 
-    local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
+        local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
 
-    if not yml_type == FILE_TYPE_REQUIRED or not yml_ver == FILE_VERSION_REQUIRED:
-        throw_error("YAML file not correct type or version: ", detect_msg)
+        if not yml_type == FILE_TYPE_REQUIRED or not yml_ver == FILE_VERSION_REQUIRED:
+            throw_error("YAML file not correct type or version: ", detect_msg)
 
     # grab sites
     config_sites, _ = config_lower_version_get(data_file, 'sites', sdk.put.sites, default={})
@@ -682,9 +717,10 @@ def parse_element_config(config_element):
                                                             sdk.put.element_extensions, default={})
     config_element_security_zones, _ = config_lower_version_get(config_element, 'element_security_zones',
                                                                 sdk.put.elementsecurityzones, default=[])
+    config_dnsservices, _ = config_lower_version_get(config_element, 'dnsservices', sdk.put.dnsservices, default=[])
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions, config_element_security_zones
+        config_element_extensions, config_element_security_zones, config_dnsservices
 
 
 def parse_routing_config(config_routing):
@@ -5129,6 +5165,144 @@ def delete_snmp_traps(leftover_snmp_traps, site_id, element_id, id2n=None):
     return
 
 
+def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, dnsserviceprofiles_n2id,
+                       dnsserviceroles_n2id, interfaces_n2id):
+    """
+    Create a new dnsservices
+    :param config_dnsservices: dnsservices config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Created dnsservices ID
+    """
+    # make a copy of dnsservices to modify
+    dnsservices_template = copy.deepcopy(config_dnsservices)
+
+    local_debug("dnsservices TEMPLATE: " + str(json.dumps(dnsservices_template, indent=4)))
+
+    name_lookup_in_template(dnsservices_template, 'dnsservice_profile_id', dnsserviceprofiles_n2id)
+    if dnsservices_template.get('dnsservicerole_bindings', ''):
+        for role in dnsservices_template.get('dnsservicerole_bindings'):
+            name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
+            if role.get('interfaces', ''):
+                for iface in role.get('interfaces'):
+                    name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+    if dnsservices_template.get('domains_to_interfaces', ''):
+        for dom_iface in dnsservices_template.get('domains_to_interfaces'):
+            name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+    name_lookup_in_template(dnsservices_template, 'element_id', elements_n2id)
+    # create dnsservices
+    dnsservices_resp = sdk.post.dnsservices(site_id, element_id, dnsservices_template)
+
+    if not dnsservices_resp.cgx_status:
+        throw_error("dnsservices creation failed: ", dnsservices_resp)
+
+    dnsservices_id = dnsservices_resp.cgx_content.get('id')
+    dnsservices_name = dnsservices_resp.cgx_content.get('name', dnsservices_id)
+
+    if not dnsservices_id:
+        throw_error("Unable to determine dnsservices attributes (ID {0})..".format(dnsservices_id))
+
+    output_message("   Created dnsservices {0}.".format(dnsservices_name))
+
+    return dnsservices_id
+
+
+def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, elements_n2id, dnsserviceprofiles_n2id,
+                       dnsserviceroles_n2id, interfaces_n2id):
+    """
+    Modify an existing dnsservices
+    :param config_dnsservices: dnsservices config dict
+    :param dnsservices_id: Existing dnsservices ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Returned dnsservices ID
+    """
+    dnsservices_config = {}
+    # make a copy of dnsservices to modify
+    dnsservices_template = copy.deepcopy(config_dnsservices)
+
+    local_debug("dnsservices TEMPLATE: " + str(json.dumps(dnsservices_template, indent=4)))
+
+    name_lookup_in_template(dnsservices_template, 'dnsservice_profile_id', dnsserviceprofiles_n2id)
+    if dnsservices_template.get('dnsservicerole_bindings', ''):
+        for role in dnsservices_template.get('dnsservicerole_bindings'):
+            name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
+            if role.get('interfaces', ''):
+                for iface in role.get('interfaces'):
+                    name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+    if dnsservices_template.get('domains_to_interfaces', ''):
+        for dom_iface in dnsservices_template.get('domains_to_interfaces'):
+            name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+    name_lookup_in_template(dnsservices_template, 'element_id', elements_n2id)
+
+    # get current dnsservices
+    dnsservices_resp = sdk.get.dnsservices(site_id, element_id, dnsservices_id)
+    if dnsservices_resp.cgx_status:
+        dnsservices_config = dnsservices_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve dnsservices: ", dnsservices_resp)
+
+    # extract prev_revision
+    prev_revision = dnsservices_config.get("_etag")
+
+    # Check for changes:
+    dnsservices_change_check = copy.deepcopy(dnsservices_config)
+    dnsservices_config.update(dnsservices_template)
+    if not force_update and dnsservices_config == dnsservices_change_check:
+        # no change in config, pass.
+        dnsservices_id = dnsservices_change_check.get('id')
+        dnsservices_name = dnsservices_change_check.get('name')
+        output_message("   No Change for dnsservices {0}.".format(dnsservices_name))
+        return dnsservices_id
+
+    if debuglevel >= 3:
+        local_debug("dnsservices DIFF: {0}".format(find_diff(dnsservices_change_check, dnsservices_config)))
+
+    # Update dnsservices.
+    dnsservices_resp2 = sdk.put.dnsservices(site_id, element_id, dnsservices_id, dnsservices_config)
+
+    if not dnsservices_resp2.cgx_status:
+        throw_error("dnsservices update failed: ", dnsservices_resp2)
+
+    dnsservices_id = dnsservices_resp.cgx_content.get('id')
+    dnsservices_name = dnsservices_resp.cgx_content.get('name', dnsservices_id)
+
+    # extract current_revision
+    current_revision = dnsservices_resp2.cgx_content.get("_etag")
+
+    if not dnsservices_id:
+        throw_error("Unable to determine dnsservices attributes (ID {0})..".format(dnsservices_id))
+
+    output_message("   Updated dnsservices {0} (Etag {1} -> {2}).".format(dnsservices_name, prev_revision,
+                                                                          current_revision))
+
+    return dnsservices_id
+
+
+def delete_dnsservices(leftover_dnsservices, site_id, element_id, id2n=None):
+    """
+    Delete a list of dnsservices
+    :param leftover_dnsservices: List of dnsservices IDs
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for dnsservices_id in leftover_dnsservices:
+        # delete all leftover dnsservices.
+
+        output_message("   Deleting Unconfigured dnsservices {0}.".format(id2n.get(dnsservices_id, dnsservices_id)))
+        dnsservices_del_resp = sdk.delete.dnsservices(site_id, element_id, dnsservices_id)
+        if not dnsservices_del_resp.cgx_status:
+            throw_error("Could not delete dnsservices {0}: ".format(id2n.get(dnsservices_id, dnsservices_id)),
+                        dnsservices_del_resp)
+    return
+
+
 def create_element_extension(config_element_extension, element_extensions_n2id, waninterfaces_n2id, lannetworks_n2id,
                              interfaces_n2id, site_id, element_id):
     """
@@ -5981,8 +6155,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
-                    config_toolkit, config_element_extensions, config_element_security_zones \
-                    = parse_element_config(config_element)
+                    config_toolkit, config_element_extensions, config_element_security_zones, \
+                    config_dnsservices = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -7169,6 +7343,57 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # -- End NTP config
 
+                # -- Start DNSSERVICES config
+                dnsservices_resp = sdk.get.dnsservices(site_id, element_id)
+                dnsservices_cache, leftover_dnsservices = extract_items(dnsservices_resp, 'dnsservices')
+                # build lookup cache based on prefix.
+                dnsservices_n2id = build_lookup_dict(dnsservices_cache)
+
+                # only 1 dnsservice can be present per element
+                config_dnsservices = config_dnsservices if type(config_dnsservices) is list else [config_dnsservices]
+
+                for config_dnsservices_entry in config_dnsservices:
+                    # deepcopy to modify.
+                    config_dnsservices_record = copy.deepcopy(config_dnsservices_entry)
+
+                    # look for implicit ID in object.
+                    implicit_dnsservices_id = config_dnsservices_record.get('id')
+
+                    if dnsservices_n2id:
+                        # Hack to modify existing dnsservice with new name and details
+                        name_dnsservices_id = list(dnsservices_n2id.values())[0]
+                    else:
+                        name_dnsservices_id = None
+
+                    if implicit_dnsservices_id is not None:
+                        dnsservices_id = implicit_dnsservices_id
+
+                    elif name_dnsservices_id is not None:
+                        # look up ID by name on existing interfaces.
+                        dnsservices_id = name_dnsservices_id
+
+                    else:
+                        # no dnsservice object.
+                        dnsservices_id = None
+
+                    # Create or modify dnsservice.
+
+                    if dnsservices_id is not None:
+                        # dnsservice exists, modify.
+                        dnsservices_id = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
+                                                            element_id, elements_n2id, dnsserviceprofiles_n2id,
+                                                            dnsserviceroles_n2id, interfaces_n2id)
+
+                    else:
+                        # dnsservice does not exist, create.
+                        dnsservices_id = create_dnsservices(config_dnsservices_record, site_id, element_id,
+                                                            elements_n2id, dnsserviceprofiles_n2id,
+                                                            dnsserviceroles_n2id, interfaces_n2id)
+
+                    # remove from delete queue
+                    leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
+                # -- End DNSSERVICE config
+
                 # -- Start Element_extensions
                 element_extensions_resp = sdk.get.element_extensions(site_id, element_id)
                 element_extensions_cache, leftover_element_extensions = extract_items(element_extensions_resp,
@@ -7307,6 +7532,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 element_extensions_id2n = build_lookup_dict(element_extensions_cache, key_val='id', value_val='name')
                 delete_element_extensions(leftover_element_extensions, site_id, element_id,
                                           id2n=element_extensions_id2n)
+
+                delete_dnsservices(leftover_dnsservices, site_id, element_id)
 
                 # delete remaining syslog configs
                 syslogs_id2n = build_lookup_dict(syslogs_cache, key_val='id', value_val='name')
