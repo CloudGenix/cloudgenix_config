@@ -6160,6 +6160,24 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
+                # check for element already assigned to a site before upgrade
+                element = matching_element
+                element_serial = element.get('serial_number')
+                element_id = element.get('id')
+                element_name = element.get('name')
+                element_site_id = element.get("site_id")
+                element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+                    if element_serial else "ID: {0}".format(element_id)
+
+                # 5.0.1 element_site_id is set to 1 instead of None when unassigned.
+                if element_site_id and element_site_id not in ['1', 1] and element_site_id != site_id:
+                    sites_id2n = build_lookup_dict(sites_cache, key_val='id', value_val='name')
+                    throw_error(
+                        "Element {0}({1}) is already assigned to site {2}".format(element_descriptive_text,
+                                                                                  element_serial,
+                                                                                  sites_id2n.get(element_site_id,
+                                                                                                 element_site_id)))
+
                 # deal with claiming elements
                 while config_serial != matching_element.get('serial_number'):
                     output_message(" Machine {0} is not CLAIMED, attempting to claim..".format(config_serial))
