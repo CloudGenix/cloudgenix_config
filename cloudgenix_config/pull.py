@@ -52,9 +52,14 @@ except ImportError as e:
     sys.exit(1)
 
 # import module specific
-from cloudgenix_config import throw_error, throw_warning, name_lookup_in_template, extract_items, build_lookup_dict, \
+try:
+    from cloudgenix_config import throw_error, throw_warning, name_lookup_in_template, extract_items, build_lookup_dict, \
     check_name, nameable_interface_types, skip_interface_list, get_function_default_args
-from cloudgenix_config import __version__ as import_cloudgenix_config_version
+    from cloudgenix_config import __version__ as import_cloudgenix_config_version
+except Exception:
+    from cloudgenix_config.cloudgenix_config import throw_error, throw_warning, name_lookup_in_template, extract_items, build_lookup_dict, \
+    check_name, nameable_interface_types, skip_interface_list, get_function_default_args
+    from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
@@ -151,7 +156,7 @@ IPCOMMUNITYLISTS_CONFIG_STR = "ip_community_lists"
 HUBCLUSTER_CONFIG_STR = "hubclusters"
 SPOKECLUSTER_CONFIG_STR = "spokeclusters"
 NATLOCALPREFIX_STR = "site_nat_localprefixes"
-
+DNS_SERVICES_STR = "dnsservices"
 
 # Global Config Cache holders
 sites_cache = []
@@ -175,11 +180,16 @@ natlocalprefixes_cache = []
 natpolicypools_cache = []
 natpolicysetstacks_cache = []
 natzones_cache = []
+dnsserviceprofiles = []
+dnsserviceroles = []
 
 id_name_cache = {}
 sites_n2id = {}
 wannetworks_id2type = {}
 dup_name_dict_sites = {}
+
+# Handle cloudblade calls
+FROM_CLOUDBLADE = 0
 
 # Define constructor globally for now.
 sdk = cloudgenix.API()
@@ -267,6 +277,8 @@ def update_global_cache():
     global natpolicypools_cache
     global natpolicysetstacks_cache
     global natzones_cache
+    global dnsserviceprofiles
+    global dnsserviceroles
 
     global id_name_cache
     global wannetworks_id2type
@@ -356,6 +368,14 @@ def update_global_cache():
     natzones_resp = sdk.get.natzones()
     natzones_cache, _ = extract_items(natzones_resp, 'natzones')
 
+    # dnsservice profiles
+    dnsserviceprofiles_resp = sdk.get.dnsserviceprofiles()
+    dnsserviceprofiles_cache, _ = extract_items(dnsserviceprofiles_resp, 'dnsserviceprofiles')
+
+    # dnsservice roles
+    dnsserviceroles_resp = sdk.get.dnsserviceroles()
+    dnsserviceroles_cache, _ = extract_items(dnsserviceroles_resp, 'dnsserviceroles')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -419,6 +439,11 @@ def update_global_cache():
     # NAT zones name
     id_name_cache.update(build_lookup_dict(natzones_cache, key_val='id', value_val='name'))
 
+    # DNS services name
+    id_name_cache.update(build_lookup_dict(dnsserviceprofiles_cache, key_val='id', value_val='name'))
+
+    id_name_cache.update(build_lookup_dict(dnsserviceroles_cache, key_val='id', value_val='name'))
+
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
     wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
@@ -472,6 +497,7 @@ def build_version_strings():
     global HUBCLUSTER_CONFIG_STR
     global SPOKECLUSTER_CONFIG_STR
     global NATLOCALPREFIX_STR
+    global DNS_SERVICES_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -502,6 +528,7 @@ def build_version_strings():
         HUBCLUSTER_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "hubclusters")
         SPOKECLUSTER_CONFIG_STR = add_version_to_object(sdk.get.spokeclusters, "spokeclusters")
         NATLOCALPREFIX_STR = add_version_to_object(sdk.get.site_natlocalprefixes, "site_nat_localprefixes")
+        DNS_SERVICES_STR = add_version_to_object(sdk.get.dnsservices, "dnsservices")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -1240,6 +1267,31 @@ def _pull_config_for_single_site(site_name_id):
         # ensure the snmp config is not completely empty
         delete_if_empty(element, 'snmp')
 
+        # Get DNS configs
+        element[DNS_SERVICES_STR] = {}
+        response = sdk.get.dnsservices(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("DNS config get failed: ", response)
+        dnsservices = response.cgx_content['items']
+        id_name_cache.update(build_lookup_dict(dnsservices, key_val='id', value_val='name'))
+        for service in dnsservices:
+            dnsservices_template = copy.deepcopy(service)
+            name_lookup_in_template(dnsservices_template, 'dnsservice_profile_id', id_name_cache)
+            if dnsservices_template.get('dnsservicerole_bindings', ''):
+                for role in dnsservices_template.get('dnsservicerole_bindings'):
+                    name_lookup_in_template(role, 'dnsservicerole_id', id_name_cache)
+                    if role.get('interfaces', ''):
+                        for iface in role.get('interfaces'):
+                            name_lookup_in_template(iface, 'interface_id', id_name_cache)
+            if dnsservices_template.get('domains_to_interfaces', ''):
+                for dom_iface in dnsservices_template.get('domains_to_interfaces'):
+                    name_lookup_in_template(dom_iface, 'interface_id', id_name_cache)
+            name_lookup_in_template(dnsservices_template, 'element_id', id_name_cache)
+            strip_meta_attributes(dnsservices_template, leave_name=True)
+            # names used, but config doesn't index by name for this value currently.
+            element[DNS_SERVICES_STR].update(dnsservices_template)
+        delete_if_empty(element, DNS_SERVICES_STR)
+
         # Get toolkit
         response = sdk.get.elementaccessconfigs(element['id'])
         if not response.cgx_status:
@@ -1405,6 +1457,10 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                 if sdk.email:
                     config_yml.write("# by {0}\n".format(sdk.email))
+
+            # Adding FROM_CLOUDBLADE line into pull site yml file
+            if FROM_CLOUDBLADE:
+                config_yml.write("# FROM_CLOUDBLADE\n")
             yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
             config_yml.close()
 
