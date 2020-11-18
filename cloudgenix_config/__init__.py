@@ -101,7 +101,8 @@ TRAILING_INTEGER = re.compile(
 ALREADY_NAGGED_DUP_KEYS = []
 
 nameable_interface_types = [
-    'service_link'
+    'service_link',
+    'virtual_interface'
 ]
 
 skip_interface_list = [

@@ -939,6 +939,13 @@ def _pull_config_for_single_site(site_name_id):
             name_lookup_in_template(interface_template, 'parent', id_name_cache)
             name_lookup_in_template(interface_template, 'nat_zone_id', id_name_cache)
 
+            bound_ifaces = interface.get('bound_interfaces', [])
+            if bound_ifaces:
+                bound_iface_template = []
+                for bound_iface in bound_ifaces:
+                    bound_iface_template.append(id_name_cache.get(bound_iface))
+                interface_template['bound_interfaces'] = bound_iface_template
+
             # strip metadata/names
             strip_meta_attributes(interface_template)
             # ok. Check for duplicates if it is a namable interface. If a dup is found, rename.
