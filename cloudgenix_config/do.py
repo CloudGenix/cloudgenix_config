@@ -3051,6 +3051,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 update_api_interfaces_cache = True
 
     elif config_interface_type == "virtual_interface":
+        # Checking for member interfaces
         config_bound_interfaces = interface_template.get('bound_interfaces', None)
         if config_bound_interfaces is None:
             throw_error("No member interfaces on virtual interface (Name: {0})..".format(interface_template_name))
@@ -3067,12 +3068,19 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                     member_interface_config = interface_resp.cgx_content
                 else:
                     throw_error("Unable to retrieve interface: ", interface_resp)
-
+                # Member interface cannot be of the following types
+                # Other checks not done as the errors are thrown appropriately by controller backend
                 member_interface_type = member_interface_config.get('type')
                 if member_interface_type in ['bypasspair', 'subinterface', 'pppoe', 'loopback']:
                     throw_error("Member interface {0] cannot be of type {1} for a virtual interface {2}".format(bound_iface, member_interface_type, interface_template_name))
-
+                else:
+                    default_template = get_member_default_config()
+                    output_message("   Setting member interface {0} to default.".format(bound_iface))
+                    new_parent_id = modify_interface(default_template, member_iface_id, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id)
                 bound_iface_list.append(member_iface_id)
+            # Assigning the id to name mapped list back
             interface_template['bound_interfaces'] = bound_iface_list
 
     # create interface
@@ -3261,6 +3269,14 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             else:
                 interface_template["nat_pools"] = None
 
+        # name to id conversion of bound interfaces for VI before modifying interface
+        elif key == "bound_interfaces":
+            bound_ifaces = config_interface.get('bound_interfaces', [])
+            if bound_ifaces:
+                bound_iface_list = []
+                for bound_iface in bound_ifaces:
+                    bound_iface_list.append(interfaces_n2id.get(bound_iface))
+                interface_template['bound_interfaces'] = bound_iface_list
         else:
             # just set the key.
             interface_template[key] = value
@@ -3280,31 +3296,6 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         del interface_template['name']
 
     local_debug("INTERFACE TEMPLATE: " + str(json.dumps(interface_template, indent=4)))
-
-    if interface_template.get('type') == "virtual_interface":
-        config_bound_interfaces = interface_template.get('bound_interfaces', None)
-        if config_bound_interfaces is None:
-            throw_error("No member interfaces on virtual interface (Name: {0})..".format(interface_template_name))
-        else:
-            bound_iface_list = []
-            for bound_iface in config_bound_interfaces:
-
-                member_iface_id = interfaces_n2id.get(bound_iface)
-                if not member_iface_id:
-                    throw_error("Unable to retrieve interface: ", bound_iface)
-
-                interface_resp = sdk.get.interfaces(site_id, element_id, member_iface_id)
-                if interface_resp.cgx_status:
-                    member_interface_config = interface_resp.cgx_content
-                else:
-                    throw_error("Unable to retrieve interface: ", interface_resp)
-
-                member_interface_type = member_interface_config.get('type')
-                if member_interface_type in ['bypasspair', 'subinterface', 'pppoe', 'loopback']:
-                    throw_error("Member interface {0} cannot be of type {1} for a virtual interface {2}".format(bound_iface, member_interface_type, interface_template_name))
-
-                bound_iface_list.append(member_iface_id)
-            interface_template['bound_interfaces'] = bound_iface_list
 
     # get current interface
     interface_resp = sdk.get.interfaces(site_id, element_id, interface_id)
@@ -3654,6 +3645,24 @@ def get_parent_child_dict(config_interfaces, id2n=None):
             child_if_map[config_interfaces_name] = [parent_if_name]
             used_parent_name_list.append(parent_if_name)
 
+        elif config_interfaces_type == 'virtual_interface':
+            member_interfaces = config_interfaces_value.get('bound_interfaces', None)
+            if member_interfaces is None:
+                throw_error("No member interfaces on virtual interface (Name: {0})..".format(config_interfaces_name), config_interfaces_value)
+            mem_iface_list = []
+            for mem_iface in member_interfaces:
+                mem_iface_name = id2n.get(mem_iface, mem_iface)
+                if mem_iface_name in used_parent_name_list:
+                    # used multiple times.
+                    throw_error("Virtual Interface {0} is using a port that is a parent of another interface:"
+                                "".format(config_interfaces_name),
+                                config_interfaces_value)
+
+                # no duplicates, update parent map (virtual interface many parent, one child).
+                parent_if_map[mem_iface_name] = [config_interfaces_name]
+                mem_iface_list.append(mem_iface_name)
+                used_parent_name_list.append(mem_iface_name)
+            child_if_map[config_interfaces_name] = mem_iface_list
         # Note, service_link parents can be configured, so they are not done here.
 
     return parent_if_map, child_if_map
@@ -6461,6 +6470,80 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # DELETE unused bypasspairs at this point.
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
 
+                # Check and DELETE unused VIs
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+                # Getting virtual interfaces from config and also unused VIs
+                config_virtual_interfaces = get_config_interfaces_by_type(config_interfaces_defaults,
+                                                                          'virtual_interface')
+                leftover_virtual_interfaces = get_api_interfaces_name_by_type(interfaces_cache,
+                                                                              'virtual_interface', key_name='id')
+                # List of VIs modified in the yml
+                modified_virtual_interfaces = []
+
+                for config_interface_name, config_interface_value in config_virtual_interfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    # Virtual Interface name is unsettable, use parent ID for location.
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # If VI exists, get the bound members present in config
+                    # Get the interface details from controller and get the current bound members
+                    # If member list is modified, delete the VI and create again later
+                    # This is done to ensure that member interfaces are reset and can be used for other configurations
+                    if interface_id:
+                        config_member_interfaces = config_interface_value.get('bound_interfaces', None)
+                        if config_member_interfaces is None:
+                            throw_error(
+                                "No member interfaces on virtual interface (Name: {0})..".format(config_interface_name))
+                        api_interface_resp = sdk.get.interfaces(site_id, element_id, interface_id)
+                        if api_interface_resp.cgx_status:
+                            api_interface_config = api_interface_resp.cgx_content
+                        else:
+                            throw_error("Unable to retrieve interface: ", api_interface_resp)
+                        if api_interface_config:
+                            for config_member_interface in config_member_interfaces:
+                                if interfaces_n2id.get(config_member_interface, None) not in api_interface_config.get('bound_interfaces', None):
+                                    if not interfaces_n2id.get(config_interface_name) in modified_virtual_interfaces:
+                                        # Update modified interfaces list
+                                        modified_virtual_interfaces.append(interfaces_n2id.get(config_interface_name))
+                    # remove from delete queue before configuring VI
+                    leftover_virtual_interfaces = [entry for entry in leftover_virtual_interfaces if
+                                                       entry != interface_id]
+                # cleanup - delete unused virtual interfaces and modified VIs
+                delete_interfaces(leftover_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
+                output_message("  Deleting and re-creating modified virtual interfaces")
+                delete_interfaces(modified_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # update Interface caches before continuing.
+                interfaces_resp = sdk.get.interfaces(site_id, element_id)
+                interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(interfaces_n2id_api)
+
                 # Go back through config, and now create/modify existing bypasspairs.
                 for config_interface_name, config_interface_value in config_bypasspairs.items():
                     local_debug("DO BYPASSPAIR: {0}".format(config_interface_name), config_interface_value)
@@ -6644,13 +6727,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 current_interfaces_n2id_holder = interfaces_n2id
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
                 interfaces_n2id.update(current_interfaces_n2id_holder)
-
+                # Getting virtual interfaces from config and also unused VIs
                 config_virtual_interfaces = get_config_interfaces_by_type(config_interfaces_defaults,
                                                                           'virtual_interface')
                 leftover_virtual_interfaces = get_api_interfaces_name_by_type(interfaces_cache,
                                                                               'virtual_interface', key_name='id')
-                for config_interface_name, config_interface_value in config_virtual_interfaces.items():
 
+                for config_interface_name, config_interface_value in config_virtual_interfaces.items():
                     local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
                     # look for unconfigurable interfaces.
                     if config_interface_name in skip_interface_list:
@@ -6668,8 +6751,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # recombine object
                     config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
                                                                  name_key='name')
-
-                    # no need to get interface config, no child config objects.
 
                     # Determine interface ID.
                     # look for implicit ID in object.
@@ -6700,9 +6781,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                         lannetworks_n2id, site_id, element_id,
                                                         interfaces_funny_n2id=interfaces_funny_n2id)
 
-                    # remove from delete queue
-                    leftover_virtual_interfaces = [entry for entry in leftover_virtual_interfaces if
-                                                   entry != interface_id]
+                    # no need for delete queue, as already deleted.
 
                 # END Virtual Interfaces
 
@@ -6904,8 +6983,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # Don't need to update interfaces_id2n, as interfaces queued for deletion should have already
                 # existed when it was created before the bypasspair step.
-                # cleanup - delete unused virtual interfaces
-                delete_interfaces(leftover_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
                 # cleanup - delete unused servicelinks
                 delete_interfaces(leftover_servicelinks, site_id, element_id, id2n=interfaces_id2n)
