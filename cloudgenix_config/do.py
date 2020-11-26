@@ -6470,6 +6470,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # DELETE unused bypasspairs at this point.
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
 
+                # START VIRTUAL INTERFACE
+
                 # Check and DELETE unused VIs
                 current_interfaces_n2id_holder = interfaces_n2id
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
@@ -6531,8 +6533,145 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                        entry != interface_id]
                 # cleanup - delete unused virtual interfaces and modified VIs
                 delete_interfaces(leftover_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
-                output_message("  Deleting and re-creating modified virtual interfaces")
                 delete_interfaces(modified_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END VIRTUAL INTERFACE
+
+                # START LOOPBACKS
+
+                # create a leftover_loopbacks construct from the api_loopback_del output from get_loopback_lists
+                leftover_loopbacks = [entry['id'] for entry in api_loopback_del if entry.get('id')]
+
+                # cleanup - delete unused loopbacks
+                delete_interfaces(leftover_loopbacks, site_id, element_id, id2n=interfaces_id2n)
+
+                # END Loopbacks
+
+                # START PPPoE
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_pppoe = get_config_interfaces_by_type(config_interfaces_defaults, 'pppoe')
+                leftover_pppoe = get_api_interfaces_name_by_type(interfaces_cache, 'pppoe', key_name='id')
+
+                for config_interface_name, config_interface_value in config_pppoe.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    # PPPoE name is unsettable, use parent ID for location.
+                    name_interface_id = get_pppoe_id(config_interface, interfaces_cache, interfaces_n2id)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue
+                    leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
+
+                # cleanup - delete unused pppoe
+                delete_interfaces(leftover_pppoe, site_id, element_id, id2n=interfaces_id2n)
+
+                # END PPPOE
+
+                # START SUBINTERFACE
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_subinterfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'subinterface')
+                leftover_subinterfaces = get_api_interfaces_name_by_type(interfaces_cache, 'subinterface',
+                                                                         key_name='id')
+
+                for config_interface_name, config_interface_value in config_subinterfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    # Subif has name constraints, check via items in config instead of a possible typo name.
+                    name_interface_id = get_subif_id(config_interface, interfaces_cache, interfaces_n2id)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue
+                    leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
+
+                # cleanup - delete unused subinterfaces
+                delete_interfaces(leftover_subinterfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END SUBINTERFACE
+
+                # START SERVICELINK
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_servicelinks = get_config_interfaces_by_type(config_interfaces_defaults, 'service_link')
+                leftover_servicelinks = get_api_interfaces_name_by_type(interfaces_cache, 'service_link', key_name='id')
+
+                for config_interface_name, config_interface_value in config_servicelinks.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue
+                    leftover_servicelinks = [entry for entry in leftover_servicelinks if entry != interface_id]
+
+                # cleanup - delete unused servicelinks
+                delete_interfaces(leftover_servicelinks, site_id, element_id, id2n=interfaces_id2n)
+
+                # END SERVICELINK
 
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
@@ -6652,9 +6791,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                     # delete queue was already determined in the loopback order pre-add function above.
 
-                # create a leftover_loopbacks construct from the api_loopback_del output from get_loopback_lists
-                leftover_loopbacks = [entry['id'] for entry in api_loopback_del if entry.get('id')]
-
                 # END Loopbacks
                 # START PPPoE
 
@@ -6716,8 +6852,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                         lannetworks_n2id, site_id, element_id,
                                                         interfaces_funny_n2id=interfaces_funny_n2id)
 
-                    # remove from delete queue
-                    leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
+                    # no need for delete queue, as already deleted.
 
                 # END PPPoE
 
@@ -6784,7 +6919,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # no need for delete queue, as already deleted.
 
                 # END Virtual Interfaces
-
                 # START SUBINTERFACE
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -6847,8 +6981,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                         api_interfaces_cache=interfaces_cache,
                                                         interfaces_funny_n2id=interfaces_funny_n2id)
 
-                    # remove from delete queue
-                    leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
+                    # no need for delete queue, as already deleted.
 
                 # END SUBINTERFACE
                 # START PORTS
@@ -6973,28 +7106,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                         lannetworks_n2id, site_id, element_id,
                                                         interfaces_funny_n2id=interfaces_funny_n2id)
 
-                    # remove from delete queue
-                    leftover_servicelinks = [entry for entry in leftover_servicelinks if entry != interface_id]
+                    # no need for delete queue, as already deleted.
 
                 # END SERVICELINK
 
                 # ------------------
                 # BEGIN INTERFACE CLEANUP.
-
+                # Moved INTERFACE cleanup above create/edit
                 # Don't need to update interfaces_id2n, as interfaces queued for deletion should have already
                 # existed when it was created before the bypasspair step.
-
-                # cleanup - delete unused servicelinks
-                delete_interfaces(leftover_servicelinks, site_id, element_id, id2n=interfaces_id2n)
-
-                # cleanup - delete unused subinterfaces
-                delete_interfaces(leftover_subinterfaces, site_id, element_id, id2n=interfaces_id2n)
-
-                # cleanup - delete unused pppoe
-                delete_interfaces(leftover_pppoe, site_id, element_id, id2n=interfaces_id2n)
-
-                # cleanup - delete unused loopbacks
-                delete_interfaces(leftover_loopbacks, site_id, element_id, id2n=interfaces_id2n)
 
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
