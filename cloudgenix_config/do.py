@@ -3071,8 +3071,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 # Member interface cannot be of the following types
                 # Other checks not done as the errors are thrown appropriately by controller backend
                 member_interface_type = member_interface_config.get('type')
-                if member_interface_type in ['bypasspair', 'subinterface', 'pppoe', 'loopback']:
-                    throw_error("Member interface {0] cannot be of type {1} for a virtual interface {2}".format(bound_iface, member_interface_type, interface_template_name))
+                if member_interface_type in createable_interface_types:
+                    throw_error("Member interface {0} cannot be of type {1} for a virtual interface {2}".format(bound_iface, member_interface_type, interface_template_name))
                 else:
                     default_template = get_member_default_config()
                     output_message("   Setting member interface {0} to default.".format(bound_iface))
