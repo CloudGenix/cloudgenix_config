@@ -6903,6 +6903,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    config_bound_interfaces = config_interface.get('bound_interfaces', None)
+                    for bound_interface in config_bound_interfaces:
+                        if bound_interface in config_interfaces_defaults.keys():
+                            throw_error("Member port {0} configuration present in yaml file. Cannot create/modify VI {1}. Exiting".format(bound_interface, config_interface_name))
+
                     # Create or modify interface.
                     if interface_id is not None:
                         # Interface exists, modify.
