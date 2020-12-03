@@ -299,12 +299,16 @@ def get_default_ifconfig_from_model_string(model_string):
     :param model_string: CloudGenix Element Model String
     :return: Dict of default config.
     """
-    if model_string == "ion 2000":
+    if model_string == "ion 1000":
+        return yaml.safe_load(ion_1000)
+    elif model_string == "ion 2000":
         return yaml.safe_load(ion_2000)
     elif model_string == "ion 3000":
         return yaml.safe_load(ion_3000)
     elif model_string == "ion 7000":
         return yaml.safe_load(ion_7000)
+    elif model_string == "ion 9000":
+        return yaml.safe_load(ion_9000)
     elif model_string == "ion 3102v":
         return yaml.safe_load(ion_3102v)
     elif model_string == "ion 3104v":

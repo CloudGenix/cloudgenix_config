@@ -1229,6 +1229,563 @@ ion_3102v = """
             used_for: none
 """
 
+ion_1000 = """
+          '1':
+            admin_up: true
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            devicemgmt_policysetstack_id: null
+            dhcp_relay: null
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_pools: null
+            nat_port: 0
+            nat_zone_id: null
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            scope: local
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            tags:
+            type: port
+            used_for: none
+          '2':
+            admin_up: true
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            devicemgmt_policysetstack_id: null
+            dhcp_relay: null
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_pools: null
+            nat_port: 0
+            nat_zone_id: null
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            scope: local
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            tags:
+            type: port
+            used_for: none
+          '3':
+            admin_up: true
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            devicemgmt_policysetstack_id: null
+            dhcp_relay: null
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_pools: null
+            nat_port: 0
+            nat_zone_id: null
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            scope: local
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            tags:
+            type: port
+            used_for: none
+          '4':
+            admin_up: true
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            devicemgmt_policysetstack_id: null
+            dhcp_relay: null
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_pools: null
+            nat_port: 0
+            nat_zone_id: null
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            scope: local
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            tags:
+            type: port
+            used_for: none
+"""
+
+ion_9000 = """
+          '1':
+            admin_up: true
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+              dhcp_config:
+                client_id: null
+                hostname: null
+              dns_v4_config: null
+              routes: null
+              static_config: null
+              type: dhcp
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '10':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '11':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '12':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '13':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '14':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '15':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '16':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '2':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: private_wan
+          '3':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '4':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '5':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '6':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '7':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '8':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          '9':
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config: null
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          controller 1:
+            admin_up: true
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+              dhcp_config:
+                client_id: null
+                hostname: null
+              dns_v4_config: null
+              routes: null
+              static_config: null
+              type: dhcp
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+          controller 2:
+            admin_up: false
+            attached_lan_networks: null
+            bound_interfaces: null
+            bypass_pair: null
+            description: null
+            dhcp_relay: null
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            ipv4_config:
+              dhcp_config:
+                client_id: null
+                hostname: null
+              dns_v4_config: null
+              routes: null
+              static_config: null
+              type: dhcp
+            mac_address: null
+            mtu: 1500
+            nat_address: null
+            nat_port: 0
+            network_context_id: null
+            parent: null
+            pppoe_config: null
+            service_link_config: null
+            site_wan_interface_ids: null
+            sub_interface: null
+            type: port
+            used_for: none
+"""
+
 ion_3104v = ion_3102v
 ion_3108v = ion_3102v
 ion_7108v = ion_3102v
