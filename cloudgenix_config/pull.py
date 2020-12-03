@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.2.0b4
+**Version:** 1.3.0b1
 
 **Author:** CloudGenix
 
@@ -670,7 +670,7 @@ def _pull_config_for_single_site(site_name_id):
     site[HUBCLUSTER_CONFIG_STR] = {}
     response = sdk.get.hubclusters(site['id'])
     if not response.cgx_status:
-        throw_error("LAN networks get failed: ", response)
+        throw_error("Hub Clusters get failed: ", response)
     hubclusters = response.cgx_content['items']
     # update id_name_cache
     id_name_cache.update(build_lookup_dict(hubclusters, key_val='id', value_val='name'))
@@ -693,7 +693,7 @@ def _pull_config_for_single_site(site_name_id):
     site[SPOKECLUSTER_CONFIG_STR] = {}
     response = sdk.get.spokeclusters(site['id'])
     if not response.cgx_status:
-        throw_error("LAN networks get failed: ", response)
+        throw_error("Spoke Clusters get failed: ", response)
     spokeclusters = response.cgx_content['items']
     # update id_name_cache
     id_name_cache.update(build_lookup_dict(spokeclusters, key_val='id', value_val='name'))
@@ -713,7 +713,7 @@ def _pull_config_for_single_site(site_name_id):
     site[DHCP_SERVERS_STR] = []
     response = sdk.get.dhcpservers(site['id'])
     if not response.cgx_status:
-        throw_error("DHCP Servers networks get failed: ", response)
+        throw_error("DHCP Servers get failed: ", response)
     dhcpservers = response.cgx_content['items']
 
     for dhcpserver in dhcpservers:
@@ -1278,7 +1278,7 @@ def _pull_config_for_single_site(site_name_id):
         element[DNS_SERVICES_STR] = {}
         response = sdk.get.dnsservices(site['id'], element['id'])
         if not response.cgx_status:
-            throw_error("DNS config get failed: ", response)
+            throw_error("DNS services get failed: ", response)
         dnsservices = response.cgx_content['items']
         id_name_cache.update(build_lookup_dict(dnsservices, key_val='id', value_val='name'))
         for service in dnsservices:
