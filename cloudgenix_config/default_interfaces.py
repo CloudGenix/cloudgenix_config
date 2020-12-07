@@ -66,7 +66,9 @@ member_port = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -74,13 +76,17 @@ member_port = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
 """
@@ -101,7 +107,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -116,13 +124,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           controller 2:
@@ -131,7 +143,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -146,13 +160,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           internet 1:
@@ -161,7 +179,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -176,13 +196,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: public
           internet 2:
@@ -191,7 +215,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -206,13 +232,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: public
           internet bypass 1:
@@ -221,7 +251,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -229,13 +261,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           internet bypass 2:
@@ -244,7 +280,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -252,13 +290,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           lan 1:
@@ -267,7 +309,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -275,13 +319,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           lan 2:
@@ -290,7 +338,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -298,13 +348,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           lan 3:
@@ -313,7 +367,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -321,13 +377,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           lan 4:
@@ -336,7 +396,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -344,13 +406,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           wan 1:
@@ -359,7 +425,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -367,13 +435,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           wan 1lan 1:
@@ -386,7 +458,9 @@ ion_3000 = """
               use_relay: true
               wan: wan 1
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -394,13 +468,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: bypasspair
             used_for: private_wan
           wan 2:
@@ -409,7 +487,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -417,13 +497,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           wan 2lan 2:
@@ -436,7 +520,9 @@ ion_3000 = """
               use_relay: true
               wan: wan 2
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -444,13 +530,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: bypasspair
             used_for: private_wan
           wan 3:
@@ -459,7 +549,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -467,13 +559,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           wan 3lan 3:
@@ -486,7 +582,9 @@ ion_3000 = """
               use_relay: true
               wan: wan 3
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -494,13 +592,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: bypasspair
             used_for: private_wan
           wan 4:
@@ -509,7 +611,9 @@ ion_3000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -517,13 +621,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           wan 4lan 4:
@@ -536,7 +644,9 @@ ion_3000 = """
               use_relay: true
               wan: wan 4
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -544,13 +654,17 @@ ion_3000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: bypasspair
             used_for: private_wan
 """
@@ -562,7 +676,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -577,13 +693,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '10':
@@ -592,7 +712,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -600,13 +722,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '11':
@@ -615,7 +741,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -623,13 +751,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '12':
@@ -638,7 +770,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -646,13 +780,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '13':
@@ -661,7 +799,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -669,13 +809,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '14':
@@ -684,7 +828,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -692,13 +838,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '2':
@@ -707,7 +857,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -715,13 +867,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: private_wan
           '3':
@@ -730,7 +886,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -738,13 +896,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '4':
@@ -753,7 +915,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -761,13 +925,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '5':
@@ -776,7 +944,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -784,13 +954,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '6':
@@ -799,7 +973,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -807,13 +983,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '7':
@@ -822,7 +1002,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -830,13 +1012,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '8':
@@ -845,7 +1031,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -853,13 +1041,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '9':
@@ -868,7 +1060,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -876,13 +1070,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           controller 1:
@@ -891,7 +1089,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -906,13 +1106,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           controller 2:
@@ -921,7 +1125,9 @@ ion_7000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -936,13 +1142,17 @@ ion_7000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
 """
@@ -954,7 +1164,9 @@ ion_2000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -969,13 +1181,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: public
           '2':
@@ -984,7 +1200,9 @@ ion_2000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -999,13 +1217,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: public
           '3':
@@ -1014,7 +1236,9 @@ ion_2000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1029,13 +1253,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: public
           '4':
@@ -1044,7 +1272,9 @@ ion_2000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1052,13 +1282,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '5':
@@ -1067,7 +1301,9 @@ ion_2000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1075,13 +1311,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '45':
@@ -1094,7 +1334,9 @@ ion_2000 = """
               use_relay: true
               wan: '4'
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1102,13 +1344,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: bypasspair
             used_for: private_wan
           controller:
@@ -1117,7 +1363,9 @@ ion_2000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1132,13 +1380,17 @@ ion_2000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
 """
@@ -1150,7 +1402,9 @@ ion_3102v = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1165,13 +1419,17 @@ ion_3102v = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: public
           '2':
@@ -1180,7 +1438,9 @@ ion_3102v = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1188,13 +1448,17 @@ ion_3102v = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           controller 1:
@@ -1203,7 +1467,9 @@ ion_3102v = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1218,13 +1484,17 @@ ion_3102v = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
 """
@@ -1355,7 +1625,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1370,13 +1642,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '10':
@@ -1385,7 +1661,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1393,13 +1671,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '11':
@@ -1408,7 +1690,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1416,13 +1700,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '12':
@@ -1431,7 +1719,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1439,13 +1729,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '13':
@@ -1454,7 +1748,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1462,13 +1758,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '14':
@@ -1477,7 +1777,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1485,13 +1787,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '15':
@@ -1500,7 +1806,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1508,13 +1816,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '16':
@@ -1523,7 +1835,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1531,13 +1845,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '2':
@@ -1546,7 +1864,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1554,13 +1874,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: private_wan
           '3':
@@ -1569,7 +1893,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1577,13 +1903,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '4':
@@ -1592,7 +1922,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1600,13 +1932,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '5':
@@ -1615,7 +1951,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1623,13 +1961,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '6':
@@ -1638,7 +1980,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1646,13 +1990,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '7':
@@ -1661,7 +2009,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1669,13 +2019,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '8':
@@ -1684,7 +2038,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1692,13 +2048,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           '9':
@@ -1707,7 +2067,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1715,13 +2077,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           controller 1:
@@ -1730,7 +2096,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1745,13 +2113,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
           controller 2:
@@ -1760,7 +2132,9 @@ ion_9000 = """
             bound_interfaces: null
             bypass_pair: null
             description: null
+            devicemgmt_policysetstack_id: null
             dhcp_relay: null
+            directed_broadcast: false
             ethernet_port:
               full_duplex: false
               speed: 0
@@ -1775,13 +2149,17 @@ ion_9000 = """
             mac_address: null
             mtu: 1500
             nat_address: null
+            nat_pools: null
             nat_port: 0
+            nat_zone_id: null
             network_context_id: null
             parent: null
             pppoe_config: null
+            scope: local
             service_link_config: null
             site_wan_interface_ids: null
             sub_interface: null
+            tags:
             type: port
             used_for: none
 """

@@ -6219,7 +6219,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     config_dnsservices = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
-
+                print("MAT ELEMENT", matching_element)
                 # check for element already assigned to a site before upgrade
                 element = matching_element
                 element_serial = element.get('serial_number')
@@ -6280,7 +6280,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # final element ID and model for this element:
                 element_id = matching_element.get('id')
                 element_model = matching_element.get('model_name')
-
+                print("ELEMENAT", matching_element)
                 # remove this element from delete queue
                 leftover_elements = [entry for entry in leftover_elements if entry != element_id]
                 # -- End Elements
@@ -6341,7 +6341,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # If an interface is not specified in the config, it gets it's default config.
                 config_interfaces_defaults = get_default_ifconfig_from_model_string(element_model)
                 local_debug("CONFIG_INTERFACES_DEFAULT ONLOAD: ", config_interfaces_defaults)
-
+                print("MODEL", element_model)
+                print("INTERFACES", config_interfaces)
+                print("IF DEF", config_interfaces_defaults)
                 # Get bypasspairs for default
                 config_bypasspairs_defaults = get_config_interfaces_by_type(config_interfaces_defaults, 'bypasspair')
 
@@ -6471,7 +6473,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
 
                 # START VIRTUAL INTERFACE
-
+                print("DEFAULT",get_default_ifconfig_from_model_string("ion 2000"))
                 # Check and DELETE unused VIs
                 current_interfaces_n2id_holder = interfaces_n2id
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
@@ -6904,9 +6906,22 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         interface_id = None
 
                     config_bound_interfaces = config_interface.get('bound_interfaces', None)
+                    interfaces_defaults = get_default_ifconfig_from_model_string(element_model)
                     for bound_interface in config_bound_interfaces:
-                        if bound_interface in config_interfaces_defaults.keys():
-                            throw_error("Member port {0} configuration present in yaml file. Cannot create/modify VI {1}. Exiting".format(bound_interface, config_interface_name))
+                        if bound_interface in config_interfaces.keys():
+                            bound_interface_config = config_interfaces[bound_interface]
+                            bound_interface_defaults = interfaces_defaults.get(bound_interface, None)
+                            if not bound_interface_defaults:
+                                throw_error(
+                                    "Default config does not exist for interface {0} and element model {1}".format(
+                                        bound_interface, element_model))
+                                for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
+                                    if bound_interface_defaults.get(key) == bound_interface_config.get(key):
+                                        continue
+                                    else:
+                                        throw_error(
+                                            "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
+                                                bound_interface, config_interface_name))
 
                     # Create or modify interface.
                     if interface_id is not None:
