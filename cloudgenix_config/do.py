@@ -6219,7 +6219,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     config_dnsservices = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
-                print("MAT ELEMENT", matching_element)
+
                 # check for element already assigned to a site before upgrade
                 element = matching_element
                 element_serial = element.get('serial_number')
@@ -6280,7 +6280,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # final element ID and model for this element:
                 element_id = matching_element.get('id')
                 element_model = matching_element.get('model_name')
-                print("ELEMENAT", matching_element)
+
                 # remove this element from delete queue
                 leftover_elements = [entry for entry in leftover_elements if entry != element_id]
                 # -- End Elements
@@ -6341,9 +6341,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # If an interface is not specified in the config, it gets it's default config.
                 config_interfaces_defaults = get_default_ifconfig_from_model_string(element_model)
                 local_debug("CONFIG_INTERFACES_DEFAULT ONLOAD: ", config_interfaces_defaults)
-                print("MODEL", element_model)
-                print("INTERFACES", config_interfaces)
-                print("IF DEF", config_interfaces_defaults)
+
                 # Get bypasspairs for default
                 config_bypasspairs_defaults = get_config_interfaces_by_type(config_interfaces_defaults, 'bypasspair')
 
@@ -6473,7 +6471,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
 
                 # START VIRTUAL INTERFACE
-                print("DEFAULT",get_default_ifconfig_from_model_string("ion 2000"))
+
                 # Check and DELETE unused VIs
                 current_interfaces_n2id_holder = interfaces_n2id
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
