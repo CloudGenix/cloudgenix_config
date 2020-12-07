@@ -55,14 +55,14 @@ try:
         config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-        nameable_interface_types, skip_interface_list, CloudGenixConfigError
+        nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
     from cloudgenix_config import __version__ as import_cloudgenix_config_version
 except Exception:
     from cloudgenix_config.cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lower_version_get, \
         config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-        nameable_interface_types, skip_interface_list, CloudGenixConfigError
+        nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
     from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.
@@ -6921,8 +6921,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                             # Check for default config of the main keys
                             for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
                                 # IF configuration is same as default continue, else error out
-                                if bound_interface_defaults.get(key) == bound_interface_config.get(key):
+                                if bound_interface_defaults.get(key) == bound_interface_config.get(key) or bound_interface_config.get(key) in (None, 'none', 'Null', 'null'):
                                     continue
+                                # ipv4 config is of type dict. So parsing and checking the config
+                                elif key == "ipv4_config" and isinstance(bound_interface_config.get(key), dict):
+                                    is_default = check_default_ipv4_config(bound_interface_config.get(key))
+                                    if is_default:
+                                        continue
                                 else:
                                     throw_error(
                                         "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(

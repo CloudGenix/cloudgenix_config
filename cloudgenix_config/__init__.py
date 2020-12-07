@@ -603,3 +603,20 @@ def check_name(name, dup_check_dict, function_text, error_site_txt=None):
             dup_check_dict[text_type(name)] = 1
 
             return name
+
+
+def check_default_ipv4_config(ipv4_config):
+    """
+    Parse through interface ipv4_config and check if the fields are None
+    :param ipv4_config: the configuration to parse
+    :return: is_none = 1 if all the fields are None else 0
+    """
+    is_none = 1
+    for k, v in ipv4_config.items():
+        if k == 'type' or v in (None, 'none', 'Null', 'null'):
+            continue
+        elif isinstance(v, dict):
+            is_none = check_default_ipv4_config(v)
+        else:
+            is_none = 0
+    return is_none
