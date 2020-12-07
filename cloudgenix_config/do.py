@@ -6903,9 +6903,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    # Check for member interface in yml and member interface config in YAML
                     config_bound_interfaces = config_interface.get('bound_interfaces', None)
                     interfaces_defaults = get_default_ifconfig_from_model_string(element_model)
+
+                    # Looping through member interfaces and checking if it exists in the YAML
                     for bound_interface in config_bound_interfaces:
+                        # IF it exists, check if the configuration is default
                         if bound_interface in config_interfaces.keys():
                             bound_interface_config = config_interfaces[bound_interface]
                             bound_interface_defaults = interfaces_defaults.get(bound_interface, None)
@@ -6913,13 +6917,16 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                 throw_error(
                                     "Default config does not exist for interface {0} and element model {1}".format(
                                         bound_interface, element_model))
-                                for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
-                                    if bound_interface_defaults.get(key) == bound_interface_config.get(key):
-                                        continue
-                                    else:
-                                        throw_error(
-                                            "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
-                                                bound_interface, config_interface_name))
+
+                            # Check for default config of the main keys
+                            for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
+                                # IF configuration is same as default continue, else error out
+                                if bound_interface_defaults.get(key) == bound_interface_config.get(key):
+                                    continue
+                                else:
+                                    throw_error(
+                                        "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
+                                            bound_interface, config_interface_name))
 
                     # Create or modify interface.
                     if interface_id is not None:
