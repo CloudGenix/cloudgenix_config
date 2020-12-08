@@ -3068,7 +3068,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                     member_interface_config = interface_resp.cgx_content
                 else:
                     throw_error("Unable to retrieve interface: ", interface_resp)
-                # Member interface cannot be of the following types
+                # Member interface cannot be of the type 'pppoe','subinterface','loopback','service_link','bypasspair','virtual_interface'
                 # Other checks not done as the errors are thrown appropriately by controller backend
                 member_interface_type = member_interface_config.get('type')
                 if member_interface_type in createable_interface_types:
