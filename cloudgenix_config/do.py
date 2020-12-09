@@ -56,6 +56,7 @@ try:
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
         nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
+
     from cloudgenix_config import __version__ as import_cloudgenix_config_version
 except Exception:
     from cloudgenix_config.cloudgenix_config import throw_error, throw_warning, fuzzy_pop, config_lower_version_get, \
@@ -63,6 +64,7 @@ except Exception:
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
         nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
+
     from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
 # Check config file, in cwd.

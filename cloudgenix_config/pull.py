@@ -1279,6 +1279,7 @@ def _pull_config_for_single_site(site_name_id):
         response = sdk.get.dnsservices(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("DNS services get failed: ", response)
+
         dnsservices = response.cgx_content['items']
         id_name_cache.update(build_lookup_dict(dnsservices, key_val='id', value_val='name'))
         for service in dnsservices:
