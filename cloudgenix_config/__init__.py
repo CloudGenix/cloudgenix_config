@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.2.0b4
+**Version:** 1.3.0b1
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "1.2.0b4"
+__version__ = "1.3.0b1"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
@@ -101,7 +101,8 @@ TRAILING_INTEGER = re.compile(
 ALREADY_NAGGED_DUP_KEYS = []
 
 nameable_interface_types = [
-    'service_link'
+    'service_link',
+    'virtual_interface'
 ]
 
 skip_interface_list = [
@@ -298,12 +299,16 @@ def get_default_ifconfig_from_model_string(model_string):
     :param model_string: CloudGenix Element Model String
     :return: Dict of default config.
     """
-    if model_string == "ion 2000":
+    if model_string == "ion 1000":
+        return yaml.safe_load(ion_1000)
+    elif model_string == "ion 2000":
         return yaml.safe_load(ion_2000)
     elif model_string == "ion 3000":
         return yaml.safe_load(ion_3000)
     elif model_string == "ion 7000":
         return yaml.safe_load(ion_7000)
+    elif model_string == "ion 9000":
+        return yaml.safe_load(ion_9000)
     elif model_string == "ion 3102v":
         return yaml.safe_load(ion_3102v)
     elif model_string == "ion 3104v":
@@ -598,3 +603,20 @@ def check_name(name, dup_check_dict, function_text, error_site_txt=None):
             dup_check_dict[text_type(name)] = 1
 
             return name
+
+
+def check_default_ipv4_config(ipv4_config):
+    """
+    Parse through interface ipv4_config and check if the fields are None
+    :param ipv4_config: the configuration to parse
+    :return: is_none = 1 if all the fields are None else 0
+    """
+    is_none = 1
+    for k, v in ipv4_config.items():
+        if k == 'type' or v in (None, 'none', 'Null', 'null'):
+            continue
+        elif isinstance(v, dict):
+            is_none = check_default_ipv4_config(v)
+        else:
+            is_none = 0
+    return is_none
