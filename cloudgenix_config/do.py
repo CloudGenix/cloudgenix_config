@@ -6930,8 +6930,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                 # ipv4 config is of type dict. So parsing and checking the config
                                 elif key == "ipv4_config" and isinstance(bound_interface_config.get(key), dict):
                                     is_default = check_default_ipv4_config(bound_interface_config.get(key))
-                                    if is_default:
-                                        continue
+                                    if not is_default:
+                                        throw_error(
+                                            "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
+                                                bound_interface, config_interface_name))
                                 else:
                                     throw_error(
                                         "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
