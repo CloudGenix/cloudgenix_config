@@ -38,6 +38,7 @@ import time
 import sys
 import os
 import argparse
+import re
 
 # CloudGenix Python SDK
 try:
@@ -6916,9 +6917,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                             bound_interface_config = config_interfaces[bound_interface]
                             bound_interface_defaults = interfaces_defaults.get(bound_interface, None)
                             if not bound_interface_defaults:
-                                throw_error(
-                                    "Default config does not exist for interface {0} and element model {1}".format(
-                                        bound_interface, element_model))
+                                if not re.match(r"ion\s+\d+v", element_model):
+                                    throw_error(
+                                        "Default config does not exist for interface {0} and element model {1}".format(
+                                            bound_interface, element_model))
 
                             # Check for default config of the main keys
                             for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
@@ -6928,8 +6930,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                 # ipv4 config is of type dict. So parsing and checking the config
                                 elif key == "ipv4_config" and isinstance(bound_interface_config.get(key), dict):
                                     is_default = check_default_ipv4_config(bound_interface_config.get(key))
-                                    if is_default:
-                                        continue
+                                    if not is_default:
+                                        throw_error(
+                                            "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
+                                                bound_interface, config_interface_name))
                                 else:
                                     throw_error(
                                         "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
