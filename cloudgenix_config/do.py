@@ -2976,7 +2976,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 n2id_np_template = copy.deepcopy(config_nat_pools)
 
                 # replace flat names in dict
-                name_lookup_in_template(n2id_np_template, 'nat_pool_id', natpolicypools_n2id)
+                for template in n2id_np_template:
+                    name_lookup_in_template(template, 'nat_pool_id', natpolicypools_n2id)
 
                 # update template
                 interface_template["nat_pools"] = n2id_np_template
