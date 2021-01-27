@@ -851,7 +851,8 @@ def _pull_config_for_single_site(site_name_id):
             if_type = interface.get('type')
             if not FORCE_PARENTS and interface_id in parent_id_list:
                 # interface is a parent, skip
-                continue
+                if if_type != 'virtual_interface':
+                    continue
             if not FORCE_PARENTS and interface.get('name') in skip_interface_list:
                 # Unconfigurable interface, skip.
                 continue
