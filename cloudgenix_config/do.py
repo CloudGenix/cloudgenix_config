@@ -3515,6 +3515,9 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, conf
     return_if_id = None
     parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""))
     parent_if_name = config_pppoe_interface.get('parent', "")
+    # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
+    # This is because in the create section, the interface will be created
+    # Changes for CON-95
     if parent_if_id is None:
         if not parent_if_name in config_interfaces.keys():
             throw_error("PPPoE Interface {0} config is missing 'parent': ".format(config_pppoe_interface.get('name')),
@@ -3538,6 +3541,9 @@ def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id, conf
     return_if_id = None
     parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""))
     parent_if_name = config_subif_interface.get('parent', "")
+    # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
+    # This is because in the create section, the interface will be created
+    # Changes for CON-95
     if parent_if_id is None:
         if not parent_if_name in config_interfaces.keys():
             throw_error("Subinterface {0} config is missing 'parent': ".format(config_subif_interface.get('name')),
@@ -5816,6 +5822,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')
+            # Changes for CON-97 to handle numbered site names
             name_site_id = sites_n2id.get(str(config_site_name))
 
             if implicit_site_id is not None:
@@ -6474,10 +6481,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     leftover_bypasspairs = [entry for entry in leftover_bypasspairs if entry != interface_id]
 
                 # Get the leftover subif/pppoe and loop through them to get the 'parent' details
-                # If parent is part of leftover VIs, then check for child interfaces in the yml.
+                # If parent is part of leftover bypasspairs, then check for child interfaces in the yml.
                 # If present error out
-                # Else delete those interfaces and then delete the VI
-
+                # Else delete those interfaces and then delete the bypsspair
+                # Changes for CON-99
                 delete_child_interfaces = []
                 if leftover_bypasspairs:
                     leftover_subinterfaces = get_api_interfaces_by_type(interfaces_cache, 'subinterface')
@@ -6566,6 +6573,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # If parent is part of leftover VIs, then check for child interfaces in the yml.
                 # If present error out
                 # Else delete those interfaces and then delete the VI
+                # Changes for CON-95
                 delete_child_interfaces = []
                 if leftover_virtual_interfaces:
                     leftover_subinterfaces = get_api_interfaces_by_type(interfaces_cache, 'subinterface')
@@ -6667,6 +6675,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # remove from delete queue
                     leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
 
+                # Reset the configuration before delete. Else api will throw error
                 for pppoe in leftover_pppoe:
                     default_template = get_member_default_config()
                     output_message("   Setting PPPoE {0} to default.".format(interfaces_id2n.get(pppoe)))
@@ -6717,6 +6726,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # remove from delete queue
                     leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
 
+                # Reset the configuration before delete. Else api will throw error
                 for subif in leftover_subinterfaces:
                     default_template = get_member_default_config()
                     output_message("   Setting Subinterface {0} to default.".format(interfaces_id2n.get(subif)))
@@ -8103,6 +8113,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')
+            # Changes for CON-97 to handle numbered site names
             name_site_id = sites_n2id.get(str(config_site_name))
 
             if implicit_site_id is not None:
