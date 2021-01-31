@@ -6628,6 +6628,16 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END VIRTUAL INTERFACE
 
+                # update Interface caches before continuing.
+                interfaces_resp = sdk.get.interfaces(site_id, element_id)
+                interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(interfaces_n2id_api)
+
                 # START LOOPBACKS
 
                 # create a leftover_loopbacks construct from the api_loopback_del output from get_loopback_lists
