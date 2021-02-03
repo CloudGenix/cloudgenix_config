@@ -5283,14 +5283,15 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
 
 
 def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, elements_n2id, dnsserviceprofiles_n2id,
-                       dnsserviceroles_n2id, interfaces_n2id):
+                       dnsserviceroles_n2id, interfaces_n2id, check_modified = 0):
     """
     Modify an existing dnsservices
     :param config_dnsservices: dnsservices config dict
     :param dnsservices_id: Existing dnsservices ID
     :param site_id: Site ID to use
     :param element_id: Element ID to use
-    :return: Returned dnsservices ID
+    :param check_modified: Check if dns is modified in yml
+    :return: Returned dnsservices ID o 0
     """
     dnsservices_config = {}
     # make a copy of dnsservices to modify
@@ -5323,7 +5324,13 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
     # Check for changes:
     dnsservices_change_check = copy.deepcopy(dnsservices_config)
     dnsservices_config.update(dnsservices_template)
-    if not force_update and dnsservices_config == dnsservices_change_check:
+
+    if check_modified:
+        if dnsservices_config != dnsservices_change_check:
+            return 1
+        else:
+            return 0
+    elif not force_update and dnsservices_config == dnsservices_change_check:
         # no change in config, pass.
         dnsservices_id = dnsservices_change_check.get('id')
         dnsservices_name = dnsservices_change_check.get('name')
@@ -5370,7 +5377,7 @@ def delete_dnsservices(leftover_dnsservices, site_id, element_id, id2n=None):
     for dnsservices_id in leftover_dnsservices:
         # delete all leftover dnsservices.
 
-        output_message("   Deleting Unconfigured dnsservices {0}.".format(id2n.get(dnsservices_id, dnsservices_id)))
+        output_message("   Deleting dnsservices {0}.".format(id2n.get(dnsservices_id, dnsservices_id)))
         dnsservices_del_resp = sdk.delete.dnsservices(site_id, element_id, dnsservices_id)
         if not dnsservices_del_resp.cgx_status:
             throw_error("Could not delete dnsservices {0}: ".format(id2n.get(dnsservices_id, dnsservices_id)),
@@ -6427,7 +6434,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 local_debug("CONFIG_INTERFACES_WITH_DEFAULTS: ", config_interfaces_defaults)
 
                 # END DEFAULT INTERFACES
-                # START BYPASSPAIR
 
                 # get full parent/child maps
                 config_parent2child, config_child2parent = get_parent_child_dict(config_interfaces_defaults,
@@ -6435,11 +6441,61 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 local_debug("CONFIG_PARENT2CHILD: ", config_parent2child)
                 local_debug("CONFIG_CHILD2PARENT: ", config_child2parent)
 
-                # Deleting leftover resources (Static routing and dnsservices) that can be configured on interfaces before deleting the actual leftover interfaces
+                # Deleting leftover resources (element securityzone, static routing, dnsservices, syslog) that can be configured on interfaces before deleting the actual leftover interfaces
 
                 config_routing_aspathaccesslists, config_routing_ipcommunitylists, config_routing_prefixlists, \
                 config_routing_routemaps, config_routing_static, \
                 config_routing_bgp = parse_routing_config(config_routing)
+
+                # -- Start element_securityzones
+                element_securityzones_resp = sdk.get.elementsecurityzones(site_id, element_id)
+                element_securityzones_cache, leftover_element_securityzones = extract_items(element_securityzones_resp,
+                                                                                            'elementsecurityzones')
+                # build lookup cache based on zone id.
+                element_securityzones_zoneid2id = build_lookup_dict(element_securityzones_cache, key_val='zone_id')
+
+                # iterate configs (list)
+                for config_element_securityzone_entry in config_element_security_zones:
+
+                    # deepcopy to modify.
+                    config_element_securityzone = copy.deepcopy(config_element_securityzone_entry)
+
+                    # no need to get element_securityzone config, no child config objects.
+
+                    # Determine element_securityzone ID.
+                    # look for implicit ID in object.
+                    implicit_element_securityzone_id = config_element_securityzone.get('id')
+                    # if no ID, select by zone ID
+                    config_element_securityzone_zone = config_element_securityzone.get('zone_id')
+                    # do name to id lookup
+                    config_element_securityzone_zone_id = securityzones_n2id.get(config_element_securityzone_zone,
+                                                                                 config_element_securityzone_zone)
+                    # finally, get securityzone ID from zone_id
+                    config_element_securityzone_id = element_securityzones_zoneid2id.get(
+                        config_element_securityzone_zone_id)
+
+                    if implicit_element_securityzone_id is not None:
+                        element_securityzone_id = implicit_element_securityzone_id
+
+                    elif config_element_securityzone_id is not None:
+                        # look up ID by destinationprefix on existing element_securityzone.
+                        element_securityzone_id = config_element_securityzone_id
+
+                    else:
+                        # no element_securityzone object.
+                        element_securityzone_id = None
+
+                    # remove from delete queue
+                    leftover_element_securityzones = [entry for entry in leftover_element_securityzones
+                                                      if entry != element_securityzone_id]
+
+                # build a element_securityzone_id to zone name mapping.
+                element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
+                                                                    value_val='zone_id')
+                delete_element_securityzones(leftover_element_securityzones, site_id, element_id,
+                                             id2n=element_securityzones_id2zoneid)
+
+                # -- End element_securityzones
 
                 # START STATIC ROUTING
                 staticroutes_resp = sdk.get.staticroutes(site_id, element_id)
@@ -6513,12 +6569,61 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no dnsservice object.
                         dnsservices_id = None
 
-                    # remove from delete queue
-                    leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
+                    # Check if dns is modified in yml
+                    # If it is modified, delete the dns service before deleting any leftover interface as dns can be configured
+                    # modify_dnsservices return 1 if dns is modified else return 0
+                    dns_modified = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
+                                                        element_id, elements_n2id, dnsserviceprofiles_n2id,
+                                                        dnsserviceroles_n2id, interfaces_n2id, check_modified=1)
+                    if dns_modified:
+                        leftover_dnsservices = [dnsservices_id]
+                    else:
+                        # remove from delete queue
+                        leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
 
                 delete_dnsservices(leftover_dnsservices, site_id, element_id)
 
                 # -- End DNSSERVICE config
+
+                # -- Start SYSLOG config
+                syslogs_resp = sdk.get.syslogservers(site_id, element_id)
+                syslogs_cache, leftover_syslogs = extract_items(syslogs_resp, 'syslog')
+                # build lookup cache based on prefix.
+                syslogs_n2id = build_lookup_dict(syslogs_cache)
+
+                # iterate configs (list)
+                for config_syslog_entry in config_syslog:
+
+                    # deepcopy to modify.
+                    config_syslog_record = copy.deepcopy(config_syslog_entry)
+
+                    # no need to get syslog config, no child config objects.
+
+                    # Determine syslog ID.
+                    # look for implicit ID in object.
+                    implicit_syslog_id = config_syslog_entry.get('id')
+                    config_syslog_name = config_syslog_entry.get('name')
+                    name_syslog_id = syslogs_n2id.get(config_syslog_name)
+
+                    if implicit_syslog_id is not None:
+                        syslog_id = implicit_syslog_id
+
+                    elif name_syslog_id is not None:
+                        # look up ID by name on existing interfaces.
+                        syslog_id = name_syslog_id
+
+                    else:
+                        # no syslog object.
+                        syslog_id = None
+
+                    # remove from delete queue
+                    leftover_syslogs = [entry for entry in leftover_syslogs if entry != syslog_id]
+
+                # delete remaining syslog configs
+                syslogs_id2n = build_lookup_dict(syslogs_cache, key_val='id', value_val='name')
+                delete_syslogs(leftover_syslogs, site_id, element_id, id2n=syslogs_id2n)
+
+                # -- End SYSLOG config
 
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
