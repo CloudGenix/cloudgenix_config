@@ -6572,14 +6572,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Check if dns is modified in yml
                     # If it is modified, delete the dns service before deleting any leftover interface as dns can be configured
                     # modify_dnsservices return 1 if dns is modified else return 0
-                    dns_modified = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
-                                                        element_id, elements_n2id, dnsserviceprofiles_n2id,
-                                                        dnsserviceroles_n2id, interfaces_n2id, check_modified=1)
-                    if dns_modified:
-                        leftover_dnsservices = [dnsservices_id]
-                    else:
-                        # remove from delete queue
-                        leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
+                    if dnsservices_id is not None:
+                        dns_modified = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
+                                                            element_id, elements_n2id, dnsserviceprofiles_n2id,
+                                                            dnsserviceroles_n2id, interfaces_n2id, check_modified=1)
+                        if dns_modified:
+                            leftover_dnsservices = [dnsservices_id]
+                        else:
+                            # remove from delete queue
+                            leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
 
                 delete_dnsservices(leftover_dnsservices, site_id, element_id)
 
