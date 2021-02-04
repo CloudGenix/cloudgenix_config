@@ -5765,7 +5765,7 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
         esz_zone_name = securityzones_id2n.get(id2n.get(element_securityzone_id, element_securityzone_id),
                                                element_securityzone_id)
 
-        output_message("   Deleting Unconfigured Element Securityzone mapping for Zone '{0}'."
+        output_message("   Deleting Element Securityzone mapping for Zone '{0}'."
                        "".format(esz_zone_name))
         element_securityzone_del_resp = sdk.delete.elementsecurityzones(site_id, element_id, element_securityzone_id)
         if not element_securityzone_del_resp.cgx_status:
@@ -6548,6 +6548,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on zone id.
                 element_securityzones_zoneid2id = build_lookup_dict(element_securityzones_cache, key_val='zone_id')
 
+                # List to hold modified secirityzones
                 modified_element_securityzones = []
 
                 # iterate configs (list)
@@ -6592,10 +6593,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                           interfaces_n2id, site_id, element_id, check_modified=1)
                         if element_securityzone_modified:
                             modified_element_securityzones.append(element_securityzone_id)
-                        else:
-                            # remove from delete queue
-                            leftover_element_securityzones = [entry for entry in leftover_element_securityzones
-                                                              if entry != element_securityzone_id]
+
+                        # remove from delete queue
+                        leftover_element_securityzones = [entry for entry in leftover_element_securityzones
+                                                          if entry != element_securityzone_id]
 
                 # build a element_securityzone_id to zone name mapping.
                 element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
