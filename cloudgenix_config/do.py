@@ -5632,7 +5632,7 @@ def create_element_securityzone(config_element_securityzone, waninterface_n2id, 
 
 
 def modify_element_securityzone(config_element_securityzone, element_securityzone_id, waninterface_n2id,
-                                lannetworks_n2id, interfaces_n2id, site_id, element_id):
+                                lannetworks_n2id, interfaces_n2id, site_id, element_id, check_modified=0):
     """
     Modify Existing element Security Zone Mapping
     :param config_element_securityzone: element Securityzone config dict
@@ -5642,6 +5642,7 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
     :param interfaces_n2id: Interfaces Name to ID map (site and element specific)
     :param site_id: site ID to use
     :param element_id: element ID to use
+    :param check_modified: If 1, Check if element_securityzone is modified in yml
     :return: Returned element Securityzone ID
     """
     element_securityzone_config = {}
@@ -5699,7 +5700,13 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
     # Check for changes:
     element_securityzone_change_check = copy.deepcopy(element_securityzone_config)
     element_securityzone_config.update(element_securityzone_template)
-    if not force_update and element_securityzone_config == element_securityzone_change_check:
+
+    if check_modified:
+        if element_securityzone_config != element_securityzone_change_check:
+            return 1
+        else:
+            return 0
+    elif not force_update and element_securityzone_config == element_securityzone_change_check:
         # no change in config, pass.
         element_securityzone_id = element_securityzone_change_check.get('id')
         element_securityzone_zone_id = element_securityzone_resp.cgx_content.get('zone_id')
@@ -6541,6 +6548,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on zone id.
                 element_securityzones_zoneid2id = build_lookup_dict(element_securityzones_cache, key_val='zone_id')
 
+                modified_element_securityzones = []
+
                 # iterate configs (list)
                 for config_element_securityzone_entry in config_element_security_zones:
 
@@ -6572,13 +6581,27 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no element_securityzone object.
                         element_securityzone_id = None
 
-                    # remove from delete queue
-                    leftover_element_securityzones = [entry for entry in leftover_element_securityzones
-                                                      if entry != element_securityzone_id]
+                    # Check if element_securityzone is modified in yml
+                    # If it is modified, delete the element_securityzone before deleting any leftover interface as element_securityzone can be configured
+                    # modify_element_securityzone return 1 if element_securityzone is modified else return 0
+
+                    if element_securityzone_id is not None:
+                        element_securityzone_modified = modify_element_securityzone(config_element_securityzone,
+                                                                          element_securityzone_id,
+                                                                          waninterfaces_n2id, lannetworks_n2id,
+                                                                          interfaces_n2id, site_id, element_id, check_modified=1)
+                        if element_securityzone_modified:
+                            modified_element_securityzones.append(element_securityzone_id)
+                        else:
+                            # remove from delete queue
+                            leftover_element_securityzones = [entry for entry in leftover_element_securityzones
+                                                              if entry != element_securityzone_id]
 
                 # build a element_securityzone_id to zone name mapping.
                 element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
                                                                     value_val='zone_id')
+                delete_element_securityzones(modified_element_securityzones, site_id, element_id,
+                                             id2n=element_securityzones_id2zoneid)
                 delete_element_securityzones(leftover_element_securityzones, site_id, element_id,
                                              id2n=element_securityzones_id2zoneid)
 
