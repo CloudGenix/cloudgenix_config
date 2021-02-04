@@ -722,9 +722,10 @@ def parse_element_config(config_element):
     config_element_security_zones, _ = config_lower_version_get(config_element, 'element_security_zones',
                                                                 sdk.put.elementsecurityzones, default=[])
     config_dnsservices, _ = config_lower_version_get(config_element, 'dnsservices', sdk.put.dnsservices, default=[])
+    config_app_probe, _ = config_lower_version_get(config_element, 'application_probe', sdk.put.application_probe, default={})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions, config_element_security_zones, config_dnsservices
+        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe
 
 
 def parse_routing_config(config_routing):
@@ -4928,13 +4929,15 @@ def delete_syslogs(leftover_syslogs, site_id, element_id, id2n=None):
     return
 
 
-def modify_ntp(config_ntp, site_id, element_id):
+def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
     """
     Modify Device NTP. No Create or delete needed, always exists.
     For UI flow, templates are copied from ntp_templates. This utility just takes them in from the config file.
     :param config_ntp: Ntp Config dict
     :param site_id: Site ID to use
     :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :param reset_ntp: Flag to reset source_interface_ids in ntp. If 1, we will reset
     :return: Returned Ntp ID
     """
     ntp_config = {}
@@ -4953,6 +4956,14 @@ def modify_ntp(config_ntp, site_id, element_id):
         # assume it's a dict object.
         # just make a copy of ntp to modify
         ntp_template = copy.deepcopy(config_ntp)
+
+    # replace flat names
+    if ntp_template.get('source_interface_ids'):
+        source_ids = []
+        for iface in ntp_template.get('source_interface_ids', []):
+            source_ids.append(interfaces_n2id.get(iface, iface))
+        if source_ids:
+            ntp_template['source_interface_ids'] = source_ids
 
     local_debug("NTP TEMPLATE: " + str(json.dumps(ntp_template, indent=4)))
 
@@ -4977,9 +4988,16 @@ def modify_ntp(config_ntp, site_id, element_id):
     ntp_id = ntp_config.get('id')
 
     # Check for changes:
+    # If there are changes and reset_ntp is set, then we will reset the source_interface_id
     ntp_change_check = copy.deepcopy(ntp_config)
     ntp_config.update(ntp_template)
-    if not force_update and ntp_config == ntp_change_check:
+    if reset_ntp:
+        if ntp_config != ntp_change_check:
+            output_message("   Resetting source interface ids for NTP {0}.".format(ntp_id))
+            ntp_config['source_interface_ids'] = None
+        else:
+            return 1
+    elif not force_update and ntp_config == ntp_change_check:
         # no change in config, pass.
         ntp_id = ntp_change_check.get('id')
         output_message("   No Change for NTP {0}.".format(ntp_id))
@@ -5750,6 +5768,75 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
     return
 
 
+def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=0):
+    """
+    Modify Existing Application Probe
+    :param config_app_probe: App probe config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param interfaces_n2id: interfaces name to id map
+    :param reset_app_probe: Flag if set will reset the source interface
+    :return: Returned app probe id
+    """
+    app_probe_config = {}
+    # make a copy of bgp_peer to modify
+    app_probe_template = copy.deepcopy(config_app_probe)
+
+    # replace flat names
+    name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
+
+    # get current bgp_peer
+    app_probe_resp = sdk.get.application_probe(site_id, element_id)
+    if app_probe_resp.cgx_status:
+        app_probe_config = app_probe_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Application Probe: ", app_probe_resp)
+
+    # extract prev_revision
+    prev_revision = app_probe_config.get("_etag")
+
+    # Check for changes:
+    app_probe_change_check = copy.deepcopy(app_probe_config)
+    app_probe_config.update(app_probe_template)
+    if reset_app_probe:
+        if app_probe_config != app_probe_change_check:
+            output_message("   Resetting source interface id for Application Probe {0}.".format(app_probe_change_check.get('name')))
+            app_probe_config['source_interface_id'] = None
+        else:
+            return 1
+    elif not force_update and app_probe_config == app_probe_change_check:
+        # no change in config, pass.
+        app_probe_id = app_probe_change_check.get('id')
+        app_probe_name = app_probe_change_check.get('name')
+        output_message("   No Change for Application Probe {0}.".format(app_probe_name))
+        return app_probe_id
+
+    if debuglevel >= 3:
+        local_debug("application_probe DIFF: {0}".format(find_diff(app_probe_change_check, app_probe_config)))
+
+    # Update bgp_peer.
+    app_probe_resp2 = sdk.put.application_probe(site_id, element_id, app_probe_config)
+
+    if not app_probe_resp2.cgx_status:
+        throw_error("Application Probe failed: ", app_probe_resp2)
+
+    app_probe_id = app_probe_resp2.cgx_content.get('id')
+    app_probe_name = app_probe_resp2.cgx_content.get('name', app_probe_id)
+
+    # extract current_revision
+    current_revision = app_probe_resp2.cgx_content.get("_etag")
+
+    if not app_probe_id:
+        throw_error("Unable to determine Application Probe attributes ({0})..".format(app_probe_name), app_probe_resp2)
+
+    output_message("   Updated Application Probe {0} (Etag {1} -> {2}).".format(app_probe_name,
+                                                                       prev_revision,
+                                                                       current_revision))
+
+
+    return app_probe_id
+
+
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None):
@@ -6239,7 +6326,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                     config_toolkit, config_element_extensions, config_element_security_zones, \
-                    config_dnsservices = parse_element_config(config_element)
+                    config_dnsservices, config_app_probe = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -6625,6 +6712,20 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_syslogs(leftover_syslogs, site_id, element_id, id2n=syslogs_id2n)
 
                 # -- End SYSLOG config
+
+                # -- Start NTP config
+                # We cannot delete ntp. So checking if ntp is modified in config
+                # If modified, we will reset the source interface ids and later update it again
+                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=1)
+
+                # -- End NTP config
+
+                # START Aplication Probe
+                # We cannot delete application probe. So checking if app probe is modified in config
+                # If modified, we will reset the source interface id and later update it again
+                application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1)
+
+                # END Aplication Probe
 
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
@@ -7921,7 +8022,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # no need to get NTP config, no child config objects.
                 # No need to determine NTP ID, one object per element.
 
-                ntp_id = modify_ntp(config_ntp, site_id, element_id)
+                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id)
 
                 # -- End NTP config
 
@@ -8097,6 +8198,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 toolkit_id = modify_toolkit(config_toolkit, site_id, element_id)
 
                 # -- End Toolkit
+                # START Aplication Probe
+                if config_app_probe:
+                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id)
+
+                # END Aplication Probe
 
                 # ------------------
                 # BEGIN ELEMENT CLEANUP
