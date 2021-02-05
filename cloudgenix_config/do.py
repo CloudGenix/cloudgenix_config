@@ -3319,8 +3319,10 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         interface_id = interface_change_check.get('id')
         interface_name = interface_change_check.get('name')
         if funny_name and funny_name != interface_name:
+            interfaces_funny_n2id[funny_name] = interface_id
             output_message("   No Change for Interface {0}({1}).".format(funny_name, interface_name))
         else:
+            interfaces_n2id[interface_name] = interface_id
             output_message("   No Change for Interface {0}.".format(interface_name))
         return interface_id
 
@@ -3506,6 +3508,32 @@ def get_loopback_lists(config_interfaces, interfaces_cache, interfaces_n2id):
                 config_loopback_n2id[config_ifname_loopback[idx]] = if_id
 
     return config_loopback_add, leftover_loopbacks, config_loopback_n2id
+
+
+def get_pppoe_lists(config_interfaces, interfaces_cache, interfaces_n2id):
+    """
+    :param config_interfaces: Config Interfaces dict
+    :param interfaces_cache: Interfaces API response cache
+    :param interfaces_n2id: Interfaces Name to ID Map.
+    :return: Config pppoe names to IDs dict (when mappings can be made, example of a "funny name")
+    """
+
+    config_pppoe_n2id = {}
+    config_ifname_pppoe = order_interface_by_number(get_config_interfaces_name_by_type(
+        config_interfaces, 'pppoe'))
+    interfaces_pppoe_list = order_interface_by_number(get_api_interfaces_name_by_type(
+        interfaces_cache, 'pppoe'))
+
+    config_len = len(config_ifname_pppoe)
+
+    # create pppoe config_name (funny_name) to matching real interface ID mapping
+    for idx, value in enumerate(interfaces_pppoe_list):
+        if idx < config_len:
+            if_id = interfaces_n2id.get(value)
+            if if_id:
+                config_pppoe_n2id[config_ifname_pppoe[idx]] = if_id
+
+    return config_pppoe_n2id
 
 
 def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, config_interfaces):
@@ -6442,6 +6470,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_funny_n2id.update(config_loopback_n2id)
 
                 # END LOOPBACKS ADD (need modify and delete )
+
+                # Update interfaces_funny_n2id now that the pppoe is created with a dynamic name
+                config_pppoe_n2id = get_pppoe_lists(config_interfaces, interfaces_cache, interfaces_n2id)
+                if config_pppoe_n2id:
+                    interfaces_funny_n2id.update(config_pppoe_n2id)
+
                 # refresh interfaces as ones were added.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
@@ -7481,7 +7515,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # END SERVICELINK
 
                 # ------------------
-                # BEGIN INTERFACE CLEANUP.
+
                 # Moved INTERFACE cleanup above create/edit
                 # Don't need to update interfaces_id2n, as interfaces queued for deletion should have already
                 # existed when it was created before the bypasspair step.
