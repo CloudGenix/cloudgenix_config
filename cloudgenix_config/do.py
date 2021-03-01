@@ -5814,13 +5814,13 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     :return: Returned app probe id
     """
     app_probe_config = {}
-    # make a copy of bgp_peer to modify
+    # make a copy of app probe to modify
     app_probe_template = copy.deepcopy(config_app_probe)
 
     # replace flat names
     name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
 
-    # get current bgp_peer
+    # get current app probe
     app_probe_resp = sdk.get.application_probe(site_id, element_id)
     if app_probe_resp.cgx_status:
         app_probe_config = app_probe_resp.cgx_content
@@ -5849,11 +5849,11 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     if debuglevel >= 3:
         local_debug("application_probe DIFF: {0}".format(find_diff(app_probe_change_check, app_probe_config)))
 
-    # Update bgp_peer.
+    # Update app probe.
     app_probe_resp2 = sdk.put.application_probe(site_id, element_id, app_probe_config)
 
     if not app_probe_resp2.cgx_status:
-        throw_error("Application Probe failed: ", app_probe_resp2)
+        throw_error("Application Probe Update failed: ", app_probe_resp2)
 
     app_probe_id = app_probe_resp2.cgx_content.get('id')
     app_probe_name = app_probe_resp2.cgx_content.get('name', app_probe_id)
@@ -6471,7 +6471,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END LOOPBACKS ADD (need modify and delete )
 
-                # Update interfaces_funny_n2id now that the pppoe is created with a dynamic name
+                # Update interfaces_funny_n2id with pppoe dynamic name
                 config_pppoe_n2id = get_pppoe_lists(config_interfaces, interfaces_cache, interfaces_n2id)
                 if config_pppoe_n2id:
                     interfaces_funny_n2id.update(config_pppoe_n2id)
