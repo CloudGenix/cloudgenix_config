@@ -1351,6 +1351,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
                     break
 
     # This case is for micro version upgrades. For example 5.4.1 to 5.4.3
+    # No checks are needed
 
     else:
         new_version = elem_config_version
@@ -8881,7 +8882,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 delete_dnsservices(leftover_dnsservices, site_id, element_id)
 
-                delete_ipfix(leftover_ipfix, site_id, element_id)
+                # delete leftover ipfix
+                ipfix_id2n = build_lookup_dict(ipfix_cache, key_val='id', value_val='name')
+                delete_ipfix(leftover_ipfix, site_id, element_id, id2n=ipfix_id2n)
 
                 # delete remaining syslog configs
                 syslogs_id2n = build_lookup_dict(syslogs_cache, key_val='id', value_val='name')
