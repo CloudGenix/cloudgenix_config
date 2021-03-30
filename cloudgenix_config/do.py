@@ -6781,7 +6781,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # START Aplication Probe
                 # We cannot delete application probe. So checking if app probe is modified in config
                 # If modified, we will reset the source interface id and later update it again
-                application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1)
+                if config_app_probe:
+                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1)
 
                 # END Aplication Probe
 
