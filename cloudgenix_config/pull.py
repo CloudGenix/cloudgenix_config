@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.3.0b2
+**Version:** 1.3.0b3
 
 **Author:** CloudGenix
 
@@ -1315,17 +1315,20 @@ def _pull_config_for_single_site(site_name_id):
         # Get Application Probes
         element[APPLICATION_PROBE_STR] = {}
         response = sdk.get.application_probe(site['id'], element['id'])
-        if not response.cgx_status:
-            throw_error("Application probe get failed: ", response)
+        error = response.cgx_content.get('_error', None)
+        # Check for the error code. If the element version does not support app_probe, ignore the error
+        if error:
+            if error[0].get('code') not in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+                throw_error("Application probe get failed: ", response)
+        else:
+            app_probe = response.cgx_content
+            id_name_cache.update(build_lookup_dict([app_probe], key_val='id', value_val='name'))
+            app_probe_template = copy.deepcopy(app_probe)
+            name_lookup_in_template(app_probe_template, 'source_interface_id', id_name_cache)
+            strip_meta_attributes(app_probe_template, leave_name=True)
 
-        app_probe = response.cgx_content
-        id_name_cache.update(build_lookup_dict([app_probe], key_val='id', value_val='name'))
-        app_probe_template = copy.deepcopy(app_probe)
-        name_lookup_in_template(app_probe_template, 'source_interface_id', id_name_cache)
-        strip_meta_attributes(app_probe_template, leave_name=True)
-
-        # names used, but config doesn't index by name for this value currently.
-        element[APPLICATION_PROBE_STR].update(app_probe_template)
+            # names used, but config doesn't index by name for this value currently.
+            element[APPLICATION_PROBE_STR].update(app_probe_template)
         delete_if_empty(element, APPLICATION_PROBE_STR)
 
         # Get toolkit
