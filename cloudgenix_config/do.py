@@ -5825,7 +5825,11 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     if app_probe_resp.cgx_status:
         app_probe_config = app_probe_resp.cgx_content
     else:
-        throw_error("Unable to retrieve Application Probe: ", app_probe_resp)
+        error = app_probe_resp.cgx_content.get('_error', None)
+        # Check for the error code. If the element version does not support app_probe, ignore the error
+        if error:
+            if error[0].get('code') not in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+                throw_error("Unable to retrieve Application Probe: ", app_probe_resp)
 
     # extract prev_revision
     prev_revision = app_probe_config.get("_etag")
