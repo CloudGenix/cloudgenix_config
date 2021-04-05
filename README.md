@@ -90,7 +90,8 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.3.0** | **b3** | Fix for issue #52|
+| **1.3.0** | **b4** | Fix for issues #44, #48|
+            | **b3** | Fix for issue #52|
 |           | **b2** | Bug fixes|
 |           | **b1** | Support for CloudGenix SDK 5.4.3b1|
 | **1.2.0** | **b3** | Support for CloudGenix SDK 5.3.1b1|

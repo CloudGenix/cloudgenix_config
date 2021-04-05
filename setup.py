@@ -4,7 +4,7 @@ with open('README.md') as f:
     long_description = f.read()
 
 setup(name='cloudgenix_config',
-      version='1.3.0b3',
+      version='1.3.0b4',
       description='Configuration exporting and Continuous Integration (CI) capable configuration importing for the '
                   'CloudGenix Cloud Controller.',
       long_description=long_description,
