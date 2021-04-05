@@ -92,7 +92,9 @@ MIT
 | ------- | ----- | ------- |
 | **1.4.0** | **b1** | Support for CloudGenix SDK 5.5.1b1|
 |           | **b1** | Support for element step upgrade/downgrade|
-| **1.3.0** | **b1** | Support for CloudGenix SDK 5.4.3b1|
+| **1.3.0** | **b3** | Fix for issue #52|
+|           | **b2** | Bug fixes|
+|           | **b1** | Support for CloudGenix SDK 5.4.3b1|
 | **1.2.0** | **b3** | Support for CloudGenix SDK 5.3.1b1|
 |           | **b3** | Fix for Github issue #34|
 |           | **b2** | Fix for Github issue #32|
