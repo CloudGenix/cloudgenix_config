@@ -3300,7 +3300,9 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 n2id_np_template = copy.deepcopy(config_nat_pools)
 
                 # replace flat names in dict
-                name_lookup_in_template(n2id_np_template, 'nat_pool_id', natpolicypools_n2id)
+                # Fix for #44
+                for template in n2id_np_template:
+                    name_lookup_in_template(template, 'nat_pool_id', natpolicypools_n2id)
 
                 # update template
                 interface_template["nat_pools"] = n2id_np_template
@@ -6155,7 +6157,9 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
         error = app_probe_resp.cgx_content.get('_error', None)
         # Check for the error code. If the element version does not support app_probe, ignore the error
         if error:
-            if error[0].get('code') not in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+            if error[0].get('code') in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+                return 1
+            else:
                 throw_error("Unable to retrieve Application Probe: ", app_probe_resp)
 
     # extract prev_revision
@@ -9022,6 +9026,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
             # -- End Elements
 
+            # Fix for issue #48
             # delete remaining site_ipfix_localprefixes
             site_ipfix_localprefixes_resp = sdk.get.site_ipfixlocalprefixes(del_site_id)
             site_ipfix_localprefixes_cache, leftover_site_ipfix_localprefixes = extract_items(site_ipfix_localprefixes_resp, 'site_ipfix_localprefixes')
@@ -9031,6 +9036,66 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                      value_val='prefix_id')
             delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, del_site_id,
                                             id2n=site_ipfix_localprefixes_id2prefixid)
+
+            # delete remaining spokecluster configs
+            # build a spokecluster_id to name mapping.
+            spokeclusters_resp = sdk.get.spokeclusters(del_site_id)
+            spokeclusters_cache, leftover_spokeclusters = extract_items(spokeclusters_resp, 'spokeclusters')
+            spokeclusters_id2n = build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
+            delete_spokeclusters(leftover_spokeclusters, del_site_id, id2n=spokeclusters_id2n)
+
+            # delete remaining site_nat_localprefix configs
+            # build a site_nat_localprefix_id to zone name mapping.
+            site_nat_localprefixes_resp = sdk.get.site_natlocalprefixes(del_site_id)
+            # TODO remove this MESSY HACK to work around CGB-15068.
+            if site_nat_localprefixes_resp.cgx_status and site_nat_localprefixes_resp.cgx_content == {}:
+                # Welcome to the land of CGB-15068. Fix in progress.
+                site_nat_localprefixes_resp.cgx_content = {
+                    "_etag": 1,  # Hopefully this should work
+                    "_content_length": "0",
+                    "_schema": 0,
+                    "_created_on_utc": 15791094199340006,
+                    "_updated_on_utc": 0,
+                    "_status_code": "200",
+                    "_request_id": "1579109419923000400002492011547730241671",
+                    "count": 0,
+                    "items": []
+                }
+            # END MESSY HACK for CGB-15068
+
+            site_nat_localprefixes_cache, leftover_site_nat_localprefixes = extract_items(site_nat_localprefixes_resp,
+                                                                                          'site_nat_localprefixes')
+            site_nat_localprefixes_id2prefixid = build_lookup_dict(site_nat_localprefixes_cache, key_val='id',
+                                                                   value_val='prefix_id')
+            delete_site_nat_localprefixes(leftover_site_nat_localprefixes, del_site_id,
+                                          id2n=site_nat_localprefixes_id2prefixid)
+
+            # delete remaining site_securityzone configs
+            site_securityzones_resp = sdk.get.sitesecurityzones(del_site_id)
+            site_securityzones_cache, leftover_site_securityzones = extract_items(site_securityzones_resp,
+                                                                                  'sitesecurityzones')
+            # build a site_securityzone_id to zone name mapping.
+            site_securityzones_id2zoneid = build_lookup_dict(site_securityzones_cache, key_val='id',
+                                                             value_val='zone_id')
+            delete_site_securityzones(leftover_site_securityzones, del_site_id, id2n=site_securityzones_id2zoneid)
+
+            # delete remaining site_extension configs
+            site_extensions_resp = sdk.get.site_extensions(del_site_id)
+            site_extensions_cache, leftover_site_extensions = extract_items(site_extensions_resp, 'site_extensions')
+            site_extensions_id2n = build_lookup_dict(site_extensions_cache, key_val='id', value_val='name')
+            delete_site_extensions(leftover_site_extensions, del_site_id, id2n=site_extensions_id2n)
+
+            # delete remaining dhcpserver configs
+            dhcpservers_resp = sdk.get.dhcpservers(del_site_id)
+            dhcpservers_cache, leftover_dhcpservers = extract_items(dhcpservers_resp, 'dhcpserver')
+            dhcpservers_id2n = build_lookup_dict(dhcpservers_cache, key_val='id', value_val='subnet')
+            delete_dhcpservers(leftover_dhcpservers, del_site_id, id2n=dhcpservers_id2n)
+
+            # cleanup - delete unused Lannetworks
+            lannetworks_resp = sdk.get.lannetworks(del_site_id)
+            lannetworks_cache, leftover_lannetworks = extract_items(lannetworks_resp, 'lannetworks')
+            lannetworks_id2n = build_lookup_dict(lannetworks_cache, key_val='id', value_val='name')
+            delete_lannetworks(leftover_lannetworks, del_site_id, id2n=lannetworks_id2n)
 
             # -- Start WAN Interfaces
             waninterfaces_resp = sdk.get.waninterfaces(del_site_id)
