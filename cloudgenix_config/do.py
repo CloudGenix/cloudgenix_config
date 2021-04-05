@@ -206,7 +206,7 @@ upgrade_path_regex = {
     "5\.0\..*" : "5.2.7", ### 5.0.xyz -> 5.2.7
     "5\.1\..*" : "5.2.7", ### 5.1.xyz -> 5.2.7
     "5\.2\..*" : "5.4.3", ### 5.2.xyz -> 5.4.3
-    "5\.3\..*" : "5.4.3", ### 5.3.xyz -> 5.4.3
+    "5\.3\..*" : "5.5.1", ### 5.3.xyz -> 5.4.3
     "5\.4\..*" : "5.5.1", ### 5.4.xyz -> 5.5.1
 }
 
@@ -9017,6 +9017,16 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # unbind the elements
             unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
             # -- End Elements
+
+            # delete remaining site_ipfix_localprefixes
+            site_ipfix_localprefixes_resp = sdk.get.site_ipfixlocalprefixes(del_site_id)
+            site_ipfix_localprefixes_cache, leftover_site_ipfix_localprefixes = extract_items(site_ipfix_localprefixes_resp, 'site_ipfix_localprefixes')
+
+            # build site_ipfix_localprefix_id to prefix_id mapping
+            site_ipfix_localprefixes_id2prefixid = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='id',
+                                                                     value_val='prefix_id')
+            delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, del_site_id,
+                                            id2n=site_ipfix_localprefixes_id2prefixid)
 
             # -- Start WAN Interfaces
             waninterfaces_resp = sdk.get.waninterfaces(del_site_id)
