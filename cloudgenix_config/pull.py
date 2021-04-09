@@ -1049,7 +1049,7 @@ def _pull_config_for_single_site(site_name_id):
         element['routing'] = {}
 
         # Get static routes
-        element['routing'][STATIC_STR] = []
+        element['routing'][STATIC_STR] = {}
         response = sdk.get.staticroutes(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Static routes get failed: ", response)
@@ -1067,9 +1067,15 @@ def _pull_config_for_single_site(site_name_id):
                     nexthops_template.append(nexthop_template)
                 staticroute_template['nexthops'] = nexthops_template
 
+            # check for duplicate names
+            checked_staticroute_name = check_name(staticroute_template.get('name'), dup_name_dict, 'Static Route',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
+            # update id name cache in case name changed.
+            id_name_cache[staticroute_template.get('id')] = checked_staticroute_name
             strip_meta_attributes(staticroute_template)
-            # no names, don't need dupliate check
-            element['routing'][STATIC_STR].append(staticroute_template)
+            element['routing'][STATIC_STR][checked_staticroute_name] = staticroute_template
+
         delete_if_empty(element, STATIC_STR)
 
         # Get BGP configuration

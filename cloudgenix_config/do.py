@@ -841,7 +841,7 @@ def parse_routing_config(config_routing):
                                                              sdk.put.routing_prefixlists, default={})
     config_routing_routemaps, _ = config_lower_version_get(config_routing, 'route_maps',
                                                            sdk.put.routing_routemaps, default={})
-    config_routing_static, _ = config_lower_version_get(config_routing, 'static', sdk.put.staticroutes, default=[])
+    config_routing_static, _ = config_lower_version_get(config_routing, 'static', sdk.put.staticroutes, default={})
     config_routing_bgp = config_lower_get(config_routing, 'bgp', default={})
 
     return config_routing_aspathaccesslists, config_routing_ipcommunitylists, config_routing_prefixlists, \
@@ -4200,11 +4200,12 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
         throw_error("Staticroute creation failed: ", staticroute_resp)
 
     staticroute_id = staticroute_resp.cgx_content.get('id')
+    staticroute_name = staticroute_resp.cgx_content.get('name')
 
     if not staticroute_id:
         throw_error("Unable to determine staticroute attributes (ID {0})..".format(staticroute_id))
 
-    output_message("   Created staticroute {0}.".format(staticroute_id))
+    output_message("   Created staticroute {0}.".format(staticroute_name))
 
     return staticroute_id
 
@@ -4273,7 +4274,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
         # no change in config, pass.
         staticroute_id = staticroute_change_check.get('id')
         staticroute_name = staticroute_change_check.get('name')
-        output_message("   No Change for Staticroute {0}.".format(staticroute_id))
+        output_message("   No Change for Staticroute {0}.".format(staticroute_name))
         return staticroute_id
 
     if debuglevel >= 3:
@@ -4286,6 +4287,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
         throw_error("Staticroute update failed: ", staticroute_resp2)
 
     staticroute_id = staticroute_resp2.cgx_content.get('id')
+    staticroute_name = staticroute_resp2.cgx_content.get('name')
 
     # extract current_revision
     current_revision = staticroute_resp2.cgx_content.get("_etag")
@@ -4293,7 +4295,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
     if not staticroute_id:
         throw_error("Unable to determine staticroute attributes (ID {0})..".format(staticroute_id))
 
-    output_message("   Updated Staticroute {0} (Etag {1} -> {2}).".format(staticroute_id, prev_revision,
+    output_message("   Updated Staticroute {0} (Etag {1} -> {2}).".format(staticroute_name, prev_revision,
                                                                           current_revision))
 
     return staticroute_id
@@ -7207,7 +7209,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
 
                 # iterate configs (list)
-                for config_staticroute_entry in config_routing_static:
+                for config_staticroute_name, config_staticroute_value in \
+                        config_routing_static.items():
+
+                    # recombine object
+                    config_staticroute_entry = recombine_named_key_value(config_staticroute_name,
+                                                                         config_staticroute_value,
+                                                                         name_key='name')
 
                     # deepcopy to modify.
                     config_staticroute = copy.deepcopy(config_staticroute_entry)
@@ -8449,7 +8457,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
 
                 # iterate configs (list)
-                for config_staticroute_entry in config_routing_static:
+                for config_staticroute_name, config_staticroute_value in \
+                        config_routing_static.items():
+
+                    # recombine object
+                    config_staticroute_entry = recombine_named_key_value(config_staticroute_name,
+                                                                config_staticroute_value,
+                                                                name_key='name')
 
                     # deepcopy to modify.
                     config_staticroute = copy.deepcopy(config_staticroute_entry)
