@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.3.0b1
+**Version:** 1.3.0b3
 
 **Author:** CloudGenix
 
@@ -722,9 +722,10 @@ def parse_element_config(config_element):
     config_element_security_zones, _ = config_lower_version_get(config_element, 'element_security_zones',
                                                                 sdk.put.elementsecurityzones, default=[])
     config_dnsservices, _ = config_lower_version_get(config_element, 'dnsservices', sdk.put.dnsservices, default=[])
+    config_app_probe, _ = config_lower_version_get(config_element, 'application_probe', sdk.put.application_probe, default={})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions, config_element_security_zones, config_dnsservices
+        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe
 
 
 def parse_routing_config(config_routing):
@@ -3318,7 +3319,12 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         # no change in config, pass.
         interface_id = interface_change_check.get('id')
         interface_name = interface_change_check.get('name')
-        output_message("   No Change for Interface {0}.".format(interface_name))
+        if funny_name and funny_name != interface_name:
+            interfaces_funny_n2id[funny_name] = interface_id
+            output_message("   No Change for Interface {0}({1}).".format(funny_name, interface_name))
+        else:
+            interfaces_n2id[interface_name] = interface_id
+            output_message("   No Change for Interface {0}.".format(interface_name))
         return interface_id
 
     if debuglevel >= 3:
@@ -3505,7 +3511,33 @@ def get_loopback_lists(config_interfaces, interfaces_cache, interfaces_n2id):
     return config_loopback_add, leftover_loopbacks, config_loopback_n2id
 
 
-def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id):
+def get_pppoe_lists(config_interfaces, interfaces_cache, interfaces_n2id):
+    """
+    :param config_interfaces: Config Interfaces dict
+    :param interfaces_cache: Interfaces API response cache
+    :param interfaces_n2id: Interfaces Name to ID Map.
+    :return: Config pppoe names to IDs dict (when mappings can be made, example of a "funny name")
+    """
+
+    config_pppoe_n2id = {}
+    config_ifname_pppoe = order_interface_by_number(get_config_interfaces_name_by_type(
+        config_interfaces, 'pppoe'))
+    interfaces_pppoe_list = order_interface_by_number(get_api_interfaces_name_by_type(
+        interfaces_cache, 'pppoe'))
+
+    config_len = len(config_ifname_pppoe)
+
+    # create pppoe config_name (funny_name) to matching real interface ID mapping
+    for idx, value in enumerate(interfaces_pppoe_list):
+        if idx < config_len:
+            if_id = interfaces_n2id.get(value)
+            if if_id:
+                config_pppoe_n2id[config_ifname_pppoe[idx]] = if_id
+
+    return config_pppoe_n2id
+
+
+def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, config_interfaces):
     """
     PPPoE interfaces are determined based on parent config. Each parent can only have one PPPoE.
     :param config_pppoe_interface: PPPoE Interface config entry
@@ -3515,9 +3547,13 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id):
     """
     return_if_id = None
     parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""))
-
+    parent_if_name = config_pppoe_interface.get('parent', "")
+    # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
+    # This is because in the create section, the interface will be created
+    # Changes for CON-95
     if parent_if_id is None:
-        throw_error("PPPoE Interface {0} config is missing 'parent': ".format(config_pppoe_interface.get('name')),
+        if not parent_if_name in config_interfaces.keys():
+            throw_error("PPPoE Interface {0} config is missing 'parent': ".format(config_pppoe_interface.get('name')),
                     config_pppoe_interface)
     for interface in interfaces_cache:
         # check for parent match.
@@ -3527,7 +3563,7 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id):
     return return_if_id
 
 
-def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id):
+def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id, config_interfaces):
     """
     Look up Sub Interface ID, using parent in config and VLAN ID as the identifiers.
     :param config_subif_interface: Interfaces (Subinterfaces only) config dict.
@@ -3537,8 +3573,13 @@ def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id):
     """
     return_if_id = None
     parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""))
+    parent_if_name = config_subif_interface.get('parent', "")
+    # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
+    # This is because in the create section, the interface will be created
+    # Changes for CON-95
     if parent_if_id is None:
-        throw_error("Subinterface {0} config is missing 'parent': ".format(config_subif_interface.get('name')),
+        if not parent_if_name in config_interfaces.keys():
+            throw_error("Subinterface {0} config is missing 'parent': ".format(config_subif_interface.get('name')),
                     config_subif_interface)
 
     subinterface_dict = config_subif_interface.get('sub_interface', {})
@@ -4917,13 +4958,15 @@ def delete_syslogs(leftover_syslogs, site_id, element_id, id2n=None):
     return
 
 
-def modify_ntp(config_ntp, site_id, element_id):
+def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
     """
     Modify Device NTP. No Create or delete needed, always exists.
     For UI flow, templates are copied from ntp_templates. This utility just takes them in from the config file.
     :param config_ntp: Ntp Config dict
     :param site_id: Site ID to use
     :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :param reset_ntp: Flag to reset source_interface_ids in ntp. If 1, we will reset
     :return: Returned Ntp ID
     """
     ntp_config = {}
@@ -4942,6 +4985,14 @@ def modify_ntp(config_ntp, site_id, element_id):
         # assume it's a dict object.
         # just make a copy of ntp to modify
         ntp_template = copy.deepcopy(config_ntp)
+
+    # replace flat names
+    if ntp_template.get('source_interface_ids'):
+        source_ids = []
+        for iface in ntp_template.get('source_interface_ids', []):
+            source_ids.append(interfaces_n2id.get(iface, iface))
+        if source_ids:
+            ntp_template['source_interface_ids'] = source_ids
 
     local_debug("NTP TEMPLATE: " + str(json.dumps(ntp_template, indent=4)))
 
@@ -4966,9 +5017,16 @@ def modify_ntp(config_ntp, site_id, element_id):
     ntp_id = ntp_config.get('id')
 
     # Check for changes:
+    # If there are changes and reset_ntp is set, then we will reset the source_interface_id
     ntp_change_check = copy.deepcopy(ntp_config)
     ntp_config.update(ntp_template)
-    if not force_update and ntp_config == ntp_change_check:
+    if reset_ntp:
+        if ntp_config != ntp_change_check:
+            output_message("   Resetting source interface ids for NTP {0}.".format(ntp_id))
+            ntp_config['source_interface_ids'] = None
+        else:
+            return 1
+    elif not force_update and ntp_config == ntp_change_check:
         # no change in config, pass.
         ntp_id = ntp_change_check.get('id')
         output_message("   No Change for NTP {0}.".format(ntp_id))
@@ -5272,14 +5330,15 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
 
 
 def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, elements_n2id, dnsserviceprofiles_n2id,
-                       dnsserviceroles_n2id, interfaces_n2id):
+                       dnsserviceroles_n2id, interfaces_n2id, check_modified = 0):
     """
     Modify an existing dnsservices
     :param config_dnsservices: dnsservices config dict
     :param dnsservices_id: Existing dnsservices ID
     :param site_id: Site ID to use
     :param element_id: Element ID to use
-    :return: Returned dnsservices ID
+    :param check_modified: Check if dns is modified in yml
+    :return: Returned dnsservices ID o 0
     """
     dnsservices_config = {}
     # make a copy of dnsservices to modify
@@ -5312,7 +5371,13 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
     # Check for changes:
     dnsservices_change_check = copy.deepcopy(dnsservices_config)
     dnsservices_config.update(dnsservices_template)
-    if not force_update and dnsservices_config == dnsservices_change_check:
+
+    if check_modified:
+        if dnsservices_config != dnsservices_change_check:
+            return 1
+        else:
+            return 0
+    elif not force_update and dnsservices_config == dnsservices_change_check:
         # no change in config, pass.
         dnsservices_id = dnsservices_change_check.get('id')
         dnsservices_name = dnsservices_change_check.get('name')
@@ -5359,7 +5424,7 @@ def delete_dnsservices(leftover_dnsservices, site_id, element_id, id2n=None):
     for dnsservices_id in leftover_dnsservices:
         # delete all leftover dnsservices.
 
-        output_message("   Deleting Unconfigured dnsservices {0}.".format(id2n.get(dnsservices_id, dnsservices_id)))
+        output_message("   Deleting dnsservices {0}.".format(id2n.get(dnsservices_id, dnsservices_id)))
         dnsservices_del_resp = sdk.delete.dnsservices(site_id, element_id, dnsservices_id)
         if not dnsservices_del_resp.cgx_status:
             throw_error("Could not delete dnsservices {0}: ".format(id2n.get(dnsservices_id, dnsservices_id)),
@@ -5596,7 +5661,7 @@ def create_element_securityzone(config_element_securityzone, waninterface_n2id, 
 
 
 def modify_element_securityzone(config_element_securityzone, element_securityzone_id, waninterface_n2id,
-                                lannetworks_n2id, interfaces_n2id, site_id, element_id):
+                                lannetworks_n2id, interfaces_n2id, site_id, element_id, check_modified=0):
     """
     Modify Existing element Security Zone Mapping
     :param config_element_securityzone: element Securityzone config dict
@@ -5606,6 +5671,7 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
     :param interfaces_n2id: Interfaces Name to ID map (site and element specific)
     :param site_id: site ID to use
     :param element_id: element ID to use
+    :param check_modified: If 1, Check if element_securityzone is modified in yml
     :return: Returned element Securityzone ID
     """
     element_securityzone_config = {}
@@ -5663,7 +5729,13 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
     # Check for changes:
     element_securityzone_change_check = copy.deepcopy(element_securityzone_config)
     element_securityzone_config.update(element_securityzone_template)
-    if not force_update and element_securityzone_config == element_securityzone_change_check:
+
+    if check_modified:
+        if element_securityzone_config != element_securityzone_change_check:
+            return 1
+        else:
+            return 0
+    elif not force_update and element_securityzone_config == element_securityzone_change_check:
         # no change in config, pass.
         element_securityzone_id = element_securityzone_change_check.get('id')
         element_securityzone_zone_id = element_securityzone_resp.cgx_content.get('zone_id')
@@ -5722,7 +5794,7 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
         esz_zone_name = securityzones_id2n.get(id2n.get(element_securityzone_id, element_securityzone_id),
                                                element_securityzone_id)
 
-        output_message("   Deleting Unconfigured Element Securityzone mapping for Zone '{0}'."
+        output_message("   Deleting Element Securityzone mapping for Zone '{0}'."
                        "".format(esz_zone_name))
         element_securityzone_del_resp = sdk.delete.elementsecurityzones(site_id, element_id, element_securityzone_id)
         if not element_securityzone_del_resp.cgx_status:
@@ -5730,6 +5802,79 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
                                                                                       element_securityzone_id)),
                         element_securityzone_del_resp)
     return
+
+
+def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=0):
+    """
+    Modify Existing Application Probe
+    :param config_app_probe: App probe config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param interfaces_n2id: interfaces name to id map
+    :param reset_app_probe: Flag if set will reset the source interface
+    :return: Returned app probe id
+    """
+    app_probe_config = {}
+    # make a copy of app probe to modify
+    app_probe_template = copy.deepcopy(config_app_probe)
+
+    # replace flat names
+    name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
+
+    # get current app probe
+    app_probe_resp = sdk.get.application_probe(site_id, element_id)
+    if app_probe_resp.cgx_status:
+        app_probe_config = app_probe_resp.cgx_content
+    else:
+        error = app_probe_resp.cgx_content.get('_error', None)
+        # Check for the error code. If the element version does not support app_probe, ignore the error
+        if error:
+            if error[0].get('code') not in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+                throw_error("Unable to retrieve Application Probe: ", app_probe_resp)
+
+    # extract prev_revision
+    prev_revision = app_probe_config.get("_etag")
+
+    # Check for changes:
+    app_probe_change_check = copy.deepcopy(app_probe_config)
+    app_probe_config.update(app_probe_template)
+    if reset_app_probe:
+        if app_probe_config != app_probe_change_check:
+            output_message("   Resetting source interface id for Application Probe {0}.".format(app_probe_change_check.get('name')))
+            app_probe_config['source_interface_id'] = None
+        else:
+            return 1
+    elif not force_update and app_probe_config == app_probe_change_check:
+        # no change in config, pass.
+        app_probe_id = app_probe_change_check.get('id')
+        app_probe_name = app_probe_change_check.get('name')
+        output_message("   No Change for Application Probe {0}.".format(app_probe_name))
+        return app_probe_id
+
+    if debuglevel >= 3:
+        local_debug("application_probe DIFF: {0}".format(find_diff(app_probe_change_check, app_probe_config)))
+
+    # Update app probe.
+    app_probe_resp2 = sdk.put.application_probe(site_id, element_id, app_probe_config)
+
+    if not app_probe_resp2.cgx_status:
+        throw_error("Application Probe Update failed: ", app_probe_resp2)
+
+    app_probe_id = app_probe_resp2.cgx_content.get('id')
+    app_probe_name = app_probe_resp2.cgx_content.get('name', app_probe_id)
+
+    # extract current_revision
+    current_revision = app_probe_resp2.cgx_content.get("_etag")
+
+    if not app_probe_id:
+        throw_error("Unable to determine Application Probe attributes ({0})..".format(app_probe_name), app_probe_resp2)
+
+    output_message("   Updated Application Probe {0} (Etag {1} -> {2}).".format(app_probe_name,
+                                                                       prev_revision,
+                                                                       current_revision))
+
+
+    return app_probe_id
 
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
@@ -5814,7 +5959,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')
-            name_site_id = sites_n2id.get(config_site_name)
+            # Changes for CON-97 to handle numbered site names
+            name_site_id = sites_n2id.get(str(config_site_name))
 
             if implicit_site_id is not None:
                 site_id = implicit_site_id
@@ -6220,7 +6366,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                     config_toolkit, config_element_extensions, config_element_security_zones, \
-                    config_dnsservices = parse_element_config(config_element)
+                    config_dnsservices, config_app_probe = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -6329,6 +6475,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_funny_n2id.update(config_loopback_n2id)
 
                 # END LOOPBACKS ADD (need modify and delete )
+
+                # Update interfaces_funny_n2id with pppoe dynamic name
+                config_pppoe_n2id = get_pppoe_lists(config_interfaces, interfaces_cache, interfaces_n2id)
+                if config_pppoe_n2id:
+                    interfaces_funny_n2id.update(config_pppoe_n2id)
+
                 # refresh interfaces as ones were added.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
@@ -6415,13 +6567,385 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 local_debug("CONFIG_INTERFACES_WITH_DEFAULTS: ", config_interfaces_defaults)
 
                 # END DEFAULT INTERFACES
-                # START BYPASSPAIR
 
                 # get full parent/child maps
                 config_parent2child, config_child2parent = get_parent_child_dict(config_interfaces_defaults,
                                                                                  id2n=interfaces_id2n)
                 local_debug("CONFIG_PARENT2CHILD: ", config_parent2child)
                 local_debug("CONFIG_CHILD2PARENT: ", config_child2parent)
+
+                # Deleting leftover resources (element securityzone, static routing, dnsservices, syslog) that can be configured on interfaces before deleting the actual leftover interfaces
+
+                config_routing_aspathaccesslists, config_routing_ipcommunitylists, config_routing_prefixlists, \
+                config_routing_routemaps, config_routing_static, \
+                config_routing_bgp = parse_routing_config(config_routing)
+
+                # -- Start element_securityzones
+                element_securityzones_resp = sdk.get.elementsecurityzones(site_id, element_id)
+                element_securityzones_cache, leftover_element_securityzones = extract_items(element_securityzones_resp,
+                                                                                            'elementsecurityzones')
+                # build lookup cache based on zone id.
+                element_securityzones_zoneid2id = build_lookup_dict(element_securityzones_cache, key_val='zone_id')
+
+                # List to hold modified secirityzones
+                modified_element_securityzones = []
+
+                # iterate configs (list)
+                for config_element_securityzone_entry in config_element_security_zones:
+
+                    # deepcopy to modify.
+                    config_element_securityzone = copy.deepcopy(config_element_securityzone_entry)
+
+                    # no need to get element_securityzone config, no child config objects.
+
+                    # Determine element_securityzone ID.
+                    # look for implicit ID in object.
+                    implicit_element_securityzone_id = config_element_securityzone.get('id')
+                    # if no ID, select by zone ID
+                    config_element_securityzone_zone = config_element_securityzone.get('zone_id')
+                    # do name to id lookup
+                    config_element_securityzone_zone_id = securityzones_n2id.get(config_element_securityzone_zone,
+                                                                                 config_element_securityzone_zone)
+                    # finally, get securityzone ID from zone_id
+                    config_element_securityzone_id = element_securityzones_zoneid2id.get(
+                        config_element_securityzone_zone_id)
+
+                    if implicit_element_securityzone_id is not None:
+                        element_securityzone_id = implicit_element_securityzone_id
+
+                    elif config_element_securityzone_id is not None:
+                        # look up ID by destinationprefix on existing element_securityzone.
+                        element_securityzone_id = config_element_securityzone_id
+
+                    else:
+                        # no element_securityzone object.
+                        element_securityzone_id = None
+
+                    # Check if element_securityzone is modified in yml
+                    # If it is modified, delete the element_securityzone before deleting any leftover interface as element_securityzone can be configured
+                    # modify_element_securityzone return 1 if element_securityzone is modified else return 0
+
+                    if element_securityzone_id is not None:
+                        element_securityzone_modified = modify_element_securityzone(config_element_securityzone,
+                                                                          element_securityzone_id,
+                                                                          waninterfaces_n2id, lannetworks_n2id,
+                                                                          interfaces_n2id, site_id, element_id, check_modified=1)
+                        if element_securityzone_modified:
+                            modified_element_securityzones.append(element_securityzone_id)
+
+                        # remove from delete queue
+                        leftover_element_securityzones = [entry for entry in leftover_element_securityzones
+                                                          if entry != element_securityzone_id]
+
+                # build a element_securityzone_id to zone name mapping.
+                element_securityzones_id2zoneid = build_lookup_dict(element_securityzones_cache, key_val='id',
+                                                                    value_val='zone_id')
+                delete_element_securityzones(modified_element_securityzones, site_id, element_id,
+                                             id2n=element_securityzones_id2zoneid)
+                delete_element_securityzones(leftover_element_securityzones, site_id, element_id,
+                                             id2n=element_securityzones_id2zoneid)
+
+                # -- End element_securityzones
+
+                # START STATIC ROUTING
+                staticroutes_resp = sdk.get.staticroutes(site_id, element_id)
+                staticroutes_cache, leftover_staticroutes = extract_items(staticroutes_resp, 'staticroutes')
+                # build lookup cache based on prefix.
+                staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
+
+                # iterate configs (list)
+                for config_staticroute_entry in config_routing_static:
+
+                    # deepcopy to modify.
+                    config_staticroute = copy.deepcopy(config_staticroute_entry)
+
+                    # no need to get staticroute config, no child config objects.
+
+                    # Determine staticroute ID.
+                    # look for implicit ID in object.
+                    implicit_staticroute_id = config_staticroute.get('id')
+                    config_interface_destinationprefix = config_staticroute.get('destination_prefix')
+                    destinationprefix_staticroute_id = staticroutes_n2id.get(config_interface_destinationprefix)
+
+                    if implicit_staticroute_id is not None:
+                        staticroute_id = implicit_staticroute_id
+
+                    elif destinationprefix_staticroute_id is not None:
+                        # look up ID by destinationprefix on existing staticroute.
+                        staticroute_id = destinationprefix_staticroute_id
+
+                    else:
+                        # no staticroute object.
+                        staticroute_id = None
+
+                    # remove from delete queue
+                    leftover_staticroutes = [entry for entry in leftover_staticroutes if entry != staticroute_id]
+
+                # delete remaining staticroutes
+                delete_staticroutes(leftover_staticroutes, site_id, element_id)
+
+                # END STATIC ROUTING
+
+                # -- Start DNSSERVICES config
+                dnsservices_resp = sdk.get.dnsservices(site_id, element_id)
+                dnsservices_cache, leftover_dnsservices = extract_items(dnsservices_resp, 'dnsservices')
+                # build lookup cache based on prefix.
+                dnsservices_n2id = build_lookup_dict(dnsservices_cache)
+
+                # only 1 dnsservice can be present per element
+                config_dnsservices = config_dnsservices if type(config_dnsservices) is list else [config_dnsservices]
+
+                for config_dnsservices_entry in config_dnsservices:
+                    # deepcopy to modify.
+                    config_dnsservices_record = copy.deepcopy(config_dnsservices_entry)
+
+                    # look for implicit ID in object.
+                    implicit_dnsservices_id = config_dnsservices_record.get('id')
+
+                    if dnsservices_n2id:
+                        # Hack to modify existing dnsservice with new name and details
+                        name_dnsservices_id = list(dnsservices_n2id.values())[0]
+                    else:
+                        name_dnsservices_id = None
+
+                    if implicit_dnsservices_id is not None:
+                        dnsservices_id = implicit_dnsservices_id
+
+                    elif name_dnsservices_id is not None:
+                        # look up ID by name on existing interfaces.
+                        dnsservices_id = name_dnsservices_id
+
+                    else:
+                        # no dnsservice object.
+                        dnsservices_id = None
+
+                    # Check if dns is modified in yml
+                    # If it is modified, delete the dns service before deleting any leftover interface as dns can be configured
+                    # modify_dnsservices return 1 if dns is modified else return 0
+                    if dnsservices_id is not None:
+                        dns_modified = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
+                                                            element_id, elements_n2id, dnsserviceprofiles_n2id,
+                                                            dnsserviceroles_n2id, interfaces_n2id, check_modified=1)
+                        if dns_modified:
+                            leftover_dnsservices = [dnsservices_id]
+                        else:
+                            # remove from delete queue
+                            leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
+
+                delete_dnsservices(leftover_dnsservices, site_id, element_id)
+
+                # -- End DNSSERVICE config
+
+                # -- Start SYSLOG config
+                syslogs_resp = sdk.get.syslogservers(site_id, element_id)
+                syslogs_cache, leftover_syslogs = extract_items(syslogs_resp, 'syslog')
+                # build lookup cache based on prefix.
+                syslogs_n2id = build_lookup_dict(syslogs_cache)
+
+                # iterate configs (list)
+                for config_syslog_entry in config_syslog:
+
+                    # deepcopy to modify.
+                    config_syslog_record = copy.deepcopy(config_syslog_entry)
+
+                    # no need to get syslog config, no child config objects.
+
+                    # Determine syslog ID.
+                    # look for implicit ID in object.
+                    implicit_syslog_id = config_syslog_entry.get('id')
+                    config_syslog_name = config_syslog_entry.get('name')
+                    name_syslog_id = syslogs_n2id.get(config_syslog_name)
+
+                    if implicit_syslog_id is not None:
+                        syslog_id = implicit_syslog_id
+
+                    elif name_syslog_id is not None:
+                        # look up ID by name on existing interfaces.
+                        syslog_id = name_syslog_id
+
+                    else:
+                        # no syslog object.
+                        syslog_id = None
+
+                    # remove from delete queue
+                    leftover_syslogs = [entry for entry in leftover_syslogs if entry != syslog_id]
+
+                # delete remaining syslog configs
+                syslogs_id2n = build_lookup_dict(syslogs_cache, key_val='id', value_val='name')
+                delete_syslogs(leftover_syslogs, site_id, element_id, id2n=syslogs_id2n)
+
+                # -- End SYSLOG config
+
+                # -- Start NTP config
+                # We cannot delete ntp. So checking if ntp is modified in config
+                # If modified, we will reset the source interface ids and later update it again
+                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=1)
+
+                # -- End NTP config
+
+                # START Aplication Probe
+                # We cannot delete application probe. So checking if app probe is modified in config
+                # If modified, we will reset the source interface id and later update it again
+                if config_app_probe:
+                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1)
+
+                # END Aplication Probe
+
+                # Now we will delete the leftover interfaces for all interfaces type
+                # This will ensure any unused interfaces can be reused or reconfigured
+
+                # START SERVICELINK
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_servicelinks = get_config_interfaces_by_type(config_interfaces_defaults, 'service_link')
+                leftover_servicelinks = get_api_interfaces_name_by_type(interfaces_cache, 'service_link', key_name='id')
+
+                for config_interface_name, config_interface_value in config_servicelinks.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue
+                    leftover_servicelinks = [entry for entry in leftover_servicelinks if entry != interface_id]
+
+                # cleanup - delete unused servicelinks
+                delete_interfaces(leftover_servicelinks, site_id, element_id, id2n=interfaces_id2n)
+
+                # END SERVICELINK
+
+                # START SUBINTERFACE
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_subinterfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'subinterface')
+                leftover_subinterfaces = get_api_interfaces_name_by_type(interfaces_cache, 'subinterface',
+                                                                         key_name='id')
+
+                for config_interface_name, config_interface_value in config_subinterfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    # Subif has name constraints, check via items in config instead of a possible typo name.
+                    name_interface_id = get_subif_id(config_interface, interfaces_cache, interfaces_n2id,
+                                                     config_interfaces)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue
+                    leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
+
+                # Reset the configuration before delete. Else api will throw error
+                for subif in leftover_subinterfaces:
+                    default_template = get_member_default_config()
+                    output_message("   Setting Subinterface {0} to default.".format(interfaces_id2n.get(subif)))
+                    new_parent_id = modify_interface(default_template, subif, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id)
+                # cleanup - delete unused subinterfaces
+                delete_interfaces(leftover_subinterfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END SUBINTERFACE
+
+                # START LOOPBACKS
+
+                # create a leftover_loopbacks construct from the api_loopback_del output from get_loopback_lists
+                leftover_loopbacks = [entry['id'] for entry in api_loopback_del if entry.get('id')]
+
+                # cleanup - delete unused loopbacks
+                delete_interfaces(leftover_loopbacks, site_id, element_id, id2n=interfaces_id2n)
+
+                # END Loopbacks
+
+                # START PPPoE
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_pppoe = get_config_interfaces_by_type(config_interfaces_defaults, 'pppoe')
+                leftover_pppoe = get_api_interfaces_name_by_type(interfaces_cache, 'pppoe', key_name='id')
+
+                for config_interface_name, config_interface_value in config_pppoe.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    # PPPoE name is unsettable, use parent ID for location.
+                    name_interface_id = get_pppoe_id(config_interface, interfaces_cache, interfaces_n2id,
+                                                     config_interfaces)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue
+                    leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
+
+                # Reset the configuration before delete. Else api will throw error
+                for pppoe in leftover_pppoe:
+                    default_template = get_member_default_config()
+                    output_message("   Setting PPPoE {0} to default.".format(interfaces_id2n.get(pppoe)))
+                    new_parent_id = modify_interface(default_template, pppoe, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id)
+
+                # cleanup - delete unused pppoe
+                delete_interfaces(leftover_pppoe, site_id, element_id, id2n=interfaces_id2n)
+
+                # END PPPOE
 
                 # We need to delete unused bypasspairs NOW due to the fact other interfaces need them.
                 # Get a list of all currently configured bypasspairs.
@@ -6485,8 +7009,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                           'virtual_interface')
                 leftover_virtual_interfaces = get_api_interfaces_name_by_type(interfaces_cache,
                                                                               'virtual_interface', key_name='id')
-                # List of VIs modified in the yml
-                modified_virtual_interfaces = []
 
                 for config_interface_name, config_interface_value in config_virtual_interfaces.items():
 
@@ -6512,151 +7034,63 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
-                    # If VI exists, get the bound members present in config
-                    # Get the interface details from controller and get the current bound members
-                    # If member list is modified, delete the VI and create again later
-                    # This is done to ensure that member interfaces are reset and can be used for other configurations
-                    if interface_id:
-                        config_member_interfaces = config_interface_value.get('bound_interfaces', None)
-                        if config_member_interfaces is None:
-                            throw_error(
-                                "No member interfaces on virtual interface (Name: {0})..".format(config_interface_name))
-                        api_interface_resp = sdk.get.interfaces(site_id, element_id, interface_id)
-                        if api_interface_resp.cgx_status:
-                            api_interface_config = api_interface_resp.cgx_content
-                        else:
-                            throw_error("Unable to retrieve interface: ", api_interface_resp)
-                        if api_interface_config:
-                            for config_member_interface in config_member_interfaces:
-                                if interfaces_n2id.get(config_member_interface, None) not in api_interface_config.get('bound_interfaces', None):
-                                    if not interfaces_n2id.get(config_interface_name) in modified_virtual_interfaces:
-                                        # Update modified interfaces list
-                                        modified_virtual_interfaces.append(interfaces_n2id.get(config_interface_name))
                     # remove from delete queue before configuring VI
                     leftover_virtual_interfaces = [entry for entry in leftover_virtual_interfaces if
                                                        entry != interface_id]
-                # cleanup - delete unused virtual interfaces and modified VIs
+
+                # cleanup - delete unused virtual interfaces, modified VIs and child interfaces
                 delete_interfaces(leftover_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
-                delete_interfaces(modified_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
                 # END VIRTUAL INTERFACE
 
-                # START LOOPBACKS
+                # update Interface caches before continuing.
+                interfaces_resp = sdk.get.interfaces(site_id, element_id)
+                interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
-                # create a leftover_loopbacks construct from the api_loopback_del output from get_loopback_lists
-                leftover_loopbacks = [entry['id'] for entry in api_loopback_del if entry.get('id')]
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(interfaces_n2id_api)
 
-                # cleanup - delete unused loopbacks
-                delete_interfaces(leftover_loopbacks, site_id, element_id, id2n=interfaces_id2n)
+                # Now we will create/modify all the interfaces as per the yml configuration
 
-                # END Loopbacks
-
-                # START PPPoE
+                # START Virtual Interface
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
                 current_interfaces_n2id_holder = interfaces_n2id
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
                 interfaces_n2id.update(current_interfaces_n2id_holder)
+                # Getting virtual interfaces from config and also unused VIs
+                config_virtual_interfaces = get_config_interfaces_by_type(config_interfaces_defaults,
+                                                                          'virtual_interface')
+                leftover_virtual_interfaces = get_api_interfaces_name_by_type(interfaces_cache,
+                                                                              'virtual_interface', key_name='id')
 
-                config_pppoe = get_config_interfaces_by_type(config_interfaces_defaults, 'pppoe')
-                leftover_pppoe = get_api_interfaces_name_by_type(interfaces_cache, 'pppoe', key_name='id')
-
-                for config_interface_name, config_interface_value in config_pppoe.items():
-
-                    # recombine object
-                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
-                                                                 name_key='name')
-
-                    # no need to get interface config, no child config objects.
-
-                    # Determine interface ID.
-                    # look for implicit ID in object.
-                    implicit_interface_id = config_interface.get('id')
-                    # PPPoE name is unsettable, use parent ID for location.
-                    name_interface_id = get_pppoe_id(config_interface, interfaces_cache, interfaces_n2id)
-
-                    if implicit_interface_id is not None:
-                        interface_id = implicit_interface_id
-
-                    elif name_interface_id is not None:
-                        # look up ID by name on existing interfaces.
-                        interface_id = name_interface_id
-                    else:
-                        # no interface object.
-                        interface_id = None
-
-                    # remove from delete queue
-                    leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
-
-                # cleanup - delete unused pppoe
-                delete_interfaces(leftover_pppoe, site_id, element_id, id2n=interfaces_id2n)
-
-                # END PPPOE
-
-                # START SUBINTERFACE
-
-                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
-                current_interfaces_n2id_holder = interfaces_n2id
-                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
-                interfaces_n2id.update(current_interfaces_n2id_holder)
-
-                config_subinterfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'subinterface')
-                leftover_subinterfaces = get_api_interfaces_name_by_type(interfaces_cache, 'subinterface',
-                                                                         key_name='id')
-
-                for config_interface_name, config_interface_value in config_subinterfaces.items():
+                for config_interface_name, config_interface_value in config_virtual_interfaces.items():
+                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
+                    # look for unconfigurable interfaces.
+                    if config_interface_name in skip_interface_list:
+                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
+                        # dont configure this interface, break out of loop.
+                        continue
+                    # look for parent interface
+                    elif config_interface_name in config_parent2child.keys():
+                        if config_interface_name in interfaces_n2id_api.keys():
+                            throw_warning("Cannot configure interface {0}, it is set as a parent for {1}."
+                                          "".format(config_interface_name,
+                                                    ", ".join(config_parent2child.get(config_interface_name))))
+                            # skip this interface
+                            continue
 
                     # recombine object
                     config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
                                                                  name_key='name')
 
-                    # no need to get interface config, no child config objects.
-
                     # Determine interface ID.
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
-                    # Subif has name constraints, check via items in config instead of a possible typo name.
-                    name_interface_id = get_subif_id(config_interface, interfaces_cache, interfaces_n2id)
-
-                    if implicit_interface_id is not None:
-                        interface_id = implicit_interface_id
-
-                    elif name_interface_id is not None:
-                        # look up ID by name on existing interfaces.
-                        interface_id = name_interface_id
-                    else:
-                        # no interface object.
-                        interface_id = None
-
-                    # remove from delete queue
-                    leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
-
-                # cleanup - delete unused subinterfaces
-                delete_interfaces(leftover_subinterfaces, site_id, element_id, id2n=interfaces_id2n)
-
-                # END SUBINTERFACE
-
-                # START SERVICELINK
-
-                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
-                current_interfaces_n2id_holder = interfaces_n2id
-                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
-                interfaces_n2id.update(current_interfaces_n2id_holder)
-
-                config_servicelinks = get_config_interfaces_by_type(config_interfaces_defaults, 'service_link')
-                leftover_servicelinks = get_api_interfaces_name_by_type(interfaces_cache, 'service_link', key_name='id')
-
-                for config_interface_name, config_interface_value in config_servicelinks.items():
-
-                    # recombine object
-                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
-                                                                 name_key='name')
-
-                    # no need to get interface config, no child config objects.
-
-                    # Determine interface ID.
-                    # look for implicit ID in object.
-                    implicit_interface_id = config_interface.get('id')
+                    # Virtual Interface name is unsettable, use parent ID for location.
                     name_interface_id = interfaces_n2id.get(config_interface_name)
 
                     if implicit_interface_id is not None:
@@ -6669,23 +7103,58 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
-                    # remove from delete queue
-                    leftover_servicelinks = [entry for entry in leftover_servicelinks if entry != interface_id]
+                    # Check for member interface in yml and member interface config in YAML
+                    config_bound_interfaces = config_interface.get('bound_interfaces', None)
+                    interfaces_defaults = get_default_ifconfig_from_model_string(element_model)
 
-                # cleanup - delete unused servicelinks
-                delete_interfaces(leftover_servicelinks, site_id, element_id, id2n=interfaces_id2n)
+                    # Looping through member interfaces and checking if it exists in the YAML
+                    for bound_interface in config_bound_interfaces:
+                        # IF it exists, check if the configuration is default
+                        if bound_interface in config_interfaces.keys():
+                            bound_interface_config = config_interfaces[bound_interface]
+                            bound_interface_defaults = interfaces_defaults.get(bound_interface, {})
+                            if not bound_interface_defaults:
+                                if not re.match(r"ion\s+\d+v", element_model):
+                                    throw_error(
+                                        "Default config does not exist for interface {0} and element model {1}".format(
+                                            bound_interface, element_model))
 
-                # END SERVICELINK
+                            # Check for default config of the main keys
+                            for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
+                                # IF configuration is same as default continue, else error out
+                                if bound_interface_defaults.get(key) == bound_interface_config.get(
+                                        key) or bound_interface_config.get(key) in (None, 'none', 'Null', 'null'):
+                                    continue
+                                # ipv4 config is of type dict. So parsing and checking the config
+                                elif key == "ipv4_config" and isinstance(bound_interface_config.get(key), dict):
+                                    is_default = check_default_ipv4_config(bound_interface_config.get(key))
+                                    if not is_default:
+                                        throw_error(
+                                            "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
+                                                bound_interface, config_interface_name))
+                                else:
+                                    throw_error(
+                                        "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
+                                            bound_interface, config_interface_name))
 
-                # update Interface caches before continuing.
-                interfaces_resp = sdk.get.interfaces(site_id, element_id)
-                interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
-                interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id)
 
-                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
-                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
-                interfaces_n2id.update(interfaces_n2id_api)
+                    else:
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+
+                    # no need for delete queue, as already deleted.
+
+                # END Virtual Interfaces
+
+                # Start Bypasspair
 
                 # Go back through config, and now create/modify existing bypasspairs.
                 for config_interface_name, config_interface_value in config_bypasspairs.items():
@@ -6831,7 +7300,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
                     # PPPoE name is unsettable, use parent ID for location.
-                    name_interface_id = get_pppoe_id(config_interface, interfaces_cache, interfaces_n2id)
+                    name_interface_id = get_pppoe_id(config_interface, interfaces_cache, interfaces_n2id, config_interfaces)
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
@@ -6860,102 +7329,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END PPPoE
 
-                # START Virtual Interface
-
-                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
-                current_interfaces_n2id_holder = interfaces_n2id
-                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
-                interfaces_n2id.update(current_interfaces_n2id_holder)
-                # Getting virtual interfaces from config and also unused VIs
-                config_virtual_interfaces = get_config_interfaces_by_type(config_interfaces_defaults,
-                                                                          'virtual_interface')
-                leftover_virtual_interfaces = get_api_interfaces_name_by_type(interfaces_cache,
-                                                                              'virtual_interface', key_name='id')
-
-                for config_interface_name, config_interface_value in config_virtual_interfaces.items():
-                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
-                    # look for unconfigurable interfaces.
-                    if config_interface_name in skip_interface_list:
-                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
-                        # dont configure this interface, break out of loop.
-                        continue
-                    # look for parent interface
-                    elif config_interface_name in config_parent2child.keys():
-                        throw_warning("Cannot configure interface {0}, it is set as a parent for {1}."
-                                      "".format(config_interface_name,
-                                                ", ".join(config_parent2child.get(config_interface_name))))
-                        # skip this interface
-                        continue
-
-                    # recombine object
-                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
-                                                                 name_key='name')
-
-                    # Determine interface ID.
-                    # look for implicit ID in object.
-                    implicit_interface_id = config_interface.get('id')
-                    # Virtual Interface name is unsettable, use parent ID for location.
-                    name_interface_id = interfaces_n2id.get(config_interface_name)
-
-                    if implicit_interface_id is not None:
-                        interface_id = implicit_interface_id
-
-                    elif name_interface_id is not None:
-                        # look up ID by name on existing interfaces.
-                        interface_id = name_interface_id
-                    else:
-                        # no interface object.
-                        interface_id = None
-
-                    # Check for member interface in yml and member interface config in YAML
-                    config_bound_interfaces = config_interface.get('bound_interfaces', None)
-                    interfaces_defaults = get_default_ifconfig_from_model_string(element_model)
-
-                    # Looping through member interfaces and checking if it exists in the YAML
-                    for bound_interface in config_bound_interfaces:
-                        # IF it exists, check if the configuration is default
-                        if bound_interface in config_interfaces.keys():
-                            bound_interface_config = config_interfaces[bound_interface]
-                            bound_interface_defaults = interfaces_defaults.get(bound_interface, None)
-                            if not bound_interface_defaults:
-                                if not re.match(r"ion\s+\d+v", element_model):
-                                    throw_error(
-                                        "Default config does not exist for interface {0} and element model {1}".format(
-                                            bound_interface, element_model))
-
-                            # Check for default config of the main keys
-                            for key in ['used_for', 'ipv4_config', 'site_wan_interface_ids']:
-                                # IF configuration is same as default continue, else error out
-                                if bound_interface_defaults.get(key) == bound_interface_config.get(key) or bound_interface_config.get(key) in (None, 'none', 'Null', 'null'):
-                                    continue
-                                # ipv4 config is of type dict. So parsing and checking the config
-                                elif key == "ipv4_config" and isinstance(bound_interface_config.get(key), dict):
-                                    is_default = check_default_ipv4_config(bound_interface_config.get(key))
-                                    if not is_default:
-                                        throw_error(
-                                            "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
-                                                bound_interface, config_interface_name))
-                                else:
-                                    throw_error(
-                                        "Member port {0} configuration present in yaml file and not same as default. Cannot create/modify VI {1}. Exiting".format(
-                                            bound_interface, config_interface_name))
-
-                    # Create or modify interface.
-                    if interface_id is not None:
-                        # Interface exists, modify.
-                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
-                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
-
-                    else:
-                        # Interface does not exist, create.
-                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
-                                                        lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
-
-                    # no need for delete queue, as already deleted.
-
-                # END Virtual Interfaces
                 # START SUBINTERFACE
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -6992,7 +7365,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # look for implicit ID in object.
                     implicit_interface_id = config_interface.get('id')
                     # Subif has name constraints, check via items in config instead of a possible typo name.
-                    name_interface_id = get_subif_id(config_interface, interfaces_cache, interfaces_n2id)
+                    name_interface_id = get_subif_id(config_interface, interfaces_cache, interfaces_n2id, config_interfaces)
 
                     if implicit_interface_id is not None:
                         interface_id = implicit_interface_id
@@ -7148,7 +7521,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # END SERVICELINK
 
                 # ------------------
-                # BEGIN INTERFACE CLEANUP.
+
                 # Moved INTERFACE cleanup above create/edit
                 # Don't need to update interfaces_id2n, as interfaces queued for deletion should have already
                 # existed when it was created before the bypasspair step.
@@ -7713,7 +8086,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # no need to get NTP config, no child config objects.
                 # No need to determine NTP ID, one object per element.
 
-                ntp_id = modify_ntp(config_ntp, site_id, element_id)
+                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id)
 
                 # -- End NTP config
 
@@ -7889,6 +8262,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 toolkit_id = modify_toolkit(config_toolkit, site_id, element_id)
 
                 # -- End Toolkit
+                # START Aplication Probe
+                if config_app_probe:
+                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id)
+
+                # END Aplication Probe
 
                 # ------------------
                 # BEGIN ELEMENT CLEANUP
@@ -8006,7 +8384,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')
-            name_site_id = sites_n2id.get(config_site_name)
+            # Changes for CON-97 to handle numbered site names
+            name_site_id = sites_n2id.get(str(config_site_name))
 
             if implicit_site_id is not None:
                 del_site_id = implicit_site_id

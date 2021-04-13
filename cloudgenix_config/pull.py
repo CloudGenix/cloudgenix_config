@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.3.0b1
+**Version:** 1.3.0b3
 
 **Author:** CloudGenix
 
@@ -157,6 +157,7 @@ HUBCLUSTER_CONFIG_STR = "hubclusters"
 SPOKECLUSTER_CONFIG_STR = "spokeclusters"
 NATLOCALPREFIX_STR = "site_nat_localprefixes"
 DNS_SERVICES_STR = "dnsservices"
+APPLICATION_PROBE_STR = "application_probe"
 
 # Global Config Cache holders
 sites_cache = []
@@ -498,6 +499,7 @@ def build_version_strings():
     global SPOKECLUSTER_CONFIG_STR
     global NATLOCALPREFIX_STR
     global DNS_SERVICES_STR
+    global APPLICATION_PROBE_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -529,6 +531,7 @@ def build_version_strings():
         SPOKECLUSTER_CONFIG_STR = add_version_to_object(sdk.get.spokeclusters, "spokeclusters")
         NATLOCALPREFIX_STR = add_version_to_object(sdk.get.site_natlocalprefixes, "site_nat_localprefixes")
         DNS_SERVICES_STR = add_version_to_object(sdk.get.dnsservices, "dnsservices")
+        APPLICATION_PROBE_STR = add_version_to_object(sdk.get.application_probe, "application_probe")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -851,7 +854,10 @@ def _pull_config_for_single_site(site_name_id):
             if_type = interface.get('type')
             if not FORCE_PARENTS and interface_id in parent_id_list:
                 # interface is a parent, skip
-                continue
+                # Pull interface config for bypasspair and virtual interface as it can have subif/pppoe/servicelink configs
+                # And its mandatory that parent gets created first
+                if if_type not in ('virtual_interface', 'bypasspair'):
+                    continue
             if not FORCE_PARENTS and interface.get('name') in skip_interface_list:
                 # Unconfigurable interface, skip.
                 continue
@@ -1170,6 +1176,12 @@ def _pull_config_for_single_site(site_name_id):
         for ntp in ntps:
             ntp_template = copy.deepcopy(ntp)
             strip_meta_attributes(ntp_template, leave_name=True)
+            if ntp.get('source_interface_ids'):
+                source_ids = []
+                for iface in ntp.get('source_interface_ids', []):
+                    source_ids.append(id_name_cache.get(iface, iface))
+                if source_ids:
+                    ntp_template['source_interface_ids'] = source_ids
             # names used, but config doesn't index by name for this value currently.
             element[NTP_STR].append(ntp_template)
         delete_if_empty(element, NTP_STR)
@@ -1299,6 +1311,25 @@ def _pull_config_for_single_site(site_name_id):
             # names used, but config doesn't index by name for this value currently.
             element[DNS_SERVICES_STR].update(dnsservices_template)
         delete_if_empty(element, DNS_SERVICES_STR)
+
+        # Get Application Probes
+        element[APPLICATION_PROBE_STR] = {}
+        response = sdk.get.application_probe(site['id'], element['id'])
+        error = response.cgx_content.get('_error', None)
+        # Check for the error code. If the element version does not support app_probe, ignore the error
+        if error:
+            if error[0].get('code') not in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+                throw_error("Application probe get failed: ", response)
+        else:
+            app_probe = response.cgx_content
+            id_name_cache.update(build_lookup_dict([app_probe], key_val='id', value_val='name'))
+            app_probe_template = copy.deepcopy(app_probe)
+            name_lookup_in_template(app_probe_template, 'source_interface_id', id_name_cache)
+            strip_meta_attributes(app_probe_template, leave_name=True)
+
+            # names used, but config doesn't index by name for this value currently.
+            element[APPLICATION_PROBE_STR].update(app_probe_template)
+        delete_if_empty(element, APPLICATION_PROBE_STR)
 
         # Get toolkit
         response = sdk.get.elementaccessconfigs(element['id'])
