@@ -1,2 +1,2 @@
-cloudgenix>=5.4.1b1,<5.5.1b1
+cloudgenix>=5.5.1b1,<5.6.1b1
 PyYAML>=5.3

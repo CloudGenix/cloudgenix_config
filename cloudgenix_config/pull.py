@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.3.0b3
+**Version:** 1.4.0b1
 
 **Author:** CloudGenix
 
@@ -158,6 +158,8 @@ SPOKECLUSTER_CONFIG_STR = "spokeclusters"
 NATLOCALPREFIX_STR = "site_nat_localprefixes"
 DNS_SERVICES_STR = "dnsservices"
 APPLICATION_PROBE_STR = "application_probe"
+IPFIX_STR = "ipfix"
+SITE_IPFIXLOCALPREFIXES_STR = "site_ipfix_localprefixes"
 
 # Global Config Cache holders
 sites_cache = []
@@ -181,8 +183,14 @@ natlocalprefixes_cache = []
 natpolicypools_cache = []
 natpolicysetstacks_cache = []
 natzones_cache = []
-dnsserviceprofiles = []
-dnsserviceroles = []
+dnsserviceprofiles_cache = []
+dnsserviceroles_cache = []
+ipfixprofile_cache = []
+ipfixcollectorcontext_cache = []
+ipfixfiltercontext_cache = []
+ipfixtemplate_cache = []
+ipfixlocalprefix_cache = []
+ipfixglobalprefix_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -278,8 +286,14 @@ def update_global_cache():
     global natpolicypools_cache
     global natpolicysetstacks_cache
     global natzones_cache
-    global dnsserviceprofiles
-    global dnsserviceroles
+    global dnsserviceprofiles_cache
+    global dnsserviceroles_cache
+    global ipfixprofile_cache
+    global ipfixcollectorcontext_cache
+    global ipfixfiltercontext_cache
+    global ipfixtemplate_cache
+    global ipfixlocalprefix_cache
+    global ipfixglobalprefix_cache
 
     global id_name_cache
     global wannetworks_id2type
@@ -377,6 +391,30 @@ def update_global_cache():
     dnsserviceroles_resp = sdk.get.dnsserviceroles()
     dnsserviceroles_cache, _ = extract_items(dnsserviceroles_resp, 'dnsserviceroles')
 
+    # ipfixprofile
+    ipfixprofile_resp = sdk.get.ipfixprofiles()
+    ipfixprofile_cache, _ = extract_items(ipfixprofile_resp, 'ipfixprofiles')
+
+    # ipfixcollectorcontext
+    ipfixcollectorcontext_resp = sdk.get.ipfixcollectorcontexts()
+    ipfixcollectorcontext_cache, _ = extract_items(ipfixcollectorcontext_resp, 'ipfixcollectorcontexts')
+
+    # ipfixfiltercontext
+    ipfixfiltercontext_resp = sdk.get.ipfixfiltercontexts()
+    ipfixfiltercontext_cache, _ = extract_items(ipfixfiltercontext_resp, 'ipfixfiltercontexts')
+
+    # ipfixtemplate
+    ipfixtemplate_resp = sdk.get.ipfixtemplates()
+    ipfixtemplate_cache, _ = extract_items(ipfixtemplate_resp, 'ipfixtemplates')
+
+    # ipfixlocalprefix
+    ipfixlocalprefix_resp = sdk.get.tenant_ipfixlocalprefixes()
+    ipfixlocalprefix_cache, _ = extract_items(ipfixlocalprefix_resp, 'tenant_ipfixlocalprefixes')
+
+    # ipfixglobalprefix
+    ipfixglobalprefix_resp = sdk.get.ipfixglobalprefixes()
+    ipfixglobalprefix_cache, _ = extract_items(ipfixglobalprefix_resp, 'ipfixglobalprefixes')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -423,7 +461,7 @@ def update_global_cache():
     id_name_cache.update(build_lookup_dict(networkcontexts_cache, key_val='id', value_val='name'))
 
     # appdefs name
-    id_name_cache.update(build_lookup_dict(appdefs_cache, key_val='id', value_val='name'))
+    id_name_cache.update(build_lookup_dict(appdefs_cache, key_val='id', value_val='display_name'))
 
     # NAT Global Prefixes name
     id_name_cache.update(build_lookup_dict(natglobalprefixes_cache, key_val='id', value_val='name'))
@@ -444,6 +482,24 @@ def update_global_cache():
     id_name_cache.update(build_lookup_dict(dnsserviceprofiles_cache, key_val='id', value_val='name'))
 
     id_name_cache.update(build_lookup_dict(dnsserviceroles_cache, key_val='id', value_val='name'))
+
+    # ipfixprofile name
+    id_name_cache.update(build_lookup_dict(ipfixprofile_cache, key_val='id', value_val='name'))
+
+    # ipfixcollectorcontext name
+    id_name_cache.update(build_lookup_dict(ipfixcollectorcontext_cache, key_val='id', value_val='name'))
+
+    # ipfixfiltercontext name
+    id_name_cache.update(build_lookup_dict(ipfixfiltercontext_cache, key_val='id', value_val='name'))
+
+    # ipfixtemplate name
+    id_name_cache.update(build_lookup_dict(ipfixtemplate_cache, key_val='id', value_val='name'))
+
+    # ipfixlocalprefix name
+    id_name_cache.update(build_lookup_dict(ipfixlocalprefix_cache, key_val='id', value_val='name'))
+
+    # ipfixglobalprefix name
+    id_name_cache.update(build_lookup_dict(ipfixglobalprefix_cache, key_val='id', value_val='name'))
 
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
@@ -500,6 +556,8 @@ def build_version_strings():
     global NATLOCALPREFIX_STR
     global DNS_SERVICES_STR
     global APPLICATION_PROBE_STR
+    global IPFIX_STR
+    global SITE_IPFIXLOCALPREFIXES_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -532,6 +590,8 @@ def build_version_strings():
         NATLOCALPREFIX_STR = add_version_to_object(sdk.get.site_natlocalprefixes, "site_nat_localprefixes")
         DNS_SERVICES_STR = add_version_to_object(sdk.get.dnsservices, "dnsservices")
         APPLICATION_PROBE_STR = add_version_to_object(sdk.get.application_probe, "application_probe")
+        IPFIX_STR = add_version_to_object(sdk.get.ipfix, "ipfix")
+        SITE_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ipfixlocalprefixes, "site_ipfix_localprefixes")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -806,6 +866,23 @@ def _pull_config_for_single_site(site_name_id):
         site[NATLOCALPREFIX_STR].append(site_natlocalprefix_template)
     delete_if_empty(site, NATLOCALPREFIX_STR)
 
+    # Get Site ipfixlocalprefixes
+    site[SITE_IPFIXLOCALPREFIXES_STR] = []
+    response = sdk.get.site_ipfixlocalprefixes(site['id'])
+    if not response.cgx_status:
+        throw_error("Site IPFIX localprefixes get failed: ", response)
+    site_ipfixlocalprefixes = response.cgx_content['items']
+
+    for site_ipfix_localprefix in site_ipfixlocalprefixes:
+        site_ipfix_localprefix_template = copy.deepcopy(site_ipfix_localprefix)
+        # replace flat name
+        name_lookup_in_template(site_ipfix_localprefix_template, 'prefix_id', id_name_cache)
+
+        strip_meta_attributes(site_ipfix_localprefix_template)
+        site[SITE_IPFIXLOCALPREFIXES_STR].append(site_ipfix_localprefix_template)
+
+    delete_if_empty(site, SITE_IPFIXLOCALPREFIXES_STR)
+
     # Get Elements
     site[ELEMENTS_STR] = {}
     dup_name_dict_elements = {}
@@ -944,6 +1021,9 @@ def _pull_config_for_single_site(site_name_id):
             # replace flat names in interface itself
             name_lookup_in_template(interface_template, 'parent', id_name_cache)
             name_lookup_in_template(interface_template, 'nat_zone_id', id_name_cache)
+            # replace ipfix fields
+            name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', id_name_cache)
+            name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', id_name_cache)
 
             bound_ifaces = interface.get('bound_interfaces', [])
             if bound_ifaces:
@@ -969,7 +1049,7 @@ def _pull_config_for_single_site(site_name_id):
         element['routing'] = {}
 
         # Get static routes
-        element['routing'][STATIC_STR] = []
+        element['routing'][STATIC_STR] = {}
         response = sdk.get.staticroutes(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Static routes get failed: ", response)
@@ -987,9 +1067,15 @@ def _pull_config_for_single_site(site_name_id):
                     nexthops_template.append(nexthop_template)
                 staticroute_template['nexthops'] = nexthops_template
 
+            # check for duplicate names
+            checked_staticroute_name = check_name(staticroute_template.get('name'), dup_name_dict, 'Static Route',
+                                               error_site_txt="{0}({1})".format(error_site_name,
+                                                                                site_id))
+            # update id name cache in case name changed.
+            id_name_cache[staticroute_template.get('id')] = checked_staticroute_name
             strip_meta_attributes(staticroute_template)
-            # no names, don't need dupliate check
-            element['routing'][STATIC_STR].append(staticroute_template)
+            element['routing'][STATIC_STR][checked_staticroute_name] = staticroute_template
+
         delete_if_empty(element, STATIC_STR)
 
         # Get BGP configuration
@@ -1330,6 +1416,43 @@ def _pull_config_for_single_site(site_name_id):
             # names used, but config doesn't index by name for this value currently.
             element[APPLICATION_PROBE_STR].update(app_probe_template)
         delete_if_empty(element, APPLICATION_PROBE_STR)
+
+        # Get Ipfix configs
+        element[IPFIX_STR] = {}
+        response = sdk.get.ipfix(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Ipfix get failed: ", response)
+
+        ipfix_all = response.cgx_content['items']
+        id_name_cache.update(build_lookup_dict(ipfix_all, key_val='id', value_val='name'))
+        for ipfix in ipfix_all:
+            ipfix_template = copy.deepcopy(ipfix)
+            name_lookup_in_template(ipfix_template, 'ipfixprofile_id', id_name_cache)
+            name_lookup_in_template(ipfix_template, 'ipfixtemplate_id', id_name_cache)
+            if ipfix_template.get('collector_config', []):
+                for config in ipfix_template.get('collector_config', []):
+                    name_lookup_in_template(config, 'ipfixcollectorcontext_id', id_name_cache)
+            if ipfix_template.get('filters', []):
+                for filter_context in ipfix_template.get('filters', []):
+                    name_lookup_in_template(filter_context, 'src_prefixes_id', id_name_cache)
+                    name_lookup_in_template(filter_context, 'dst_prefixes_id', id_name_cache)
+
+                    filter_context_id_list, app_def_id_list = [], []
+                    if filter_context.get('ipfixfiltercontext_ids', []):
+                        for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
+                            filter_context_id_list.append(id_name_cache.get(filter_context_id, filter_context_id))
+                        if filter_context_id_list:
+                            filter_context['ipfixfiltercontext_ids'] = filter_context_id_list
+
+                    for app_def_id in filter_context.get('app_def_ids', []):
+                        app_def_id_list.append(id_name_cache.get(app_def_id, app_def_id))
+                    if app_def_id_list:
+                        filter_context['app_def_ids'] = app_def_id_list
+
+            strip_meta_attributes(ipfix_template, leave_name=True)
+            # names used, but config doesn't index by name for this value currently.
+            element[IPFIX_STR].update(ipfix_template)
+        delete_if_empty(element, IPFIX_STR)
 
         # Get toolkit
         response = sdk.get.elementaccessconfigs(element['id'])
