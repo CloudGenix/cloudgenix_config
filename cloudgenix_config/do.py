@@ -7208,7 +7208,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on prefix.
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
 
-                # iterate configs (list)
+                if type(config_routing_static) == list:
+                    if not config_routing_static:
+                        config_routing_static = {}
+                    else:
+                        throw_error("Static route expecting a dict object, found list")
+
+                # iterate configs (dict)
                 for config_staticroute_name, config_staticroute_value in \
                         config_routing_static.items():
 
@@ -8456,7 +8462,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on prefix.
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
 
-                # iterate configs (list)
+                if type(config_routing_static) == list:
+                    if not config_routing_static:
+                        config_routing_static = {}
+                    else:
+                        throw_error("Static route expecting a dict object, found list")
+
+                # iterate configs (dict)
                 for config_staticroute_name, config_staticroute_value in \
                         config_routing_static.items():
 
