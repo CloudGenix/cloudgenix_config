@@ -3300,7 +3300,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 n2id_np_template = copy.deepcopy(config_nat_pools)
 
                 # replace flat names in dict
-                # Fix for #44
+                # Fix for #44 (thanks Raymond Beaudoin)
                 for template in n2id_np_template:
                     name_lookup_in_template(template, 'nat_pool_id', natpolicypools_n2id)
 
