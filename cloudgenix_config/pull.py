@@ -159,7 +159,7 @@ NATLOCALPREFIX_STR = "site_nat_localprefixes"
 DNS_SERVICES_STR = "dnsservices"
 APPLICATION_PROBE_STR = "application_probe"
 IPFIX_STR = "ipfix"
-SITE_IPFIXLOCALPREFIXES_STR = "site_ipfix_localprefixes"
+SITES_IPFIXLOCALPREFIXES_STR = "sites_ipfix_localprefixes"
 
 # Global Config Cache holders
 sites_cache = []
@@ -557,7 +557,7 @@ def build_version_strings():
     global DNS_SERVICES_STR
     global APPLICATION_PROBE_STR
     global IPFIX_STR
-    global SITE_IPFIXLOCALPREFIXES_STR
+    global SITES_IPFIXLOCALPREFIXES_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -591,7 +591,7 @@ def build_version_strings():
         DNS_SERVICES_STR = add_version_to_object(sdk.get.dnsservices, "dnsservices")
         APPLICATION_PROBE_STR = add_version_to_object(sdk.get.application_probe, "application_probe")
         IPFIX_STR = add_version_to_object(sdk.get.ipfix, "ipfix")
-        SITE_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ipfixlocalprefixes, "site_ipfix_localprefixes")
+        SITES_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.sites_ipfixlocalprefixes, "sites_ipfix_localprefixes")
 
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
@@ -867,21 +867,21 @@ def _pull_config_for_single_site(site_name_id):
     delete_if_empty(site, NATLOCALPREFIX_STR)
 
     # Get Site ipfixlocalprefixes
-    site[SITE_IPFIXLOCALPREFIXES_STR] = []
-    response = sdk.get.site_ipfixlocalprefixes(site['id'])
+    site[SITES_IPFIXLOCALPREFIXES_STR] = []
+    response = sdk.get.sites_ipfixlocalprefixes(site['id'])
     if not response.cgx_status:
         throw_error("Site IPFIX localprefixes get failed: ", response)
-    site_ipfixlocalprefixes = response.cgx_content['items']
+    sites_ipfixlocalprefixes = response.cgx_content['items']
 
-    for site_ipfix_localprefix in site_ipfixlocalprefixes:
-        site_ipfix_localprefix_template = copy.deepcopy(site_ipfix_localprefix)
+    for sites_ipfix_localprefix in sites_ipfixlocalprefixes:
+        sites_ipfix_localprefix_template = copy.deepcopy(sites_ipfix_localprefix)
         # replace flat name
-        name_lookup_in_template(site_ipfix_localprefix_template, 'prefix_id', id_name_cache)
+        name_lookup_in_template(sites_ipfix_localprefix_template, 'prefix_id', id_name_cache)
 
-        strip_meta_attributes(site_ipfix_localprefix_template)
-        site[SITE_IPFIXLOCALPREFIXES_STR].append(site_ipfix_localprefix_template)
+        strip_meta_attributes(sites_ipfix_localprefix_template)
+        site[SITES_IPFIXLOCALPREFIXES_STR].append(sites_ipfix_localprefix_template)
 
-    delete_if_empty(site, SITE_IPFIXLOCALPREFIXES_STR)
+    delete_if_empty(site, SITES_IPFIXLOCALPREFIXES_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}

@@ -790,11 +790,11 @@ def parse_site_config(config_site):
     config_spokeclusters, _ = config_lower_version_get(config_site, 'spokeclusters', sdk.put.spokeclusters, default={})
     config_site_nat_localprefixes, _ = config_lower_version_get(config_site, 'site_nat_localprefixes',
                                                                 sdk.put.site_natlocalprefixes, default=[])
-    config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
-                                                                sdk.put.site_ipfixlocalprefixes, default=[])
+    config_sites_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'sites_ipfix_localprefixes',
+                                                                sdk.put.sites_ipfixlocalprefixes, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_sites_ipfix_localprefixes
 
 
 def parse_element_config(config_element):
@@ -1862,7 +1862,7 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
-    site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'sites_ipfix_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -3011,118 +3011,118 @@ def delete_spokeclusters(leftover_spokeclusters, site_id, id2n=None):
     return
 
 
-def create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id):
+def create_sites_ipfix_localprefix(config_sites_ipfix_localprefix, site_id):
     """
     Create a Site ipfix Local Prefix mapping
-    :param config_site_ipfix_localprefix: Site ipfix localprefix config dict
+    :param config_sites_ipfix_localprefix: Site ipfix localprefix config dict
     :param site_id: Site ID to use
     :return: Site ipfix localprefix ID
     """
-    # make a copy of site_ipfix_localprefix to modify
-    site_ipfix_localprefix_template = copy.deepcopy(config_site_ipfix_localprefix)
+    # make a copy of sites_ipfix_localprefix to modify
+    sites_ipfix_localprefix_template = copy.deepcopy(config_sites_ipfix_localprefix)
 
     # perform name -> ID lookups
-    name_lookup_in_template(site_ipfix_localprefix_template, 'prefix_id', ipfixlocalprefix_n2id)
+    name_lookup_in_template(sites_ipfix_localprefix_template, 'prefix_id', ipfixlocalprefix_n2id)
 
     # replace complex names (none for site ipfix localprefixes)
 
-    local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_ipfix_localprefix_template, indent=4)))
+    local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(sites_ipfix_localprefix_template, indent=4)))
 
-    # create site_ipfix_localprefix
-    site_ipfix_localprefix_resp = sdk.post.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_template)
+    # create sites_ipfix_localprefix
+    sites_ipfix_localprefix_resp = sdk.post.sites_ipfixlocalprefixes(site_id, sites_ipfix_localprefix_template)
 
-    if not site_ipfix_localprefix_resp.cgx_status:
-        throw_error("Site IPFIX Localprefix creation failed: ", site_ipfix_localprefix_resp)
+    if not sites_ipfix_localprefix_resp.cgx_status:
+        throw_error("Site IPFIX Localprefix creation failed: ", sites_ipfix_localprefix_resp)
 
-    site_ipfix_localprefix_id = site_ipfix_localprefix_resp.cgx_content.get('id')
-    site_ipfix_localprefix_prefix_id = site_ipfix_localprefix_resp.cgx_content.get('prefix_id')
+    sites_ipfix_localprefix_id = sites_ipfix_localprefix_resp.cgx_content.get('id')
+    sites_ipfix_localprefix_prefix_id = sites_ipfix_localprefix_resp.cgx_content.get('prefix_id')
 
-    if not site_ipfix_localprefix_id or not site_ipfix_localprefix_prefix_id:
-        throw_error("Unable to determine site_ipfix_localprefix attributes (ID {0}, Zone ID {1}).."
-                    "".format(site_ipfix_localprefix_id, site_ipfix_localprefix_prefix_id))
+    if not sites_ipfix_localprefix_id or not sites_ipfix_localprefix_prefix_id:
+        throw_error("Unable to determine sites_ipfix_localprefix attributes (ID {0}, Zone ID {1}).."
+                    "".format(sites_ipfix_localprefix_id, sites_ipfix_localprefix_prefix_id))
 
     # Try to get prefix name this is for.
-    silp_name = ipfixlocalprefix_id2n.get(site_ipfix_localprefix_prefix_id, site_ipfix_localprefix_prefix_id)
+    silp_name = ipfixlocalprefix_id2n.get(sites_ipfix_localprefix_prefix_id, sites_ipfix_localprefix_prefix_id)
 
     output_message(" Created Site IPFIX Localprefix mapping for Localprefix '{0}'.".format(silp_name))
 
-    return site_ipfix_localprefix_id
+    return sites_ipfix_localprefix_id
 
 
-def modify_site_ipfix_localprefix(config_site_ipfix_localprefix, site_ipfix_localprefix_id, site_id):
+def modify_sites_ipfix_localprefix(config_sites_ipfix_localprefix, sites_ipfix_localprefix_id, site_id):
     """
     Modify Existing Site ipfix Local Prefix mapping
-    :param config_site_ipfix_localprefix: Site ipfix localprefix config dict
-    :param site_ipfix_localprefix_id: Existing Site ipfix localprefix ID
+    :param config_sites_ipfix_localprefix: Site ipfix localprefix config dict
+    :param sites_ipfix_localprefix_id: Existing Site ipfix localprefix ID
     :param site_id: Site ID to use
     :return: Returned Site ipfix localprefix ID
     """
-    site_ipfix_localprefix_config = {}
-    # make a copy of site_ipfix_localprefix to modify
-    site_ipfix_localprefix_template = copy.deepcopy(config_site_ipfix_localprefix)
+    sites_ipfix_localprefix_config = {}
+    # make a copy of sites_ipfix_localprefix to modify
+    sites_ipfix_localprefix_template = copy.deepcopy(config_sites_ipfix_localprefix)
 
     # perform name -> ID lookups
-    name_lookup_in_template(site_ipfix_localprefix_template, 'prefix_id', ipfixlocalprefix_n2id)
+    name_lookup_in_template(sites_ipfix_localprefix_template, 'prefix_id', ipfixlocalprefix_n2id)
 
-    # replace complex names (none for site_ipfix_localprefixes)
+    # replace complex names (none for sites_ipfix_localprefixes)
 
-    local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_ipfix_localprefix_template, indent=4)))
+    local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(sites_ipfix_localprefix_template, indent=4)))
 
-    # get current site_ipfix_localprefix
-    site_ipfix_localprefix_resp = sdk.get.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id)
-    if site_ipfix_localprefix_resp.cgx_status:
-        site_ipfix_localprefix_config = site_ipfix_localprefix_resp.cgx_content
+    # get current sites_ipfix_localprefix
+    sites_ipfix_localprefix_resp = sdk.get.sites_ipfixlocalprefixes(site_id, sites_ipfix_localprefix_id)
+    if sites_ipfix_localprefix_resp.cgx_status:
+        sites_ipfix_localprefix_config = sites_ipfix_localprefix_resp.cgx_content
     else:
-        throw_error("Unable to retrieve Site IPFIX Localprefix: ", site_ipfix_localprefix_resp)
+        throw_error("Unable to retrieve Site IPFIX Localprefix: ", sites_ipfix_localprefix_resp)
 
     # extract prev_revision
-    prev_revision = site_ipfix_localprefix_config.get("_etag")
+    prev_revision = sites_ipfix_localprefix_config.get("_etag")
 
     # Check for changes:
-    site_ipfix_localprefix_change_check = copy.deepcopy(site_ipfix_localprefix_config)
-    site_ipfix_localprefix_config.update(site_ipfix_localprefix_template)
-    if not force_update and site_ipfix_localprefix_config == site_ipfix_localprefix_change_check:
+    sites_ipfix_localprefix_change_check = copy.deepcopy(sites_ipfix_localprefix_config)
+    sites_ipfix_localprefix_config.update(sites_ipfix_localprefix_template)
+    if not force_update and sites_ipfix_localprefix_config == sites_ipfix_localprefix_change_check:
         # no change in config, pass.
-        site_ipfix_localprefix_id = site_ipfix_localprefix_change_check.get('id')
-        site_ipfix_localprefix_prefix_id = site_ipfix_localprefix_resp.cgx_content.get('prefix_id')
+        sites_ipfix_localprefix_id = sites_ipfix_localprefix_change_check.get('id')
+        sites_ipfix_localprefix_prefix_id = sites_ipfix_localprefix_resp.cgx_content.get('prefix_id')
         # Try to get prefix name this is for.
-        silp_name = ipfixlocalprefix_id2n.get(site_ipfix_localprefix_prefix_id, site_ipfix_localprefix_prefix_id)
+        silp_name = ipfixlocalprefix_id2n.get(sites_ipfix_localprefix_prefix_id, sites_ipfix_localprefix_prefix_id)
         output_message(" No Change for Site IPFIX Localprefix mapping for Localprefix {0}.".format(silp_name))
-        return site_ipfix_localprefix_id
+        return sites_ipfix_localprefix_id
 
     if debuglevel >= 3:
-        local_debug("SITE_ipfix_LOCALPREFIX DIFF: {0}".format(find_diff(site_ipfix_localprefix_change_check,
-                                                                      site_ipfix_localprefix_config)))
+        local_debug("SITE_ipfix_LOCALPREFIX DIFF: {0}".format(find_diff(sites_ipfix_localprefix_change_check,
+                                                                      sites_ipfix_localprefix_config)))
 
     # Update Site_ipfix_localprefix.
-    site_ipfix_localprefix_resp2 = sdk.put.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id,
-                                                               site_ipfix_localprefix_config)
+    sites_ipfix_localprefix_resp2 = sdk.put.sites_ipfixlocalprefixes(site_id, sites_ipfix_localprefix_id,
+                                                               sites_ipfix_localprefix_config)
 
-    if not site_ipfix_localprefix_resp2.cgx_status:
-        throw_error("Site IPFIX Localprefix update failed: ", site_ipfix_localprefix_resp2)
+    if not sites_ipfix_localprefix_resp2.cgx_status:
+        throw_error("Site IPFIX Localprefix update failed: ", sites_ipfix_localprefix_resp2)
 
-    site_ipfix_localprefix_prefix_id = site_ipfix_localprefix_resp.cgx_content.get('prefix_id')
-    site_ipfix_localprefix_id = site_ipfix_localprefix_resp2.cgx_content.get('id')
+    sites_ipfix_localprefix_prefix_id = sites_ipfix_localprefix_resp.cgx_content.get('prefix_id')
+    sites_ipfix_localprefix_id = sites_ipfix_localprefix_resp2.cgx_content.get('id')
 
     # extract current_revision
-    current_revision = site_ipfix_localprefix_resp2.cgx_content.get("_etag")
+    current_revision = sites_ipfix_localprefix_resp2.cgx_content.get("_etag")
 
-    if not site_ipfix_localprefix_prefix_id or not site_ipfix_localprefix_id:
+    if not sites_ipfix_localprefix_prefix_id or not sites_ipfix_localprefix_id:
         throw_error("Unable to determine Site IPFIX Localprefix attributes")
 
     # Try to get prefix name this is for.
-    silp_name = ipfixlocalprefix_id2n.get(site_ipfix_localprefix_prefix_id, site_ipfix_localprefix_prefix_id)
+    silp_name = ipfixlocalprefix_id2n.get(sites_ipfix_localprefix_prefix_id, sites_ipfix_localprefix_prefix_id)
 
     output_message(" Updated Site IPFIX Localprefix mapping for Localprefix '{0}' (Etag {1} -> {2})."
                    "".format(silp_name, prev_revision, current_revision))
 
-    return site_ipfix_localprefix_id
+    return sites_ipfix_localprefix_id
 
 
-def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, id2n=None):
+def delete_sites_ipfix_localprefixes(leftover_sites_ipfix_localprefixes, site_id, id2n=None):
     """
     Delete Site ipfix localprefix Mappings
-    :param leftover_site_ipfix_localprefixes: List of Site ipfix localprefix IDs to delete
+    :param leftover_sites_ipfix_localprefixes: List of Site ipfix localprefix IDs to delete
     :param site_id: Site ID to use
     :param id2n: Optional - ID to Name lookup dict
     :return: None
@@ -3131,20 +3131,20 @@ def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, 
     if id2n is None:
         id2n = {}
 
-    for site_ipfix_localprefix_id in leftover_site_ipfix_localprefixes:
-        # delete all leftover site_ipfix_localprefixes.
+    for sites_ipfix_localprefix_id in leftover_sites_ipfix_localprefixes:
+        # delete all leftover sites_ipfix_localprefixes.
 
         # Try to get zone name
-        silp_name = ipfixlocalprefix_id2n.get(id2n.get(site_ipfix_localprefix_id, site_ipfix_localprefix_id),
-                                              site_ipfix_localprefix_id)
+        silp_name = ipfixlocalprefix_id2n.get(id2n.get(sites_ipfix_localprefix_id, sites_ipfix_localprefix_id),
+                                              sites_ipfix_localprefix_id)
 
         output_message(" Deleting Unconfigured Site IPFIX Localprefix mapping for Localprefix '{0}'."
                        "".format(silp_name))
-        site_ipfix_localprefix_del_resp = sdk.delete.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id)
-        if not site_ipfix_localprefix_del_resp.cgx_status:
+        sites_ipfix_localprefix_del_resp = sdk.delete.sites_ipfixlocalprefixes(site_id, sites_ipfix_localprefix_id)
+        if not sites_ipfix_localprefix_del_resp.cgx_status:
             throw_error("Could not delete Site IPFIX Localprefix mapping for Localprefix {0}: "
                         "".format(silp_name),
-                        site_ipfix_localprefix_del_resp)
+                        sites_ipfix_localprefix_del_resp)
     return
 
 
@@ -6456,7 +6456,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes \
+                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_sites_ipfix_localprefixes \
                 = parse_site_config(config_site)
 
             # Determine site ID.
@@ -6859,54 +6859,54 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # -- End Site_nat_localprefixes
 
             # -- Start Site_ipfix_localprefixes
-            site_ipfix_localprefixes_resp = sdk.get.site_ipfixlocalprefixes(site_id)
-            site_ipfix_localprefixes_cache, leftover_site_ipfix_localprefixes = extract_items(site_ipfix_localprefixes_resp, 'site_ipfix_localprefixes')
+            sites_ipfix_localprefixes_resp = sdk.get.sites_ipfixlocalprefixes(site_id)
+            sites_ipfix_localprefixes_cache, leftover_sites_ipfix_localprefixes = extract_items(sites_ipfix_localprefixes_resp, 'sites_ipfix_localprefixes')
 
             # build lookup cache based on prefix id.
-            site_ipfix_localprefixes_prefixid2id = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='prefix_id')
+            sites_ipfix_localprefixes_prefixid2id = build_lookup_dict(sites_ipfix_localprefixes_cache, key_val='prefix_id')
 
             # iterate configs (list)
-            for config_site_ipfix_localprefix_entry in config_site_ipfix_localprefixes:
+            for config_sites_ipfix_localprefix_entry in config_sites_ipfix_localprefixes:
 
                 # deepcopy to modify.
-                config_site_ipfix_localprefix = copy.deepcopy(config_site_ipfix_localprefix_entry)
+                config_sites_ipfix_localprefix = copy.deepcopy(config_sites_ipfix_localprefix_entry)
 
-                # no need to get site_ipfix_localprefix config, no child config objects.
+                # no need to get sites_ipfix_localprefix config, no child config objects.
 
-                # Determine site_ipfix_localprefix ID.
+                # Determine sites_ipfix_localprefix ID.
                 # look for implicit ID in object.
-                implicit_site_ipfix_localprefix_id = config_site_ipfix_localprefix.get('id')
+                implicit_sites_ipfix_localprefix_id = config_sites_ipfix_localprefix.get('id')
                 # if no ID, select by prefix ID
-                config_site_ipfix_localprefix_prefix = config_site_ipfix_localprefix.get('prefix_id')
+                config_sites_ipfix_localprefix_prefix = config_sites_ipfix_localprefix.get('prefix_id')
                 # do name to id lookup
-                config_site_ipfix_localprefix_prefix_id = ipfixlocalprefix_n2id.get(
-                    config_site_ipfix_localprefix_prefix,
-                    config_site_ipfix_localprefix_prefix)
+                config_sites_ipfix_localprefix_prefix_id = ipfixlocalprefix_n2id.get(
+                    config_sites_ipfix_localprefix_prefix,
+                    config_sites_ipfix_localprefix_prefix)
                 # finally, get site ipfixlocalprefix id from prefix id
-                config_site_ipfix_localprefix_id = \
-                    site_ipfix_localprefixes_prefixid2id.get(config_site_ipfix_localprefix_prefix_id)
-                if implicit_site_ipfix_localprefix_id is not None:
-                    site_ipfix_localprefix_id = implicit_site_ipfix_localprefix_id
-                elif config_site_ipfix_localprefix_id is not None:
-                    # look up ID by prefix_id on existing site_ipfix_localprefix.
-                    site_ipfix_localprefix_id = config_site_ipfix_localprefix_id
+                config_sites_ipfix_localprefix_id = \
+                    sites_ipfix_localprefixes_prefixid2id.get(config_sites_ipfix_localprefix_prefix_id)
+                if implicit_sites_ipfix_localprefix_id is not None:
+                    sites_ipfix_localprefix_id = implicit_sites_ipfix_localprefix_id
+                elif config_sites_ipfix_localprefix_id is not None:
+                    # look up ID by prefix_id on existing sites_ipfix_localprefix.
+                    sites_ipfix_localprefix_id = config_sites_ipfix_localprefix_id
                 else:
-                    # no site_ipfix_localprefix object.
-                    site_ipfix_localprefix_id = None
+                    # no sites_ipfix_localprefix object.
+                    sites_ipfix_localprefix_id = None
 
-                # Create or modify site_ipfix_localprefix.
-                if site_ipfix_localprefix_id is not None:
+                # Create or modify sites_ipfix_localprefix.
+                if sites_ipfix_localprefix_id is not None:
                     # Site_ipfixlocalprefix exists, modify.
-                    site_ipfix_localprefix_id = modify_site_ipfix_localprefix(config_site_ipfix_localprefix,
-                                                                              site_ipfix_localprefix_id, site_id)
+                    sites_ipfix_localprefix_id = modify_sites_ipfix_localprefix(config_sites_ipfix_localprefix,
+                                                                              sites_ipfix_localprefix_id, site_id)
 
                 else:
                     # Site_ipfixlocalprefix does not exist, create.
-                    site_ipfix_localprefix_id = create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id)
+                    sites_ipfix_localprefix_id = create_sites_ipfix_localprefix(config_sites_ipfix_localprefix, site_id)
 
                 # remove from delete queue
-                leftover_site_ipfix_localprefixes = [entry for entry in leftover_site_ipfix_localprefixes
-                                                     if entry != site_ipfix_localprefix_id]
+                leftover_sites_ipfix_localprefixes = [entry for entry in leftover_sites_ipfix_localprefixes
+                                                     if entry != sites_ipfix_localprefix_id]
 
             # -- End Site_ipfix_localprefixes
 
@@ -8978,11 +8978,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id,
                                           id2n=site_nat_localprefixes_id2prefixid)
 
-            # delete remaining site_ipfix_localprefixes
-            # build site_ipfix_localprefix_id to prefix_id mapping
-            site_ipfix_localprefixes_id2prefixid = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='id',
+            # delete remaining sites_ipfix_localprefixes
+            # build sites_ipfix_localprefix_id to prefix_id mapping
+            sites_ipfix_localprefixes_id2prefixid = build_lookup_dict(sites_ipfix_localprefixes_cache, key_val='id',
                                                                    value_val='prefix_id')
-            delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, id2n=site_ipfix_localprefixes_id2prefixid)
+            delete_sites_ipfix_localprefixes(leftover_sites_ipfix_localprefixes, site_id, id2n=sites_ipfix_localprefixes_id2prefixid)
 
             # delete remaining site_securityzone configs
             # build a site_securityzone_id to zone name mapping.
@@ -9053,15 +9053,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # -- End Elements
 
             # Fix for issue #48
-            # delete remaining site_ipfix_localprefixes
-            site_ipfix_localprefixes_resp = sdk.get.site_ipfixlocalprefixes(del_site_id)
-            site_ipfix_localprefixes_cache, leftover_site_ipfix_localprefixes = extract_items(site_ipfix_localprefixes_resp, 'site_ipfix_localprefixes')
+            # delete remaining sites_ipfix_localprefixes
+            sites_ipfix_localprefixes_resp = sdk.get.sites_ipfixlocalprefixes(del_site_id)
+            sites_ipfix_localprefixes_cache, leftover_sites_ipfix_localprefixes = extract_items(sites_ipfix_localprefixes_resp, 'sites_ipfix_localprefixes')
 
-            # build site_ipfix_localprefix_id to prefix_id mapping
-            site_ipfix_localprefixes_id2prefixid = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='id',
+            # build sites_ipfix_localprefix_id to prefix_id mapping
+            sites_ipfix_localprefixes_id2prefixid = build_lookup_dict(sites_ipfix_localprefixes_cache, key_val='id',
                                                                      value_val='prefix_id')
-            delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, del_site_id,
-                                            id2n=site_ipfix_localprefixes_id2prefixid)
+            delete_sites_ipfix_localprefixes(leftover_sites_ipfix_localprefixes, del_site_id,
+                                            id2n=sites_ipfix_localprefixes_id2prefixid)
 
             # delete remaining spokecluster configs
             # build a spokecluster_id to name mapping.
