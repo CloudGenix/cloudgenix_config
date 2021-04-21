@@ -1365,13 +1365,13 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
 
     # Now call the upgrade_downgrade function to perform actual upgrade, wait for the specified time and also check the status
 
-    upgrade_downgrade_element(element_id, new_image_id, images_id2n, element_descriptive_text, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME, pause_for_upgrade=True, wait_interval=DEFAULT_WAIT_INTERVAL)
+    upgrade_downgrade_element(element_id, new_image_id, images_id2n, element_descriptive_text, wait_upgrade_timeout=wait_upgrade_timeout, pause_for_upgrade=pause_for_upgrade, wait_interval=wait_interval)
 
     # Now that a single upgrade/downgrade is done, call the function recursively to perform step upgrade or downgrade until the version in yml file is reached
 
-    staged_upgrade_downgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME,
-                    pause_for_upgrade=True,
-                    wait_interval=DEFAULT_WAIT_INTERVAL)
+    staged_upgrade_downgrade_element(matching_element, config_element, wait_upgrade_timeout=wait_upgrade_timeout,
+                    pause_for_upgrade=pause_for_upgrade,
+                    wait_interval=wait_interval)
 
     return
 
