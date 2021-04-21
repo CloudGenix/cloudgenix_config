@@ -24,7 +24,7 @@ configuration is designed to be run on file change, to maintain configuration st
 * Active CloudGenix Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.4.3b1 - <https://github.com/CloudGenix/sdk-python>
+    * CloudGenix Python SDK >= 5.5.1b1 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
@@ -73,7 +73,7 @@ MIT
  
 ### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Requires 5.4.3b1 cloudgenix SDK. Future minor SDK revisions (5.5.x, etc.) will likely require a matching `cloudgenix_config` update.
+ - Requires 5.5.1b1 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
      - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
@@ -90,6 +90,8 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.4.0** | **b1** | Support for CloudGenix SDK 5.5.1b1|
+|           |        | Support for element step upgrade/downgrade|
 | **1.3.0** | **b3** | Fix for issue #52|
 |           | **b2** | Bug fixes|
 |           | **b1** | Support for CloudGenix SDK 5.4.3b1|

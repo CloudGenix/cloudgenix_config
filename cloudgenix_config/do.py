@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.3.0b3
+**Version:** 1.4.0b1
 
 **Author:** CloudGenix
 
@@ -197,6 +197,29 @@ bypasspair_child_names = [
     "13"
 ]
 
+# Dictionary to store TAC recommended upgrade and downgrade paths
+# Needs to be updated for every new element version without fail
+
+upgrade_path_regex = {
+    "4\.5\..*" : "4.7.1", ### 4.5.xyz -> 4.7.1
+    "4\.7\..*" : "5.0.3", ### 4.7.xyz -> 5.0.3
+    "5\.0\..*" : "5.2.7", ### 5.0.xyz -> 5.2.7
+    "5\.1\..*" : "5.2.7", ### 5.1.xyz -> 5.2.7
+    "5\.2\..*" : "5.4.3", ### 5.2.xyz -> 5.4.3
+    "5\.3\..*" : "5.5.1", ### 5.3.xyz -> 5.4.3
+    "5\.4\..*" : "5.5.1", ### 5.4.xyz -> 5.5.1
+}
+
+downgrade_path_regex = {
+    "4\.7\..*" : "4.5.3", ### 4.7.xyz -> 4.5.3
+    "5\.0\..*" : "4.7.1", ### 5.0 to 4.7.1
+    "5\.1\..*" : "4.7.1", ### 5.1 to 4.7.1
+    "5\.2\..*" : "5.0.3", ### 5.2 to 5.0.3
+    "5\.3\..*" : "5.2.7", ### 5.3 to 5.2.7
+    "5\.4\..*" : "5.2.7", ### 5.4 to 5.2.7
+    "5\.5\..*" : "5.4.3", ### 5.5 to 5.4.3
+}
+
 # Global Config Cache holders
 sites_cache = []
 elements_cache = []
@@ -221,6 +244,12 @@ natpolicysetstacks_cache = []
 natzones_cache = []
 dnsserviceprofiles_cache = []
 dnsserviceroles_cache = []
+ipfixprofile_cache = []
+ipfixcollectorcontext_cache = []
+ipfixfiltercontext_cache = []
+ipfixtemplate_cache = []
+ipfixlocalprefix_cache = []
+ipfixglobalprefix_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -246,6 +275,12 @@ natpolicysetstacks_n2id = {}
 natzones_n2id = {}
 dnsserviceprofiles_n2id = {}
 dnsserviceroles_n2id = {}
+ipfixprofile_n2id = {}
+ipfixcollectorcontext_n2id = {}
+ipfixfiltercontext_n2id = {}
+ipfixtemplate_n2id = {}
+ipfixlocalprefix_n2id = {}
+ipfixglobalprefix_n2id = {}
 
 # Machines/elements need serial to ID mappings
 elements_byserial = {}
@@ -254,6 +289,7 @@ machines_byserial = {}
 # Some items need id to zone mappings
 securityzones_id2n = {}
 natlocalprefixes_id2n = {}
+ipfixlocalprefix_id2n = {}
 
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
@@ -408,6 +444,11 @@ def update_global_cache():
     global natzones_cache
     global dnsserviceprofiles_cache
     global dnsserviceroles_cache
+    global ipfixcollectorcontext_cache
+    global ipfixfiltercontext_cache
+    global ipfixtemplate_cache
+    global ipfixlocalprefix_cache
+    global ipfixglobalprefix_cache
 
     global sites_n2id
     global elements_n2id
@@ -432,12 +473,19 @@ def update_global_cache():
     global natzones_n2id
     global dnsserviceprofiles_n2id
     global dnsserviceroles_n2id
+    global ipfixprofile_n2id
+    global ipfixcollectorcontext_n2id
+    global ipfixfiltercontext_n2id
+    global ipfixtemplate_n2id
+    global ipfixlocalprefix_n2id
+    global ipfixglobalprefix_n2id
 
     global elements_byserial
     global machines_byserial
 
     global securityzones_id2n
     global natlocalprefixes_id2n
+    global ipfixlocalprefix_id2n
 
     # sites
     sites_resp = sdk.get.sites()
@@ -531,6 +579,30 @@ def update_global_cache():
     dnsserviceroles_resp = sdk.get.dnsserviceroles()
     dnsserviceroles_cache, _ = extract_items(dnsserviceroles_resp, 'dnsserviceroles')
 
+    # ipfixprofile
+    ipfixprofile_resp = sdk.get.ipfixprofiles()
+    ipfixprofile_cache, _ = extract_items(ipfixprofile_resp, 'ipfixprofiles')
+
+    # ipfixcollectorcontext
+    ipfixcollectorcontext_resp = sdk.get.ipfixcollectorcontexts()
+    ipfixcollectorcontext_cache, _ = extract_items(ipfixcollectorcontext_resp, 'ipfixcollectorcontexts')
+
+    # ipfixfiltercontext
+    ipfixfiltercontext_resp = sdk.get.ipfixfiltercontexts()
+    ipfixfiltercontext_cache, _ = extract_items(ipfixfiltercontext_resp, 'ipfixfiltercontexts')
+
+    # ipfixtemplate
+    ipfixtemplate_resp = sdk.get.ipfixtemplates()
+    ipfixtemplate_cache, _ = extract_items(ipfixtemplate_resp, 'ipfixtemplates')
+
+    # ipfixlocalprefix
+    ipfixlocalprefix_resp = sdk.get.tenant_ipfixlocalprefixes()
+    ipfixlocalprefix_cache, _ = extract_items(ipfixlocalprefix_resp, 'ipfixlocalprefixes')
+
+    # ipfixglobalprefix
+    ipfixglobalprefix_resp = sdk.get.ipfixglobalprefixes()
+    ipfixglobalprefix_cache, _ = extract_items(ipfixglobalprefix_resp, 'ipfixglobalprefixes')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -577,7 +649,7 @@ def update_global_cache():
     networkcontexts_n2id = build_lookup_dict(networkcontexts_cache)
 
     # appdefs name
-    appdefs_n2id = build_lookup_dict(appdefs_cache)
+    appdefs_n2id = build_lookup_dict(appdefs_cache, key_val='display_name', value_val='id')
 
     # NAT Global Prefixes name
     natglobalprefixes_n2id = build_lookup_dict(natglobalprefixes_cache)
@@ -600,6 +672,24 @@ def update_global_cache():
     # dnsservice roles name
     dnsserviceroles_n2id = build_lookup_dict(dnsserviceroles_cache)
 
+    # ipfixprofile
+    ipfixprofile_n2id = build_lookup_dict(ipfixprofile_cache)
+
+    # ipfixcollectorcontext
+    ipfixcollectorcontext_n2id = build_lookup_dict(ipfixcollectorcontext_cache)
+
+    # ipfixfiltercontext
+    ipfixfiltercontext_n2id = build_lookup_dict(ipfixfiltercontext_cache)
+
+    # ipfixtemplate
+    ipfixtemplate_n2id = build_lookup_dict(ipfixtemplate_cache)
+
+    # ipfixlocalprefix
+    ipfixlocalprefix_n2id = build_lookup_dict(ipfixlocalprefix_cache)
+
+    # ipfixglobalprefix
+    ipfixglobalprefix_n2id = build_lookup_dict(ipfixglobalprefix_cache)
+
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
 
@@ -610,6 +700,9 @@ def update_global_cache():
 
     # id to name for natlocalprefixes (not site specific)
     natlocalprefixes_id2n = build_lookup_dict(natlocalprefixes_cache, key_val='id', value_val='name')
+
+    # id to name for tenant_ipfixlocalprefixes
+    ipfixlocalprefix_id2n = build_lookup_dict(ipfixlocalprefix_cache, key_val='id', value_val='name')
 
 
     return
@@ -697,9 +790,11 @@ def parse_site_config(config_site):
     config_spokeclusters, _ = config_lower_version_get(config_site, 'spokeclusters', sdk.put.spokeclusters, default={})
     config_site_nat_localprefixes, _ = config_lower_version_get(config_site, 'site_nat_localprefixes',
                                                                 sdk.put.site_natlocalprefixes, default=[])
+    config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
+                                                                sdk.put.site_ipfixlocalprefixes, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
 
 
 def parse_element_config(config_element):
@@ -723,9 +818,10 @@ def parse_element_config(config_element):
                                                                 sdk.put.elementsecurityzones, default=[])
     config_dnsservices, _ = config_lower_version_get(config_element, 'dnsservices', sdk.put.dnsservices, default=[])
     config_app_probe, _ = config_lower_version_get(config_element, 'application_probe', sdk.put.application_probe, default={})
+    config_ipfix, _ = config_lower_version_get(config_element, 'ipfix', sdk.put.ipfix, default=[])
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe
+        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, config_ipfix
 
 
 def parse_routing_config(config_routing):
@@ -745,7 +841,7 @@ def parse_routing_config(config_routing):
                                                              sdk.put.routing_prefixlists, default={})
     config_routing_routemaps, _ = config_lower_version_get(config_routing, 'route_maps',
                                                            sdk.put.routing_routemaps, default={})
-    config_routing_static, _ = config_lower_version_get(config_routing, 'static', sdk.put.staticroutes, default=[])
+    config_routing_static, _ = config_lower_version_get(config_routing, 'static', sdk.put.staticroutes, default={})
     config_routing_bgp = config_lower_get(config_routing, 'bgp', default={})
 
     return config_routing_aspathaccesslists, config_routing_ipcommunitylists, config_routing_prefixlists, \
@@ -1021,100 +1117,42 @@ def wait_for_element_state(matching_element, state_list=None, wait_verify_succes
     return final_element
 
 
-def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME,
-                    pause_for_upgrade=True,
-                    wait_interval=DEFAULT_WAIT_INTERVAL):
+def major_minor(version):
     """
-    Upgrade an element to a specific code version (if needed).
-    :param matching_element: Element API response to do upgrade/check for.
-    :param config_element: Element Configuration object with target version.
+    Parse a software version to get major, minor and micro version numbers.
+    :param version: Software version to parse.
+    :return: major+minor version
+    """
+
+    major, minor, micro = re.search('(\d+)\.(\d+)\.(\d+)', version).groups()
+    return major + '.' + minor
+
+
+def get_exact_version(version, image_dict):
+    """
+    Get the full version string matching the version from the available images
+    :param version: Upgrade/Downgrade version
+    :param image_dict: Available images dict
+    :return: Image version
+    """
+
+    for image_version in image_dict.keys():
+        if str(version) in image_version:
+            return image_version
+    return None
+
+
+def upgrade_downgrade_element(element_id, image_id, images_id2n, element_descriptive_text, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME, pause_for_upgrade=True, wait_interval=DEFAULT_WAIT_INTERVAL):
+    """
+    :param element_id: Matching element id
+    :param image_id: New image id
+    :param images_id2n: images id name cache
+    :param element_descriptive_text:
     :param wait_upgrade_timeout: Optional - Wait time for upgrade to complete (in seconds)
     :param pause_for_upgrade: Optional - Pause config if upgrade required until complete - Default True
     :param wait_interval: Optional - Interval to check API for updated statuses during wait.
     :return: None
     """
-    # check status
-    element = matching_element
-    element_id = element.get('id')
-    element_name = element.get('name')
-    element_serial = element.get('serial_number')
-    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
-        if element_serial else "ID: {0}".format(element_id)
-
-    # get config info.
-    elem_config_version = config_element.get('software_version', '')
-
-    # kick off upgrade
-    software_versions_resp = sdk.get.element_images()
-    if not software_versions_resp.cgx_status:
-        throw_error("unable to get element software images..")
-    # find correct image
-    images_available = []
-    images_id2n = {}
-    image_id = None
-    for image in software_versions_resp.cgx_content.get('items', []):
-        image_version = image.get("version")
-        image_lookup_id = image.get('id')
-        # build id2n lookup
-        images_id2n[image_lookup_id] = image_version
-        # now, find the one we are looking for.
-        if image_version:
-            images_available.append(image_version)
-            if image_version.lower() == elem_config_version.lower():
-                image_id = image.get('id')
-
-    # did we find image?
-    if not image_id:
-        throw_error("Unable to find ION Image {0}, found the following: ".format(elem_config_version),
-                    images_available)
-
-    # check current image
-    software_state_resp = sdk.get.software_status(element_id)
-    if not software_state_resp.cgx_status:
-        throw_error("Could not query element software status of Element {0}."
-                    "".format(element_descriptive_text), software_state_resp)
-    backup_active_name = None
-    active_image_id = software_state_resp.cgx_content.get('active_image_id')
-
-    if active_image_id is None:
-        # attempt to pull active_image_id from status array for newer api.
-        prev_image_operations = software_state_resp.cgx_content.get('items')
-        if prev_image_operations and isinstance(prev_image_operations, list):
-            for prev_image_operation in prev_image_operations:
-                operation_active_id = prev_image_operation.get('active_image_id')
-                operation_active_name = prev_image_operation.get('active_version')
-
-                if operation_active_name:
-                    backup_active_name = operation_active_name
-
-                if operation_active_id:
-                    active_image_id = operation_active_id
-                    # exit out of for loop
-                    break
-
-    # final check
-    if active_image_id is None:
-        # fail
-        active_image_id = ''
-
-    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
-    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
-    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
-
-    if active_image_id == str(image_id):
-        # system is already running correct image. Finish.
-        output_message(" Element: Code is at correct version {0}.".format(images_id2n.get(active_image_id,
-                                                                                          active_image_id)))
-        return
-
-    # start upgrade.
-    active_name = images_id2n.get(active_image_id, active_image_id)
-    if not active_name and backup_active_name:
-        # we have a string but unknown image, lets use that.
-        active_name = backup_active_name
-
-    output_message(" Element: Changing element from {0} to {1}.".format(active_name if active_name else "Unknown",
-                                                                        elem_config_version))
     # Get the object.
     software_state_describe_response = sdk.get.software_state(element_id)
 
@@ -1130,10 +1168,6 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
 
     if not software_state_modify_response.cgx_status:
         throw_error("Upgrade command failed: ", software_state_modify_response)
-
-    updated_software_state_result = software_state_modify_response.cgx_content
-
-    # jd(updated_element_state_result)
 
     if pause_for_upgrade:
         # wait for upgrade, if set.
@@ -1186,7 +1220,158 @@ def upgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAU
                 time_elapsed += wait_interval
             else:
                 # element is upgraded.
+                output_message("  Element changed to version {0}".format(images_id2n.get(upgrade_image_id,
+                                                         upgrade_image_id)))
                 ready = True
+
+    return
+
+
+def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME,
+                    pause_for_upgrade=True,
+                    wait_interval=DEFAULT_WAIT_INTERVAL):
+    """
+    Upgrade an element to a specific code version (if needed).
+    :param matching_element: Element API response to do upgrade/check for.
+    :param config_element: Element Configuration object with target version.
+    :param wait_upgrade_timeout: Optional - Wait time for upgrade to complete (in seconds)
+    :param pause_for_upgrade: Optional - Pause config if upgrade required until complete - Default True
+    :param wait_interval: Optional - Interval to check API for updated statuses during wait.
+    :return: None
+    """
+    # check status
+    element = matching_element
+    element_id = element.get('id')
+    element_name = element.get('name')
+    element_serial = element.get('serial_number')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
+
+    # get config info.
+    elem_config_version = config_element.get('software_version', '')
+
+    # kick off upgrade
+    software_versions_resp = sdk.get.element_images()
+    if not software_versions_resp.cgx_status:
+        throw_error("unable to get element software images..")
+    # find correct image
+    images_id2n = {}
+    images_dict = {}
+    image_id = None
+    for image in software_versions_resp.cgx_content.get('items', []):
+        image_version = image.get("version")
+        image_lookup_id = image.get('id')
+        # build id2n lookup
+        images_id2n[image_lookup_id] = image_version
+        images_dict[image_version] = image
+
+        # now, find the one we are looking for.
+        if image_version:
+            if image_version.lower() == elem_config_version.lower():
+                image_id = image.get('id')
+
+    # did we find image?
+    if not image_id:
+        throw_error("Unable to find ION Image {0}, found the following: ".format(elem_config_version),
+                    images_dict.keys() if images_dict else '')
+
+    # check current image
+    software_state_resp = sdk.get.software_status(element_id)
+    if not software_state_resp.cgx_status:
+        throw_error("Could not query element software status of Element {0}."
+                    "".format(element_descriptive_text), software_state_resp)
+    backup_active_name = None
+    active_image_id = software_state_resp.cgx_content.get('active_image_id')
+
+    if active_image_id is None:
+        # attempt to pull active_image_id from status array for newer api.
+        prev_image_operations = software_state_resp.cgx_content.get('items')
+        if prev_image_operations and isinstance(prev_image_operations, list):
+            for prev_image_operation in prev_image_operations:
+                operation_active_id = prev_image_operation.get('active_image_id')
+                operation_active_name = prev_image_operation.get('active_version')
+
+                if operation_active_name:
+                    backup_active_name = operation_active_name
+
+                if operation_active_id:
+                    active_image_id = operation_active_id
+                    # exit out of for loop
+                    break
+
+    # final check
+    if active_image_id is None:
+        # fail
+        active_image_id = ''
+        throw_error("Unable to get active image id ", software_state_resp)
+
+    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
+    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
+    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
+
+    active_image_name = str(images_id2n.get(active_image_id, backup_active_name))
+    new_version, new_image_id = '', ''
+
+    if active_image_id == str(image_id):
+        # system is already running correct image. Finish.
+        output_message(" Element: Code is at correct version {0}.".format(images_id2n.get(active_image_id,
+                                                                                          active_image_id)))
+        return
+
+    # Check if the yml software version is greater than current version
+    # If yes, perform upgrade as per the upgrade path dictionary
+
+    elif major_minor(elem_config_version) > major_minor(active_image_name):
+        output_message(" Element: Performing step upgrade from {0} to {1}".format(active_image_name, elem_config_version))
+        for path in upgrade_path_regex.keys():
+            if re.match(path, active_image_name):
+                if major_minor(elem_config_version) > major_minor(upgrade_path_regex[path]):
+                    new_version = get_exact_version(upgrade_path_regex[path], images_dict)
+                    new_image_id = images_dict[new_version]['id'] if new_version else None
+                    break
+                else:
+                    new_version = elem_config_version
+                    new_image_id = image_id
+                    break
+
+    # Check if the yml software version is below the current version
+    # If yes, perform downgrade as per the upgrade path dictionary
+
+    elif major_minor(elem_config_version) < major_minor(active_image_name):
+        output_message(" Element: Performing step downgrade from {0} to {1}".format(active_image_name, elem_config_version))
+        for path in downgrade_path_regex.keys():
+            if re.match(path, active_image_name):
+                if major_minor(elem_config_version) < major_minor(downgrade_path_regex[path]):
+                    new_version = get_exact_version(downgrade_path_regex[path], images_dict)
+                    new_image_id = images_dict[new_version]['id'] if new_version else None
+                    break
+                else:
+                    new_version = elem_config_version
+                    new_image_id = image_id
+                    break
+
+    # This case is for micro version upgrades. For example 5.4.1 to 5.4.3
+    # No checks are needed
+
+    else:
+        new_version = elem_config_version
+        new_image_id = image_id
+
+    if not new_version:
+        throw_error("Upgrade version image not found in images list '{0}'".format(images_dict.keys() if images_dict else ''))
+
+    output_message(" Element: Changing element from {0} to {1} (Target version: '{2}').".format(active_image_name if active_image_name else "Unknown",
+                                                                        new_version, elem_config_version))
+
+    # Now call the upgrade_downgrade function to perform actual upgrade, wait for the specified time and also check the status
+
+    upgrade_downgrade_element(element_id, new_image_id, images_id2n, element_descriptive_text, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME, pause_for_upgrade=True, wait_interval=DEFAULT_WAIT_INTERVAL)
+
+    # Now that a single upgrade/downgrade is done, call the function recursively to perform step upgrade or downgrade until the version in yml file is reached
+
+    staged_upgrade_downgrade_element(matching_element, config_element, wait_upgrade_timeout=DEFAULT_WAIT_MAX_TIME,
+                    pause_for_upgrade=True,
+                    wait_interval=DEFAULT_WAIT_INTERVAL)
 
     return
 
@@ -1677,6 +1862,7 @@ def modify_site(config_site, site_id):
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
+    site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2825,6 +3011,143 @@ def delete_spokeclusters(leftover_spokeclusters, site_id, id2n=None):
     return
 
 
+def create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id):
+    """
+    Create a Site ipfix Local Prefix mapping
+    :param config_site_ipfix_localprefix: Site ipfix localprefix config dict
+    :param site_id: Site ID to use
+    :return: Site ipfix localprefix ID
+    """
+    # make a copy of site_ipfix_localprefix to modify
+    site_ipfix_localprefix_template = copy.deepcopy(config_site_ipfix_localprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_ipfix_localprefix_template, 'prefix_id', ipfixlocalprefix_n2id)
+
+    # replace complex names (none for site ipfix localprefixes)
+
+    local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_ipfix_localprefix_template, indent=4)))
+
+    # create site_ipfix_localprefix
+    site_ipfix_localprefix_resp = sdk.post.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_template)
+
+    if not site_ipfix_localprefix_resp.cgx_status:
+        throw_error("Site IPFIX Localprefix creation failed: ", site_ipfix_localprefix_resp)
+
+    site_ipfix_localprefix_id = site_ipfix_localprefix_resp.cgx_content.get('id')
+    site_ipfix_localprefix_prefix_id = site_ipfix_localprefix_resp.cgx_content.get('prefix_id')
+
+    if not site_ipfix_localprefix_id or not site_ipfix_localprefix_prefix_id:
+        throw_error("Unable to determine site_ipfix_localprefix attributes (ID {0}, Zone ID {1}).."
+                    "".format(site_ipfix_localprefix_id, site_ipfix_localprefix_prefix_id))
+
+    # Try to get prefix name this is for.
+    silp_name = ipfixlocalprefix_id2n.get(site_ipfix_localprefix_prefix_id, site_ipfix_localprefix_prefix_id)
+
+    output_message(" Created Site IPFIX Localprefix mapping for Localprefix '{0}'.".format(silp_name))
+
+    return site_ipfix_localprefix_id
+
+
+def modify_site_ipfix_localprefix(config_site_ipfix_localprefix, site_ipfix_localprefix_id, site_id):
+    """
+    Modify Existing Site ipfix Local Prefix mapping
+    :param config_site_ipfix_localprefix: Site ipfix localprefix config dict
+    :param site_ipfix_localprefix_id: Existing Site ipfix localprefix ID
+    :param site_id: Site ID to use
+    :return: Returned Site ipfix localprefix ID
+    """
+    site_ipfix_localprefix_config = {}
+    # make a copy of site_ipfix_localprefix to modify
+    site_ipfix_localprefix_template = copy.deepcopy(config_site_ipfix_localprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_ipfix_localprefix_template, 'prefix_id', ipfixlocalprefix_n2id)
+
+    # replace complex names (none for site_ipfix_localprefixes)
+
+    local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_ipfix_localprefix_template, indent=4)))
+
+    # get current site_ipfix_localprefix
+    site_ipfix_localprefix_resp = sdk.get.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id)
+    if site_ipfix_localprefix_resp.cgx_status:
+        site_ipfix_localprefix_config = site_ipfix_localprefix_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Site IPFIX Localprefix: ", site_ipfix_localprefix_resp)
+
+    # extract prev_revision
+    prev_revision = site_ipfix_localprefix_config.get("_etag")
+
+    # Check for changes:
+    site_ipfix_localprefix_change_check = copy.deepcopy(site_ipfix_localprefix_config)
+    site_ipfix_localprefix_config.update(site_ipfix_localprefix_template)
+    if not force_update and site_ipfix_localprefix_config == site_ipfix_localprefix_change_check:
+        # no change in config, pass.
+        site_ipfix_localprefix_id = site_ipfix_localprefix_change_check.get('id')
+        site_ipfix_localprefix_prefix_id = site_ipfix_localprefix_resp.cgx_content.get('prefix_id')
+        # Try to get prefix name this is for.
+        silp_name = ipfixlocalprefix_id2n.get(site_ipfix_localprefix_prefix_id, site_ipfix_localprefix_prefix_id)
+        output_message(" No Change for Site IPFIX Localprefix mapping for Localprefix {0}.".format(silp_name))
+        return site_ipfix_localprefix_id
+
+    if debuglevel >= 3:
+        local_debug("SITE_ipfix_LOCALPREFIX DIFF: {0}".format(find_diff(site_ipfix_localprefix_change_check,
+                                                                      site_ipfix_localprefix_config)))
+
+    # Update Site_ipfix_localprefix.
+    site_ipfix_localprefix_resp2 = sdk.put.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id,
+                                                               site_ipfix_localprefix_config)
+
+    if not site_ipfix_localprefix_resp2.cgx_status:
+        throw_error("Site IPFIX Localprefix update failed: ", site_ipfix_localprefix_resp2)
+
+    site_ipfix_localprefix_prefix_id = site_ipfix_localprefix_resp.cgx_content.get('prefix_id')
+    site_ipfix_localprefix_id = site_ipfix_localprefix_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = site_ipfix_localprefix_resp2.cgx_content.get("_etag")
+
+    if not site_ipfix_localprefix_prefix_id or not site_ipfix_localprefix_id:
+        throw_error("Unable to determine Site IPFIX Localprefix attributes")
+
+    # Try to get prefix name this is for.
+    silp_name = ipfixlocalprefix_id2n.get(site_ipfix_localprefix_prefix_id, site_ipfix_localprefix_prefix_id)
+
+    output_message(" Updated Site IPFIX Localprefix mapping for Localprefix '{0}' (Etag {1} -> {2})."
+                   "".format(silp_name, prev_revision, current_revision))
+
+    return site_ipfix_localprefix_id
+
+
+def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, id2n=None):
+    """
+    Delete Site ipfix localprefix Mappings
+    :param leftover_site_ipfix_localprefixes: List of Site ipfix localprefix IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for site_ipfix_localprefix_id in leftover_site_ipfix_localprefixes:
+        # delete all leftover site_ipfix_localprefixes.
+
+        # Try to get zone name
+        silp_name = ipfixlocalprefix_id2n.get(id2n.get(site_ipfix_localprefix_id, site_ipfix_localprefix_id),
+                                              site_ipfix_localprefix_id)
+
+        output_message(" Deleting Unconfigured Site IPFIX Localprefix mapping for Localprefix '{0}'."
+                       "".format(silp_name))
+        site_ipfix_localprefix_del_resp = sdk.delete.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id)
+        if not site_ipfix_localprefix_del_resp.cgx_status:
+            throw_error("Could not delete Site IPFIX Localprefix mapping for Localprefix {0}: "
+                        "".format(silp_name),
+                        site_ipfix_localprefix_del_resp)
+    return
+
+
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
                      api_interfaces_cache=None, interfaces_funny_n2id=None):
     """
@@ -2977,7 +3300,9 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 n2id_np_template = copy.deepcopy(config_nat_pools)
 
                 # replace flat names in dict
-                name_lookup_in_template(n2id_np_template, 'nat_pool_id', natpolicypools_n2id)
+                # Fix for #44 (thanks Raymond Beaudoin)
+                for template in n2id_np_template:
+                    name_lookup_in_template(template, 'nat_pool_id', natpolicypools_n2id)
 
                 # update template
                 interface_template["nat_pools"] = n2id_np_template
@@ -2991,6 +3316,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
     # replace flat names
     name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
+    name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
+    name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -3288,6 +3615,8 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     # replace flat names
     name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
+    name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
+    name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -3871,11 +4200,12 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
         throw_error("Staticroute creation failed: ", staticroute_resp)
 
     staticroute_id = staticroute_resp.cgx_content.get('id')
+    staticroute_name = staticroute_resp.cgx_content.get('name')
 
     if not staticroute_id:
         throw_error("Unable to determine staticroute attributes (ID {0})..".format(staticroute_id))
 
-    output_message("   Created staticroute {0}.".format(staticroute_id))
+    output_message("   Created staticroute {0}.".format(staticroute_name))
 
     return staticroute_id
 
@@ -3944,7 +4274,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
         # no change in config, pass.
         staticroute_id = staticroute_change_check.get('id')
         staticroute_name = staticroute_change_check.get('name')
-        output_message("   No Change for Staticroute {0}.".format(staticroute_id))
+        output_message("   No Change for Staticroute {0}.".format(staticroute_name))
         return staticroute_id
 
     if debuglevel >= 3:
@@ -3957,6 +4287,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
         throw_error("Staticroute update failed: ", staticroute_resp2)
 
     staticroute_id = staticroute_resp2.cgx_content.get('id')
+    staticroute_name = staticroute_resp2.cgx_content.get('name')
 
     # extract current_revision
     current_revision = staticroute_resp2.cgx_content.get("_etag")
@@ -3964,7 +4295,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
     if not staticroute_id:
         throw_error("Unable to determine staticroute attributes (ID {0})..".format(staticroute_id))
 
-    output_message("   Updated Staticroute {0} (Etag {1} -> {2}).".format(staticroute_id, prev_revision,
+    output_message("   Updated Staticroute {0} (Etag {1} -> {2}).".format(staticroute_name, prev_revision,
                                                                           current_revision))
 
     return staticroute_id
@@ -5828,7 +6159,9 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
         error = app_probe_resp.cgx_content.get('_error', None)
         # Check for the error code. If the element version does not support app_probe, ignore the error
         if error:
-            if error[0].get('code') not in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+            if error[0].get('code') in ('APPLICATION_PROBE_CONFIG_UNSUPPORTED_SWVERSION', 'APPLICATION_PROBE_CONFIG_NOT_PRESENT'):
+                return 1
+            else:
                 throw_error("Unable to retrieve Application Probe: ", app_probe_resp)
 
     # extract prev_revision
@@ -5874,6 +6207,177 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
 
 
     return app_probe_id
+
+
+def create_ipfix(config_ipfix, site_id, element_id, ipfixprofile_n2id, ipfixcollectorcontext_n2id,
+                                                ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
+                                                ipfixglobalprefix_n2id, appdefs_n2id):
+    """
+    Create a new ipfix
+    :param config_ipfix: ipfix config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Created ipfix ID
+    """
+    # make a copy of ipfix to modify
+    ipfix_template = copy.deepcopy(config_ipfix)
+
+    local_debug("IPFIX TEMPLATE: " + str(json.dumps(ipfix_template, indent=4)))
+
+    ipfix_prefix_id = copy.deepcopy(ipfixlocalprefix_n2id)
+    ipfix_prefix_id.update(ipfixglobalprefix_n2id)
+
+    name_lookup_in_template(ipfix_template, 'ipfixprofile_id', ipfixprofile_n2id)
+    name_lookup_in_template(ipfix_template, 'ipfixtemplate_id', ipfixtemplate_n2id)
+    if ipfix_template.get('collector_config', []):
+        for config in ipfix_template.get('collector_config', []):
+            name_lookup_in_template(config, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
+    if ipfix_template.get('filters', []):
+        for filter_context in ipfix_template.get('filters', []):
+            name_lookup_in_template(filter_context, 'src_prefixes_id', ipfix_prefix_id)
+            name_lookup_in_template(filter_context, 'dst_prefixes_id', ipfix_prefix_id)
+
+            filter_context_id_list, app_def_id_list = [], []
+            for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
+                filter_context_id_list.append(ipfixfiltercontext_n2id.get(filter_context_id, filter_context_id))
+            if filter_context_id_list:
+                filter_context['ipfixfiltercontext_ids'] = filter_context_id_list
+
+            for app_def_id in filter_context.get('app_def_ids', []):
+                app_def_id_list.append(appdefs_n2id.get(app_def_id, app_def_id))
+            if app_def_id_list:
+                filter_context['app_def_ids'] = app_def_id_list
+    # create ipfix
+    ipfix_resp = sdk.post.ipfix(site_id, element_id, ipfix_template)
+
+    if not ipfix_resp.cgx_status:
+        throw_error("IPFIX creation failed: ", ipfix_resp)
+
+    ipfix_id = ipfix_resp.cgx_content.get('id')
+    ipfix_name = ipfix_resp.cgx_content.get('name', ipfix_id)
+
+    if not ipfix_id:
+        throw_error("Unable to determine IPFIX attributes (ID {0})..".format(ipfix_id))
+
+    output_message("   Created IPFIX {0}.".format(ipfix_name))
+
+    return ipfix_id
+
+
+def modify_ipfix(config_ipfix, ipfix_id, site_id, element_id, ipfixprofile_n2id, ipfixcollectorcontext_n2id,
+                                                ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
+                                                ipfixglobalprefix_n2id, appdefs_n2id, check_modified = 0):
+    """
+    Modify an existing ipfix
+    :param config_ipfix: ipfix config dict
+    :param ipfix_id: Existing ipfix ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param check_modified: Check if dns is modified in yml
+    :return: Returned ipfix ID o 0
+    """
+    ipfix_config = {}
+    # make a copy of ipfix to modify
+    ipfix_template = copy.deepcopy(config_ipfix)
+
+    local_debug("ipfix TEMPLATE: " + str(json.dumps(ipfix_template, indent=4)))
+
+    ipfix_prefix_id = copy.deepcopy(ipfixlocalprefix_n2id)
+    ipfix_prefix_id.update(ipfixglobalprefix_n2id)
+
+    name_lookup_in_template(ipfix_template, 'ipfixprofile_id', ipfixprofile_n2id)
+    name_lookup_in_template(ipfix_template, 'ipfixtemplate_id', ipfixtemplate_n2id)
+    if ipfix_template.get('collector_config', []):
+        for config in ipfix_template.get('collector_config', []):
+            name_lookup_in_template(config, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
+    if ipfix_template.get('filters', []):
+        for filter_context in ipfix_template.get('filters', []):
+            name_lookup_in_template(filter_context, 'src_prefixes_id', ipfix_prefix_id)
+            name_lookup_in_template(filter_context, 'dst_prefixes_id', ipfix_prefix_id)
+
+            filter_context_id_list, app_def_id_list = [], []
+            for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
+                filter_context_id_list.append(ipfixfiltercontext_n2id.get(filter_context_id, filter_context_id))
+            if filter_context_id_list:
+                filter_context['ipfixfiltercontext_ids'] = filter_context_id_list
+
+            for app_def_id in filter_context.get('app_def_ids', []):
+                app_def_id_list.append(appdefs_n2id.get(app_def_id, app_def_id))
+            if app_def_id_list:
+                filter_context['app_def_ids'] = app_def_id_list
+
+    # get current ipfix
+    ipfix_resp = sdk.get.ipfix(site_id, element_id, ipfix_id)
+    if ipfix_resp.cgx_status:
+        ipfix_config = ipfix_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve ipfix: ", ipfix_resp)
+
+    # extract prev_revision
+    prev_revision = ipfix_config.get("_etag")
+
+    # Check for changes:
+    ipfix_change_check = copy.deepcopy(ipfix_config)
+    ipfix_config.update(ipfix_template)
+
+    if check_modified:
+        if ipfix_config != ipfix_change_check:
+            return 1
+        else:
+            return 0
+    elif not force_update and ipfix_config == ipfix_change_check:
+        # no change in config, pass.
+        ipfix_id = ipfix_change_check.get('id')
+        ipfix_name = ipfix_change_check.get('name')
+        output_message("   No Change for IPFIX {0}.".format(ipfix_name))
+        return ipfix_id
+
+    if debuglevel >= 3:
+        local_debug("IPFIX DIFF: {0}".format(find_diff(ipfix_change_check, ipfix_config)))
+
+    # Update ipfix.
+    ipfix_resp2 = sdk.put.ipfix(site_id, element_id, ipfix_id, ipfix_config)
+
+    if not ipfix_resp2.cgx_status:
+        throw_error("IPFIX update failed: ", ipfix_resp2)
+
+    ipfix_id = ipfix_resp.cgx_content.get('id')
+    ipfix_name = ipfix_resp.cgx_content.get('name', ipfix_id)
+
+    # extract current_revision
+    current_revision = ipfix_resp2.cgx_content.get("_etag")
+
+    if not ipfix_id:
+        throw_error("Unable to determine IPFIX attributes (ID {0})..".format(ipfix_id))
+
+    output_message("   Updated IPFIX {0} (Etag {1} -> {2}).".format(ipfix_name, prev_revision,
+                                                                          current_revision))
+
+    return ipfix_id
+
+
+def delete_ipfix(leftover_ipfix, site_id, element_id, id2n=None):
+    """
+    Delete a list of ipfix
+    :param leftover_ipfix: List of ipfix IDs
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for ipfix_id in leftover_ipfix:
+        # delete all leftover ipfix.
+
+        output_message("   Deleting IPFIX {0}.".format(id2n.get(ipfix_id, ipfix_id)))
+        ipfix_del_resp = sdk.delete.ipfix(site_id, element_id, ipfix_id)
+        if not ipfix_del_resp.cgx_status:
+            throw_error("Could not delete IPFIX {0}: ".format(id2n.get(ipfix_id, ipfix_id)),
+                        ipfix_del_resp)
+    return
 
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
@@ -5952,7 +6456,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes \
+                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes \
                 = parse_site_config(config_site)
 
             # Determine site ID.
@@ -6354,6 +6858,58 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Site_nat_localprefixes
 
+            # -- Start Site_ipfix_localprefixes
+            site_ipfix_localprefixes_resp = sdk.get.site_ipfixlocalprefixes(site_id)
+            site_ipfix_localprefixes_cache, leftover_site_ipfix_localprefixes = extract_items(site_ipfix_localprefixes_resp, 'site_ipfix_localprefixes')
+
+            # build lookup cache based on prefix id.
+            site_ipfix_localprefixes_prefixid2id = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='prefix_id')
+
+            # iterate configs (list)
+            for config_site_ipfix_localprefix_entry in config_site_ipfix_localprefixes:
+
+                # deepcopy to modify.
+                config_site_ipfix_localprefix = copy.deepcopy(config_site_ipfix_localprefix_entry)
+
+                # no need to get site_ipfix_localprefix config, no child config objects.
+
+                # Determine site_ipfix_localprefix ID.
+                # look for implicit ID in object.
+                implicit_site_ipfix_localprefix_id = config_site_ipfix_localprefix.get('id')
+                # if no ID, select by prefix ID
+                config_site_ipfix_localprefix_prefix = config_site_ipfix_localprefix.get('prefix_id')
+                # do name to id lookup
+                config_site_ipfix_localprefix_prefix_id = ipfixlocalprefix_n2id.get(
+                    config_site_ipfix_localprefix_prefix,
+                    config_site_ipfix_localprefix_prefix)
+                # finally, get site ipfixlocalprefix id from prefix id
+                config_site_ipfix_localprefix_id = \
+                    site_ipfix_localprefixes_prefixid2id.get(config_site_ipfix_localprefix_prefix_id)
+                if implicit_site_ipfix_localprefix_id is not None:
+                    site_ipfix_localprefix_id = implicit_site_ipfix_localprefix_id
+                elif config_site_ipfix_localprefix_id is not None:
+                    # look up ID by prefix_id on existing site_ipfix_localprefix.
+                    site_ipfix_localprefix_id = config_site_ipfix_localprefix_id
+                else:
+                    # no site_ipfix_localprefix object.
+                    site_ipfix_localprefix_id = None
+
+                # Create or modify site_ipfix_localprefix.
+                if site_ipfix_localprefix_id is not None:
+                    # Site_ipfixlocalprefix exists, modify.
+                    site_ipfix_localprefix_id = modify_site_ipfix_localprefix(config_site_ipfix_localprefix,
+                                                                              site_ipfix_localprefix_id, site_id)
+
+                else:
+                    # Site_ipfixlocalprefix does not exist, create.
+                    site_ipfix_localprefix_id = create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id)
+
+                # remove from delete queue
+                leftover_site_ipfix_localprefixes = [entry for entry in leftover_site_ipfix_localprefixes
+                                                     if entry != site_ipfix_localprefix_id]
+
+            # -- End Site_ipfix_localprefixes
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -6365,7 +6921,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                     config_toolkit, config_element_extensions, config_element_security_zones, \
-                    config_dnsservices, config_app_probe = parse_element_config(config_element)
+                    config_dnsservices, config_app_probe, config_ipfix = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -6405,8 +6961,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # at this point element will be claimed.
 
-                # Check elements and upgrade if necessary
-                upgrade_element(matching_element, config_element, wait_upgrade_timeout=timeout_upgrade,
+                # Check elements and upgrade or downgrade if necessary
+                staged_upgrade_downgrade_element(matching_element, config_element, wait_upgrade_timeout=timeout_upgrade,
                                 pause_for_upgrade=wait_upgrade,
                                 wait_interval=interval_timeout)
 
@@ -6652,8 +7208,20 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on prefix.
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
 
-                # iterate configs (list)
-                for config_staticroute_entry in config_routing_static:
+                if type(config_routing_static) == list:
+                    if not config_routing_static:
+                        config_routing_static = {}
+                    else:
+                        throw_error("Static route expecting a dict object, found list")
+
+                # iterate configs (dict)
+                for config_staticroute_name, config_staticroute_value in \
+                        config_routing_static.items():
+
+                    # recombine object
+                    config_staticroute_entry = recombine_named_key_value(config_staticroute_name,
+                                                                         config_staticroute_value,
+                                                                         name_key='name')
 
                     # deepcopy to modify.
                     config_staticroute = copy.deepcopy(config_staticroute_entry)
@@ -7894,8 +8462,20 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on prefix.
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
 
-                # iterate configs (list)
-                for config_staticroute_entry in config_routing_static:
+                if type(config_routing_static) == list:
+                    if not config_routing_static:
+                        config_routing_static = {}
+                    else:
+                        throw_error("Static route expecting a dict object, found list")
+
+                # iterate configs (dict)
+                for config_staticroute_name, config_staticroute_value in \
+                        config_routing_static.items():
+
+                    # recombine object
+                    config_staticroute_entry = recombine_named_key_value(config_staticroute_name,
+                                                                config_staticroute_value,
+                                                                name_key='name')
 
                     # deepcopy to modify.
                     config_staticroute = copy.deepcopy(config_staticroute_entry)
@@ -8140,6 +8720,56 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
                 # -- End DNSSERVICE config
 
+                # -- Start Ipfix config
+                ipfix_resp = sdk.get.ipfix(site_id, element_id)
+                ipfix_cache, leftover_ipfix = extract_items(ipfix_resp, 'ipfix')
+                # build lookup cache based on prefix.
+                ipfix_n2id = build_lookup_dict(ipfix_cache)
+
+
+                config_ipfix = config_ipfix if type(config_ipfix) is list else [config_ipfix]
+
+                for config_ipfix_entry in config_ipfix:
+                    # deepcopy to modify.
+                    config_ipfix_record = copy.deepcopy(config_ipfix_entry)
+
+                    # look for implicit ID in object.
+                    implicit_ipfix_id = config_ipfix_record.get('id')
+                    config_ipfix_name = config_ipfix_entry.get('name')
+                    name_ipfix_id = ipfix_n2id.get(config_ipfix_name)
+
+                    if implicit_ipfix_id is not None:
+                        ipfix_id = implicit_ipfix_id
+
+                    elif name_ipfix_id is not None:
+                        # look up ID by name on existing interfaces.
+                        ipfix_id = name_ipfix_id
+
+                    else:
+                        # no dnsservice object.
+                        ipfix_id = None
+
+                    # Create or modify dnsservice.
+
+                    if ipfix_id is not None:
+                        # dnsservice exists, modify.
+                        ipfix_id = modify_ipfix(config_ipfix_record, ipfix_id, site_id,
+                                                element_id, ipfixprofile_n2id, ipfixcollectorcontext_n2id,
+                                                ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
+                                                ipfixglobalprefix_n2id, appdefs_n2id)
+
+                    else:
+                        # dnsservice does not exist, create.
+                        ipfix_id = create_ipfix(config_ipfix_record, site_id, element_id,
+                                                ipfixprofile_n2id, ipfixcollectorcontext_n2id,
+                                                ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
+                                                ipfixglobalprefix_n2id, appdefs_n2id)
+
+                    # remove from delete queue
+                    leftover_ipfix = [entry for entry in leftover_ipfix if entry != ipfix_id]
+                # -- End Ipfix config
+
+
                 # -- Start Element_extensions
                 element_extensions_resp = sdk.get.element_extensions(site_id, element_id)
                 element_extensions_cache, leftover_element_extensions = extract_items(element_extensions_resp,
@@ -8286,6 +8916,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 delete_dnsservices(leftover_dnsservices, site_id, element_id)
 
+                # delete leftover ipfix
+                ipfix_id2n = build_lookup_dict(ipfix_cache, key_val='id', value_val='name')
+                delete_ipfix(leftover_ipfix, site_id, element_id, id2n=ipfix_id2n)
+
                 # delete remaining syslog configs
                 syslogs_id2n = build_lookup_dict(syslogs_cache, key_val='id', value_val='name')
                 delete_syslogs(leftover_syslogs, site_id, element_id, id2n=syslogs_id2n)
@@ -8343,6 +8977,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                    value_val='prefix_id')
             delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id,
                                           id2n=site_nat_localprefixes_id2prefixid)
+
+            # delete remaining site_ipfix_localprefixes
+            # build site_ipfix_localprefix_id to prefix_id mapping
+            site_ipfix_localprefixes_id2prefixid = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='id',
+                                                                   value_val='prefix_id')
+            delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, id2n=site_ipfix_localprefixes_id2prefixid)
 
             # delete remaining site_securityzone configs
             # build a site_securityzone_id to zone name mapping.
@@ -8412,6 +9052,77 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
             # -- End Elements
 
+            # Fix for issue #48
+            # delete remaining site_ipfix_localprefixes
+            site_ipfix_localprefixes_resp = sdk.get.site_ipfixlocalprefixes(del_site_id)
+            site_ipfix_localprefixes_cache, leftover_site_ipfix_localprefixes = extract_items(site_ipfix_localprefixes_resp, 'site_ipfix_localprefixes')
+
+            # build site_ipfix_localprefix_id to prefix_id mapping
+            site_ipfix_localprefixes_id2prefixid = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='id',
+                                                                     value_val='prefix_id')
+            delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, del_site_id,
+                                            id2n=site_ipfix_localprefixes_id2prefixid)
+
+            # delete remaining spokecluster configs
+            # build a spokecluster_id to name mapping.
+            spokeclusters_resp = sdk.get.spokeclusters(del_site_id)
+            spokeclusters_cache, leftover_spokeclusters = extract_items(spokeclusters_resp, 'spokeclusters')
+            spokeclusters_id2n = build_lookup_dict(spokeclusters_cache, key_val='id', value_val='name')
+            delete_spokeclusters(leftover_spokeclusters, del_site_id, id2n=spokeclusters_id2n)
+
+            # delete remaining site_nat_localprefix configs
+            # build a site_nat_localprefix_id to zone name mapping.
+            site_nat_localprefixes_resp = sdk.get.site_natlocalprefixes(del_site_id)
+            # TODO remove this MESSY HACK to work around CGB-15068.
+            if site_nat_localprefixes_resp.cgx_status and site_nat_localprefixes_resp.cgx_content == {}:
+                # Welcome to the land of CGB-15068. Fix in progress.
+                site_nat_localprefixes_resp.cgx_content = {
+                    "_etag": 1,  # Hopefully this should work
+                    "_content_length": "0",
+                    "_schema": 0,
+                    "_created_on_utc": 15791094199340006,
+                    "_updated_on_utc": 0,
+                    "_status_code": "200",
+                    "_request_id": "1579109419923000400002492011547730241671",
+                    "count": 0,
+                    "items": []
+                }
+            # END MESSY HACK for CGB-15068
+
+            site_nat_localprefixes_cache, leftover_site_nat_localprefixes = extract_items(site_nat_localprefixes_resp,
+                                                                                          'site_nat_localprefixes')
+            site_nat_localprefixes_id2prefixid = build_lookup_dict(site_nat_localprefixes_cache, key_val='id',
+                                                                   value_val='prefix_id')
+            delete_site_nat_localprefixes(leftover_site_nat_localprefixes, del_site_id,
+                                          id2n=site_nat_localprefixes_id2prefixid)
+
+            # delete remaining site_securityzone configs
+            site_securityzones_resp = sdk.get.sitesecurityzones(del_site_id)
+            site_securityzones_cache, leftover_site_securityzones = extract_items(site_securityzones_resp,
+                                                                                  'sitesecurityzones')
+            # build a site_securityzone_id to zone name mapping.
+            site_securityzones_id2zoneid = build_lookup_dict(site_securityzones_cache, key_val='id',
+                                                             value_val='zone_id')
+            delete_site_securityzones(leftover_site_securityzones, del_site_id, id2n=site_securityzones_id2zoneid)
+
+            # delete remaining site_extension configs
+            site_extensions_resp = sdk.get.site_extensions(del_site_id)
+            site_extensions_cache, leftover_site_extensions = extract_items(site_extensions_resp, 'site_extensions')
+            site_extensions_id2n = build_lookup_dict(site_extensions_cache, key_val='id', value_val='name')
+            delete_site_extensions(leftover_site_extensions, del_site_id, id2n=site_extensions_id2n)
+
+            # delete remaining dhcpserver configs
+            dhcpservers_resp = sdk.get.dhcpservers(del_site_id)
+            dhcpservers_cache, leftover_dhcpservers = extract_items(dhcpservers_resp, 'dhcpserver')
+            dhcpservers_id2n = build_lookup_dict(dhcpservers_cache, key_val='id', value_val='subnet')
+            delete_dhcpservers(leftover_dhcpservers, del_site_id, id2n=dhcpservers_id2n)
+
+            # cleanup - delete unused Lannetworks
+            lannetworks_resp = sdk.get.lannetworks(del_site_id)
+            lannetworks_cache, leftover_lannetworks = extract_items(lannetworks_resp, 'lannetworks')
+            lannetworks_id2n = build_lookup_dict(lannetworks_cache, key_val='id', value_val='name')
+            delete_lannetworks(leftover_lannetworks, del_site_id, id2n=lannetworks_id2n)
+
             # -- Start WAN Interfaces
             waninterfaces_resp = sdk.get.waninterfaces(del_site_id)
             waninterfaces_cache, delete_waninterfaces_list = extract_items(waninterfaces_resp, 'waninterfaces')
@@ -8443,6 +9154,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                             del_site_resp.cgx_content)
 
     output_message("DONE")
+    return 1
 
 
 def go():
