@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.4.0b1
+**Version:** 1.4.0b2
 
 **Author:** CloudGenix
 
