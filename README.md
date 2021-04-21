@@ -73,7 +73,7 @@ MIT
  
 ### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Requires 5.5.1b1 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
+ - Requires 5.5.1b2 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
      - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
