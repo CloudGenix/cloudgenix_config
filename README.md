@@ -24,7 +24,7 @@ configuration is designed to be run on file change, to maintain configuration st
 * Active CloudGenix Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.5.1b1 - <https://github.com/CloudGenix/sdk-python>
+    * CloudGenix Python SDK >= 5.5.1b2 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
