@@ -90,7 +90,8 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.4.0** | **b2** | Minor update to requirements.txt |     
+| **1.4.0** | **b3** | Minor bug fixes |
+            | **b2** | Minor update to requirements.txt |
 |           | **b1** | Support for CloudGenix SDK 5.5.1b1, element step upgrade/downgrade|
 | **1.3.0** | **b3** | Fix for issue #52|
 |           | **b2** | Bug fixes|
