@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.4.0b4
+**Version:** 1.4.0b5
 
 **Author:** CloudGenix
 
@@ -135,6 +135,7 @@ FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
+DEFAULT_ELEM_CONFIG_INTERVAL = 480 # seconds
 
 # Handle cloudblade calls
 FROM_CLOUDBLADE = 0
@@ -6990,9 +6991,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 #
                 # Add a delay post element assignment
+                # Workaround for CGSDW-799
                 #
                 wait_time_elapsed = 0
                 if assign_element_flag and (wait_element_config > 0):
+                    if wait_element_config < DEFAULT_ELEM_CONFIG_INTERVAL:
+                        output_message(" WARN: wait-element-config set to under {} seconds. Resetting to {} seconds..".format(DEFAULT_ELEM_CONFIG_INTERVAL,DEFAULT_ELEM_CONFIG_INTERVAL))
+                        wait_element_config = DEFAULT_ELEM_CONFIG_INTERVAL
+
                     element_name = matching_element.get("name", None)
                     serial_num = matching_element.get("serial_number", None)
                     output_message(" Waiting {} seconds before configuring Element {} [{}]".format(wait_element_config, element_name, serial_num))
@@ -9221,7 +9227,7 @@ def go():
                                                          "(10-180 seconds).",
                               default=DEFAULT_WAIT_INTERVAL, type=int)
     config_group.add_argument("--wait-element-config", help="Time in seconds to wait prior to element configuration",
-                              default=0, type=int)
+                              default=DEFAULT_ELEM_CONFIG_INTERVAL, type=int)
     config_group.add_argument("--force-update", help="Force re-submission of configuration items to the API, even if "
                                                      "the objects have not changed.",
                               default=False, action="store_true")

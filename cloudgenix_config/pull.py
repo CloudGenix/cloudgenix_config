@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.4.0b4
+**Version:** 1.4.0b5
 
 **Author:** CloudGenix
 
