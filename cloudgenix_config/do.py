@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.4.0b3
+**Version:** 1.4.0b4
 
 **Author:** CloudGenix
 
@@ -6382,7 +6382,7 @@ def delete_ipfix(leftover_ipfix, site_id, element_id, id2n=None):
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
-            passed_interval_timeout=None, passed_force_update=None):
+            passed_interval_timeout=None, passed_force_update=None, wait_element_config=None):
     """
     Main Site config/deploy worker function.
     :param loaded_config: Loaded config in Python Dict format
@@ -6396,6 +6396,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
     :param passed_wait_upgrade: Optional - Bool, True = Wait for ION upgrade to finsh, False = Continue.
     :param passed_interval_timeout: Optional - Time recheck for success during timeout waits above (seconds)
     :param passed_force_update: Optional - Bool, True = Force API PUTs even if no change is detected.
+    :param wait_element_config: Optional - Time to wait for to element configuration after assignment to site (seconds)
     :return:
     """
     global debuglevel
@@ -6971,12 +6972,35 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
                 # assign and configure element
+
+                #
+                # flag to determine if element will be assigned
+                # add a delay if element was just assigned
+                #
+                assign_element_flag = False
+                if matching_element["site_id"] in ["1", 1]:
+                    assign_element_flag = True
+
                 assign_modify_element(matching_element, site_id, config_element)
 
                 # wait for element assignment. Update element record in case etag changes.
                 matching_element = wait_for_element_state(matching_element, ['bound'],
                                                           wait_verify_success=timeout_state,
                                                           wait_interval=interval_timeout)
+
+                #
+                # Add a delay post element assignment
+                #
+                wait_time_elapsed = 0
+                if assign_element_flag:
+                    element_name = matching_element.get("name", None)
+                    serial_num = matching_element.get("serial_number", None)
+                    output_message(" Waiting {} seconds before configuring Element {} [{}]".format(wait_element_config, element_name, serial_num))
+
+                    while wait_time_elapsed < wait_element_config:
+                        output_message("  Waited so far {} seconds out of {}.".format(wait_time_elapsed, wait_element_config))
+                        time.sleep(10)
+                        wait_time_elapsed += 10
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
@@ -9173,6 +9197,7 @@ def go():
     global interval_timeout
     global force_update
     global site_safety_factor
+    global wait_element_config
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Create or Destroy site from YAML config file.")
@@ -9195,6 +9220,8 @@ def go():
     config_group.add_argument("--interval-timeout", help="Default timeout recheck interval for all timeouts "
                                                          "(10-180 seconds).",
                               default=DEFAULT_WAIT_INTERVAL, type=int)
+    config_group.add_argument("--wait-element-config", help="Time in seconds to wait prior to element configuration",
+                              default=0, type=int)
     config_group.add_argument("--force-update", help="Force re-submission of configuration items to the API, even if "
                                                      "the objects have not changed.",
                               default=False, action="store_true")
@@ -9260,6 +9287,7 @@ def go():
     wait_upgrade = args["wait_upgrade"]
     timeout_state = args["timeout_state"]
     interval_timeout = args["interval_timeout"]
+    wait_element_config = args["wait_element_config"]
 
     # set safety factor
     site_safety_factor = args["site_safety_factor"]
@@ -9341,7 +9369,7 @@ def go():
                 user_password = None
     # Do the real work
     try:
-        do_site(loaded_config, destroy, declaim=declaim)
+        do_site(loaded_config, destroy, declaim=declaim, wait_element_config=wait_element_config)
     except CloudGenixConfigError:
         # Exit silently if error hit.
         sys.exit(1)
