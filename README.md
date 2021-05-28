@@ -90,7 +90,8 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.4.0** | **b4** | Added wait-element-config parameter to introduce a delay before element configuration|
+| **1.4.0** | **b5** | Default 480 second delay after claiming ION. Workaround for CGSDW-799|
+|           | **b4** | Added wait-element-config parameter to introduce a delay before element configuration|
 |           | **b3** | Minor bug fixes |
 |           | **b2** | Minor update to requirements.txt |
 |           | **b1** | Support for CloudGenix SDK 5.5.1b1, element step upgrade/downgrade|
