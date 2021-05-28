@@ -6992,7 +6992,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Add a delay post element assignment
                 #
                 wait_time_elapsed = 0
-                if assign_element_flag:
+                if assign_element_flag and (wait_element_config > 0):
                     element_name = matching_element.get("name", None)
                     serial_num = matching_element.get("serial_number", None)
                     output_message(" Waiting {} seconds before configuring Element {} [{}]".format(wait_element_config, element_name, serial_num))
