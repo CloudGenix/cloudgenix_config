@@ -3315,8 +3315,9 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             interface_template[key] = value
 
     # replace flat names
-    if interface_template.get('parent_type') == 'bypasspair':
-        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent')+'_bypasspair')
+    # Check if parent_type is set and
+    if interface_template.get('parent_type') == 'bypasspair' and int(interface_template.get('parent')) in range(12, 17):
+        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent')+'_bypasspair', interface_template.get('parent'))
     else:
         name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
     interface_template.pop('parent_type', None)
@@ -3622,8 +3623,8 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interface_template[key] = value
 
     # replace flat names
-    if interface_template.get('parent_type') == 'bypasspair':
-        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent') + '_bypasspair')
+    if interface_template.get('parent_type') == 'bypasspair' and int(interface_template.get('parent')) in range(12, 17):
+        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent') + '_bypasspair', interface_template.get('parent'))
     else:
         name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
     interface_template.pop('parent_type', None)
