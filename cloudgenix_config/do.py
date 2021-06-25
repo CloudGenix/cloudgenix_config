@@ -3316,7 +3316,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
     # replace flat names
     # Check if parent_type is set and
-    if interface_template.get('parent_type') == 'bypasspair' and int(interface_template.get('parent')) in range(12, 17):
+    if interface_template.get('parent_type') == 'bypasspair':
         interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent')+'_bypasspair', interface_template.get('parent'))
     else:
         name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
@@ -3444,8 +3444,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         output_message("   Created interface {0}.".format(interface_name))
 
     # update caches
-    # Below check is for 9k. Bypasspairs in range 12-16 is saved with an '_bypasspair' in n2id dict for easy identification
-    if config_interface_type == 'bypasspair' and int(interface_name) in range(12, 17):
+    # Below check is for 9k. Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    if config_interface_type == 'bypasspair':
         interfaces_n2id[str(interface_name)+'_bypasspair'] = interface_id
     else:
         interfaces_n2id[interface_name] = interface_id
@@ -3623,7 +3623,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interface_template[key] = value
 
     # replace flat names
-    if interface_template.get('parent_type') == 'bypasspair' and int(interface_template.get('parent')) in range(12, 17):
+    if interface_template.get('parent_type') == 'bypasspair':
         interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent') + '_bypasspair', interface_template.get('parent'))
     else:
         name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
@@ -3665,7 +3665,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interfaces_funny_n2id[funny_name] = interface_id
             output_message("   No Change for Interface {0}({1}).".format(funny_name, interface_name))
         else:
-            if config_interface_type == 'bypasspair' and int(interface_name) in range(12, 17):
+            if config_interface_type == 'bypasspair':
                 interfaces_n2id[str(interface_name) + '_bypasspair'] = interface_id
             else:
                 interfaces_n2id[interface_name] = interface_id
@@ -3705,8 +3705,8 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                                                                             current_revision))
 
     # update caches
-    # Below check is for 9k. Bypasspairs in range 12-16 is saved with an '_bypasspair' in n2id dict for easy identification
-    if interface_type == 'bypasspair' and int(interface_name) in range(12, 17):
+    # Below check is for 9k. Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    if interface_type == 'bypasspair':
         interfaces_n2id[str(interface_name) + '_bypasspair'] = interface_id
     else:
         interfaces_n2id[interface_name] = interface_id
@@ -3897,12 +3897,11 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, conf
     """
     return_if_id = None
     parent_if_name = config_pppoe_interface.get('parent', "")
-    # Below check is for 9k. Bypasspairs in range 12-16 is saved with an '_' for easy identification
-    if config_pppoe_interface.get('parent_type', None) == 'bypasspair' and int(parent_if_name) in range(12, 17):
+    # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
+    if config_pppoe_interface.get('parent_type', None) == 'bypasspair':
         parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', "") + '_bypasspair', parent_if_name)
     else:
         parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""), parent_if_name)
-    parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""))
     # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
     # This is because in the create section, the interface will be created
     # Changes for CON-95
@@ -3928,8 +3927,8 @@ def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id, conf
     """
     return_if_id = None
     parent_if_name = config_subif_interface.get('parent', "")
-    # Below check is for 9k. Bypasspairs in range 12-16 is saved with an '_' for easy identification
-    if config_subif_interface.get('parent_type', None) == 'bypasspair' and int(parent_if_name) in range(12, 17):
+    # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
+    if config_subif_interface.get('parent_type', None) == 'bypasspair':
         parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', "") + '_bypasspair', parent_if_name)
     else:
         parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""), parent_if_name)
@@ -4090,10 +4089,8 @@ def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
     # apply interfaces 2nd as it should trump funny names.
     comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
 
-    if int(bypass_name) in range(12, 17):
-        return_id = interfaces_n2id.get(bypass_name + '_bypasspair')
-    else:
-        return_id = interfaces_n2id.get(bypass_name)
+    return_id = interfaces_n2id.get(bypass_name + '_bypasspair')
+
     if return_id is None and funny_n2id is not None:
         # check funny name cache
         return_id = funny_n2id.get(bypass_name)

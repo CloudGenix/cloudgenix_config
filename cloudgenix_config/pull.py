@@ -916,9 +916,9 @@ def _pull_config_for_single_site(site_name_id):
                 # print("INTERFACE {0} is PARENT: {1}".format(parent_id, jdout(interface)))
                 parent_id_list.append(parent_id)
             # Add 'parent_type' field if parent interface type is in ['subinterface', 'pppoe', 'service_link']
-            # And if its bypasspair in range(12, 17) as it will cause conflict with port type
+            # And if its bypasspair as it will cause conflict with port type
             if parent_id is not None and if_type in ['subinterface', 'pppoe', 'service_link']:
-                if ion_9k and if_id2type[parent_id] == 'bypasspair' and int(id_name_cache.get(parent_id)) in range(12,17):
+                if ion_9k and if_id2type[parent_id] == 'bypasspair':
                     interface['parent_type'] = if_id2type[parent_id]
 
             bypasspair_config = interface.get('bypass_pair')
@@ -1071,8 +1071,8 @@ def _pull_config_for_single_site(site_name_id):
                 for nexthop in nexthops:
                     nexthop_template = copy.deepcopy(nexthop)
                     nexthop_interface_id = nexthop_template.get('nexthop_interface_id')
-                    # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-                    if ion_9k and if_id2type.get(nexthop_interface_id) == 'bypasspair' and int(id_name_cache.get(nexthop_interface_id)) in range(12,17):
+                    # Add 'parent_type' field if model is 9k and interface is bypasspair
+                    if ion_9k and if_id2type.get(nexthop_interface_id) == 'bypasspair':
                         nexthop_template['parent_type'] = if_id2type[nexthop_interface_id]
                     # replace flat names in dict
                     name_lookup_in_template(nexthop_template, 'nexthop_interface_id', id_name_cache)
@@ -1260,8 +1260,8 @@ def _pull_config_for_single_site(site_name_id):
         for syslogserver in syslogservers:
             syslogserver_template = copy.deepcopy(syslogserver)
             syslog_source_interface_id = syslogserver_template.get('source_interface')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-            if ion_9k and if_id2type.get(syslog_source_interface_id) == 'bypasspair' and int(id_name_cache.get(syslog_source_interface_id)) in range(12,17):
+            # Add 'parent_type' field if model is 9k and interface is bypasspair
+            if ion_9k and if_id2type.get(syslog_source_interface_id) == 'bypasspair':
                 syslogserver_template['parent_type'] = if_id2type[syslog_source_interface_id]
             # replace flat name
             name_lookup_in_template(syslogserver_template, 'source_interface', id_name_cache)
@@ -1282,8 +1282,8 @@ def _pull_config_for_single_site(site_name_id):
             if ntp.get('source_interface_ids'):
                 source_ids, bps = [], ''
                 for iface in ntp.get('source_interface_ids', []):
-                    # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-                    if ion_9k and if_id2type.get(iface) == 'bypasspair' and int(id_name_cache.get(iface)) in range(12,17):
+                    # Add 'parent_type' field if model is 9k and interface is bypasspair
+                    if ion_9k and if_id2type.get(iface) == 'bypasspair':
                         bps += '_' + id_name_cache.get(iface, iface)
                         ntp_template['parent_type'] = if_id2type[iface]
                     source_ids.append(id_name_cache.get(iface, iface))
@@ -1305,8 +1305,8 @@ def _pull_config_for_single_site(site_name_id):
         for element_extension in element_extensions:
             element_extension_template = copy.deepcopy(element_extension)
             element_extension_entity_id = element_extension_template.get('entity_id')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-            if ion_9k and if_id2type.get(element_extension_entity_id) == 'bypasspair' and int(id_name_cache.get(element_extension_entity_id)) in range(12,17):
+            # Add 'parent_type' field if model is 9k and interface is bypasspair
+            if ion_9k and if_id2type.get(element_extension_entity_id) == 'bypasspair':
                 element_extension_template['parent_type'] = if_id2type[element_extension_entity_id]
             # replace flat name
             name_lookup_in_template(element_extension_template, 'entity_id', id_name_cache)
@@ -1343,8 +1343,8 @@ def _pull_config_for_single_site(site_name_id):
             if esz_interface_ids and isinstance(esz_interface_ids, list):
                 esz_interface_ids_template, bps = [], ''
                 for esz_interface_id in esz_interface_ids:
-                    # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-                    if ion_9k and if_id2type.get(esz_interface_id) == 'bypasspair' and int(id_name_cache.get(esz_interface_id)) in range(12,17):
+                    # Add 'parent_type' field if model is 9k and interface is bypasspair
+                    if ion_9k and if_id2type.get(esz_interface_id) == 'bypasspair':
                         bps += '_' + id_name_cache.get(esz_interface_id)
                         element_securityzone_template['parent_type'] = if_id2type[esz_interface_id]
                     esz_interface_ids_template.append(id_name_cache.get(esz_interface_id, esz_interface_id))
@@ -1383,8 +1383,8 @@ def _pull_config_for_single_site(site_name_id):
         for snmptrap in snmptraps:
             snmptrap_template = copy.deepcopy(snmptrap)
             snmptrap_source_interface_id = snmptrap_template.get('source_interface')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-            if ion_9k and if_id2type.get(snmptrap_source_interface_id) == 'bypasspair' and int(id_name_cache.get(snmptrap_source_interface_id)) in range(12,17):
+            # Add 'parent_type' field if model is 9k and interface is bypasspair
+            if ion_9k and if_id2type.get(snmptrap_source_interface_id) == 'bypasspair':
                 snmptrap_template['parent_type'] = if_id2type[snmptrap_source_interface_id]
             # replace flat name
             name_lookup_in_template(snmptrap_template, 'source_interface', id_name_cache)
@@ -1426,14 +1426,14 @@ def _pull_config_for_single_site(site_name_id):
                     if role.get('interfaces', ''):
                         for iface in role.get('interfaces'):
                             iface_interface_id = iface.get('interface_id')
-                            # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-                            if ion_9k and if_id2type.get(iface_interface_id) == 'bypasspair' and int(id_name_cache.get(iface_interface_id)) in range(12,17):
+                            # Add 'parent_type' field if model is 9k and interface is bypasspair
+                            if ion_9k and if_id2type.get(iface_interface_id) == 'bypasspair':
                                 iface['parent_type'] = if_id2type[iface_interface_id]
                             name_lookup_in_template(iface, 'interface_id', id_name_cache)
             if dnsservices_template.get('domains_to_interfaces', ''):
                 for dom_iface in dnsservices_template.get('domains_to_interfaces'):
                     dom_iface_interface_id = dom_iface.get('interface_id')
-                    if ion_9k and if_id2type.get(dom_iface_interface_id) == 'bypasspair' and int(id_name_cache.get(dom_iface_interface_id)) in range(12,17):
+                    if ion_9k and if_id2type.get(dom_iface_interface_id) == 'bypasspair':
                         dom_iface['parent_type'] = if_id2type[dom_iface_interface_id]
                     name_lookup_in_template(dom_iface, 'interface_id', id_name_cache)
             name_lookup_in_template(dnsservices_template, 'element_id', id_name_cache)
@@ -1455,8 +1455,8 @@ def _pull_config_for_single_site(site_name_id):
             id_name_cache.update(build_lookup_dict([app_probe], key_val='id', value_val='name'))
             app_probe_template = copy.deepcopy(app_probe)
             app_probe_source_interface_id = app_probe_template.get('source_interface_id')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair in 12-16
-            if ion_9k and if_id2type.get(app_probe_source_interface_id) == 'bypasspair' and int(id_name_cache.get(app_probe_source_interface_id)) in range(12,17):
+            # Add 'parent_type' field if model is 9k and interface is bypasspair
+            if ion_9k and if_id2type.get(app_probe_source_interface_id) == 'bypasspair':
                 app_probe_template['parent_type'] = if_id2type[app_probe_source_interface_id]
             name_lookup_in_template(app_probe_template, 'source_interface_id', id_name_cache)
             strip_meta_attributes(app_probe_template, leave_name=True)
@@ -1667,7 +1667,7 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                 if sdk.email:
                     config_yml.write("# by {0}\n".format(sdk.email))
-                config_yml.write("# MANDATORY: Add 'parent_type: bypasspair field for 'ion 9000' if parent/source_interface etc. is bypasspair in range 12-16\nElse we may configure wrong interface\n")
+                config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
             # Adding FROM_CLOUDBLADE line into pull site yml file
             if FROM_CLOUDBLADE:
                 config_yml.write("# FROM_CLOUDBLADE\n")
