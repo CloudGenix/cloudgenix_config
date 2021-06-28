@@ -75,11 +75,15 @@ MIT
 When a major version change in the CloudGenix Config Utility is published, new parameters will likely be introduced in the YAML config template.
 
 Please adhere to the following workflow to make sure existing configuration templates or YAML files can be reused with the latest version of the config utility:
-* Step 1: Upgrade the CloudGenix Config Utility using the command ```pip install --upgrade cloudgenix_config```
-* Step 2: For existing Jinja2 templates and/or site specific YAML config files, re-run ```pull_site``` for the site
-* Step 3: Compare (diff) the old Jinja2 template and/or site specific YAML file with YAML file generated in Step 2.
-* Step 4: Identify all the new attributes introduced in the latest version that are applicable to your configuration
-* Step 5: Update the old Jinja2 template and/or YAML config file with the new parameters identified in Step 4.   
+* **Step 1**: Upgrade the CloudGenix Config Utility using the command ```pip install --upgrade cloudgenix_config```
+
+* **Step 2**: For existing Jinja2 templates and/or site specific YAML config files, re-run ```pull_site``` for the site
+
+* **Step 3**: Compare (diff) the old Jinja2 template and/or site specific YAML file with YAML file generated in Step 2.
+
+* **Step 4**: Identify all the new attributes introduced in the latest version that are applicable to your configuration
+
+* **Step 5**: Update the old Jinja2 template and/or YAML config file with the new parameters identified in Step 4.   
 
 **Note**: Make sure the following steps are followed after upgrading the CloudGenix Config Utility. 
 The CloudGenix Config Utility will default to using the SDK version. An out-of-date YAML file could cause issues with resource creation and/or resource updates.
