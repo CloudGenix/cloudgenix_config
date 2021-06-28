@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.4.0b5
+**Version:** 1.5.0b1
 
 **Author:** CloudGenix
 
@@ -135,7 +135,7 @@ FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
-DEFAULT_ELEM_CONFIG_INTERVAL = 480 # seconds
+DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
 
 # Handle cloudblade calls
 FROM_CLOUDBLADE = 0
@@ -6991,22 +6991,20 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 #
                 # Add a delay post element assignment
-                # Workaround for CGSDW-799
+                # Removing mandatory 480 seconds delay - Workaround for CGSDW-799
+                # Fix delivered in Controller version 5.5.3
                 #
                 wait_time_elapsed = 0
-                if assign_element_flag and (wait_element_config > 0):
-                    if wait_element_config < DEFAULT_ELEM_CONFIG_INTERVAL:
-                        output_message(" WARN: wait-element-config set to under {} seconds. Resetting to {} seconds..".format(DEFAULT_ELEM_CONFIG_INTERVAL,DEFAULT_ELEM_CONFIG_INTERVAL))
-                        wait_element_config = DEFAULT_ELEM_CONFIG_INTERVAL
+                if wait_element_config:
+                    if assign_element_flag and (wait_element_config > 0):
+                        element_name = matching_element.get("name", None)
+                        serial_num = matching_element.get("serial_number", None)
+                        output_message(" Waiting {} seconds before configuring Element {} [{}]".format(wait_element_config, element_name, serial_num))
 
-                    element_name = matching_element.get("name", None)
-                    serial_num = matching_element.get("serial_number", None)
-                    output_message(" Waiting {} seconds before configuring Element {} [{}]".format(wait_element_config, element_name, serial_num))
-
-                    while wait_time_elapsed < wait_element_config:
-                        output_message("  Waited so far {} seconds out of {}.".format(wait_time_elapsed, wait_element_config))
-                        time.sleep(10)
-                        wait_time_elapsed += 10
+                        while wait_time_elapsed < wait_element_config:
+                            output_message("  Waited so far {} seconds out of {}.".format(wait_time_elapsed, wait_element_config))
+                            time.sleep(10)
+                            wait_time_elapsed += 10
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()

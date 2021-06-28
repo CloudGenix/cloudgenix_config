@@ -24,7 +24,7 @@ configuration is designed to be run on file change, to maintain configuration st
 * Active CloudGenix Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.5.1b3 - <https://github.com/CloudGenix/sdk-python>
+    * CloudGenix Python SDK >= 5.5.3b1 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
@@ -32,9 +32,9 @@ MIT
 #### Installation:
  - **PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
  Scripts directory. 
- - **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts. 
+ - **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
 
-### Examples of usage:
+#### Examples of usage:
  1. Configure a Site, Element, and related objects using the UI. Record the Site name (example, MySite)
  2. Extract the configuration using the `pull_site` script: `pull_site -S "MySite" --output MySite.yaml`
     ```bash
@@ -71,9 +71,26 @@ MIT
     DONE
     ```
  
-### Caveats and known issues:
+#### CloudGenix Config Utility Upgrade Considerations:
+When a major version change in the CloudGenix Config Utility is published, new parameters will likely be introduced in the YAML config template.
+
+Please adhere to the following workflow to make sure existing configuration templates or YAML files can be reused with the latest version of the config utility:
+* **Step 1**: Upgrade the CloudGenix Config Utility using the command ```pip install --upgrade cloudgenix_config```
+
+* **Step 2**: For existing Jinja2 templates and/or site specific YAML config files, re-run ```pull_site``` for the site
+
+* **Step 3**: Compare (diff) the old Jinja2 template and/or site specific YAML file with YAML file generated in Step 2.
+
+* **Step 4**: Identify all the new attributes introduced in the latest version that are applicable to your configuration
+
+* **Step 5**: Update the old Jinja2 template and/or YAML config file with the new parameters identified in Step 4.   
+
+**Note**: Make sure the following steps are followed after upgrading the CloudGenix Config Utility. 
+The CloudGenix Config Utility will default to using the SDK version. An out-of-date YAML file could cause issues with resource creation and/or resource updates.
+
+#### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Requires 5.5.1b2 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
+ - Requires 5.5.3b1 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
      - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
@@ -90,6 +107,7 @@ MIT
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.5.0** | **b1** | Removed mandatory 480 seconds delay (workaround for CGSDW-799) after claiming ION|
 | **1.4.0** | **b5** | Default 480 second delay after claiming ION. Workaround for CGSDW-799|
 |           | **b4** | Added wait-element-config parameter to introduce a delay before element configuration|
 |           | **b3** | Minor bug fixes |
