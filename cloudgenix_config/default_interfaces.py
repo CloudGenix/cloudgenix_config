@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT default device port configurations
 
-**Version:** 1.4.0b5
+**Version:** 1.5.0b1
 
 **Author:** CloudGenix
 
