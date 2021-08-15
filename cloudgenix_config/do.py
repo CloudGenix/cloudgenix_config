@@ -3315,8 +3315,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             interface_template[key] = value
 
     # replace flat names
-    # Check if parent_type is set and
-    if interface_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in interface_template.get('parent_type', ''):
         interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent')+'_bypasspair', interface_template.get('parent'))
     else:
         name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
@@ -3623,7 +3622,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interface_template[key] = value
 
     # replace flat names
-    if interface_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in interface_template.get('parent_type', ''):
         interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent') + '_bypasspair', interface_template.get('parent'))
     else:
         name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
@@ -3898,7 +3897,7 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, conf
     return_if_id = None
     parent_if_name = config_pppoe_interface.get('parent', "")
     # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
-    if config_pppoe_interface.get('parent_type', None) == 'bypasspair':
+    if 'bypasspair' in config_pppoe_interface.get('parent_type', ''):
         parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', "") + '_bypasspair', parent_if_name)
     else:
         parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""), parent_if_name)
@@ -3928,7 +3927,7 @@ def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id, conf
     return_if_id = None
     parent_if_name = config_subif_interface.get('parent', "")
     # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
-    if config_subif_interface.get('parent_type', None) == 'bypasspair':
+    if 'bypasspair' in config_subif_interface.get('parent_type', ''):
         parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', "") + '_bypasspair', parent_if_name)
     else:
         parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""), parent_if_name)
@@ -4206,7 +4205,7 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
 
                     nhr_name = nh_dict.get('nexthop_interface_id')
                     if nhr_name:
-                        if nh_dict_template.get('parent_type') == 'bypasspair':
+                        if 'bypasspair' in nh_dict_template.get('parent_type', ''):
                             nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name + '_bypasspair', nhr_name)
                         else:
                             nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
@@ -4273,7 +4272,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
 
                     nhr_name = nh_dict.get('nexthop_interface_id')
                     if nhr_name:
-                        if nh_dict_template.get('parent_type') == 'bypasspair':
+                        if 'bypasspair' in nh_dict_template.get('parent_type', ''):
                             nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name + '_bypasspair', nhr_name)
                         else:
                             nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
@@ -5216,7 +5215,7 @@ def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
     syslog_template = copy.deepcopy(config_syslog)
 
     # replace flat names
-    if syslog_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in syslog_template.get('parent_type', ''):
         syslog_template['source_interface'] = interfaces_n2id.get(config_syslog['source_interface'] + '_bypasspair', config_syslog['source_interface'])
     else:
         name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
@@ -5256,7 +5255,7 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
     syslog_template = copy.deepcopy(config_syslog)
 
     # replace flat names
-    if syslog_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in syslog_template.get('parent_type', ''):
         syslog_template['source_interface'] = interfaces_n2id.get(config_syslog['source_interface'] + '_bypasspair', config_syslog['source_interface'])
     else:
         name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
@@ -5561,7 +5560,7 @@ def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id):
     snmp_trap_template = copy.deepcopy(config_snmp_trap)
 
     # replace flat names
-    if snmp_trap_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in snmp_trap_template.get('parent_type', ''):
         snmp_trap_template['source_interface'] = interfaces_n2id.get(config_snmp_trap['source_interface'] + '_bypasspair', config_snmp_trap['source_interface'])
     else:
         name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
@@ -5601,7 +5600,7 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     snmp_trap_template = copy.deepcopy(config_snmp_trap)
 
     # replace flat names
-    if snmp_trap_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in snmp_trap_template.get('parent_type', ''):
         snmp_trap_template['source_interface'] = interfaces_n2id.get(config_snmp_trap['source_interface'] + '_bypasspair', config_snmp_trap['source_interface'])
     else:
         name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
@@ -5695,7 +5694,7 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
             name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
             if role.get('interfaces', ''):
                 for iface in role.get('interfaces'):
-                    if iface.get('parent_type') == 'bypasspair':
+                    if 'bypasspair' in iface.get('parent_type', ''):
                         interface_name = iface.get('interface_id', '')
                         iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
                     else:
@@ -5703,7 +5702,7 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
                     iface.pop('parent_type', None)
     if dnsservices_template.get('domains_to_interfaces', ''):
         for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-            if dom_iface.get('parent_type') == 'bypasspair':
+            if 'bypasspair' in dom_iface.get('parent_type', ''):
                 interface_name = dom_iface.get('interface_id', '')
                 dom_iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
             else:
@@ -5750,7 +5749,7 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
             name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
             if role.get('interfaces', ''):
                 for iface in role.get('interfaces'):
-                    if iface.get('parent_type') == 'bypasspair':
+                    if 'bypasspair' in iface.get('parent_type', ''):
                         interface_name = iface.get('interface_id', '')
                         iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
                     else:
@@ -5758,7 +5757,7 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
                     iface.pop('parent_type', None)
     if dnsservices_template.get('domains_to_interfaces', ''):
         for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-            if dom_iface.get('parent_type') == 'bypasspair':
+            if 'bypasspair' in dom_iface.get('parent_type', ''):
                 interface_name = dom_iface.get('interface_id', '')
                 dom_iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
             else:
@@ -5859,7 +5858,7 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
     # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
     element_extension_namespace = config_element_extension.get('namespace')
     if element_extension_namespace not in ["dnsmasq/prod"]:
-        if element_extension_template.get('parent_type') == 'bypasspair':
+        if 'bypasspair' in element_extension_template.get('parent_type', ''):
             element_extension_template['entity_id'] = interfaces_n2id.get(config_element_extension['entity_id'] + '_bypasspair', config_element_extension['entity_id'])
         else:
             name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
@@ -5912,7 +5911,7 @@ def modify_element_extension(config_element_extension, element_extension_id, ele
     # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
     element_extension_namespace = config_element_extension.get('namespace')
     if element_extension_namespace not in ["dnsmasq/prod"]:
-        if element_extension_template.get('parent_type') == 'bypasspair':
+        if 'bypasspair' in element_extension_template.get('parent_type', ''):
             element_extension_template['entity_id'] = interfaces_n2id.get(
                 config_element_extension['entity_id'] + '_bypasspair',
                 config_element_extension['entity_id'])
@@ -6254,7 +6253,7 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     app_probe_template = copy.deepcopy(config_app_probe)
 
     # replace flat names
-    if app_probe_template.get('parent_type') == 'bypasspair':
+    if 'bypasspair' in app_probe_template.get('parent_type', ''):
         app_probe_template['source_interface_id'] = interfaces_n2id.get(app_probe_template.get('source_interface_id')+'_bypasspair')
     else:
         name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
