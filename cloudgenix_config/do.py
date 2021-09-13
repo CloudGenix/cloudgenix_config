@@ -3315,7 +3315,11 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             interface_template[key] = value
 
     # replace flat names
-    name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    if 'bypasspair' in interface_template.get('parent_type', ''):
+        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent')+'_bypasspair', interface_template.get('parent'))
+    else:
+        name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    interface_template.pop('parent_type', None)
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
@@ -3439,7 +3443,11 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         output_message("   Created interface {0}.".format(interface_name))
 
     # update caches
-    interfaces_n2id[interface_name] = interface_id
+    # Below check is for 9k. Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    if config_interface_type == 'bypasspair':
+        interfaces_n2id[str(interface_name)+'_bypasspair'] = interface_id
+    else:
+        interfaces_n2id[interface_name] = interface_id
     if funny_name:
         interfaces_funny_n2id[funny_name] = interface_id
     # if a subif was created for the first time, the parent was defaulted. If parent was defaulted,
@@ -3614,7 +3622,11 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interface_template[key] = value
 
     # replace flat names
-    name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    if 'bypasspair' in interface_template.get('parent_type', ''):
+        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent') + '_bypasspair', interface_template.get('parent'))
+    else:
+        name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    interface_template.pop('parent_type', None)
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
@@ -3652,7 +3664,10 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interfaces_funny_n2id[funny_name] = interface_id
             output_message("   No Change for Interface {0}({1}).".format(funny_name, interface_name))
         else:
-            interfaces_n2id[interface_name] = interface_id
+            if config_interface_type == 'bypasspair':
+                interfaces_n2id[str(interface_name) + '_bypasspair'] = interface_id
+            else:
+                interfaces_n2id[interface_name] = interface_id
             output_message("   No Change for Interface {0}.".format(interface_name))
         return interface_id
 
@@ -3667,6 +3682,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
 
     interface_name = interface_resp2.cgx_content.get('name')
     interface_id = interface_resp2.cgx_content.get('id')
+    interface_type = interface_resp2.cgx_content.get('type')
 
     # extract current_revision
     current_revision = interface_resp2.cgx_content.get("_etag")
@@ -3688,7 +3704,11 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                                                                             current_revision))
 
     # update caches
-    interfaces_n2id[interface_name] = interface_id
+    # Below check is for 9k. Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    if interface_type == 'bypasspair':
+        interfaces_n2id[str(interface_name) + '_bypasspair'] = interface_id
+    else:
+        interfaces_n2id[interface_name] = interface_id
     if funny_name:
         interfaces_funny_n2id[funny_name] = interface_id
 
@@ -3875,8 +3895,12 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, conf
     :return: Matching PPPoE Interface ID
     """
     return_if_id = None
-    parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""))
     parent_if_name = config_pppoe_interface.get('parent', "")
+    # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
+    if 'bypasspair' in config_pppoe_interface.get('parent_type', ''):
+        parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', "") + '_bypasspair', parent_if_name)
+    else:
+        parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""), parent_if_name)
     # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
     # This is because in the create section, the interface will be created
     # Changes for CON-95
@@ -3901,8 +3925,13 @@ def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id, conf
     :return: Matching SubInterface ID
     """
     return_if_id = None
-    parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""))
     parent_if_name = config_subif_interface.get('parent', "")
+    # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
+    if 'bypasspair' in config_subif_interface.get('parent_type', ''):
+        parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', "") + '_bypasspair', parent_if_name)
+    else:
+        parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""), parent_if_name)
+
     # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
     # This is because in the create section, the interface will be created
     # Changes for CON-95
@@ -4059,8 +4088,8 @@ def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
     # apply interfaces 2nd as it should trump funny names.
     comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
 
+    return_id = interfaces_n2id.get(bypass_name + '_bypasspair')
 
-    return_id = interfaces_n2id.get(bypass_name)
     if return_id is None and funny_n2id is not None:
         # check funny name cache
         return_id = funny_n2id.get(bypass_name)
@@ -4176,8 +4205,11 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
 
                     nhr_name = nh_dict.get('nexthop_interface_id')
                     if nhr_name:
-                        nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
-
+                        if 'bypasspair' in nh_dict_template.get('parent_type', ''):
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name + '_bypasspair', nhr_name)
+                        else:
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
+                    nh_dict_template.pop('parent_type', None)
                     n2id_ifs.append(nh_dict_template)
 
                 # update template
@@ -4240,8 +4272,11 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
 
                     nhr_name = nh_dict.get('nexthop_interface_id')
                     if nhr_name:
-                        nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
-
+                        if 'bypasspair' in nh_dict_template.get('parent_type', ''):
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name + '_bypasspair', nhr_name)
+                        else:
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
+                    nh_dict_template.pop('parent_type', None)
                     n2id_ifs.append(nh_dict_template)
 
                 # update template
@@ -5180,8 +5215,11 @@ def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
     syslog_template = copy.deepcopy(config_syslog)
 
     # replace flat names
-    name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
-
+    if 'bypasspair' in syslog_template.get('parent_type', ''):
+        syslog_template['source_interface'] = interfaces_n2id.get(config_syslog['source_interface'] + '_bypasspair', config_syslog['source_interface'])
+    else:
+        name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
+    syslog_template.pop('parent_type', None)
     local_debug("SYSLOG TEMPLATE: " + str(json.dumps(syslog_template, indent=4)))
 
     # create syslog
@@ -5217,8 +5255,11 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
     syslog_template = copy.deepcopy(config_syslog)
 
     # replace flat names
-    name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
-
+    if 'bypasspair' in syslog_template.get('parent_type', ''):
+        syslog_template['source_interface'] = interfaces_n2id.get(config_syslog['source_interface'] + '_bypasspair', config_syslog['source_interface'])
+    else:
+        name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
+    syslog_template.pop('parent_type', None)
     local_debug("SYSLOG TEMPLATE: " + str(json.dumps(syslog_template, indent=4)))
 
     # get current syslog
@@ -5319,12 +5360,19 @@ def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
 
     # replace flat names
     if ntp_template.get('source_interface_ids'):
-        source_ids = []
+        source_ids, bp_interfaces = [], ''
+        if 'bypasspair' in ntp_template.get('parent_type', ''):
+            member_interfaces = ntp_template.get('parent_type').split('_')
+            if member_interfaces:
+                bp_interfaces = member_interfaces[1:]
         for iface in ntp_template.get('source_interface_ids', []):
-            source_ids.append(interfaces_n2id.get(iface, iface))
+            if iface in bp_interfaces:
+                source_ids.append(interfaces_n2id.get(iface + '_bypasspair', iface))
+            else:
+                source_ids.append(interfaces_n2id.get(iface, iface))
         if source_ids:
             ntp_template['source_interface_ids'] = source_ids
-
+    ntp_template.pop('parent_type', None)
     local_debug("NTP TEMPLATE: " + str(json.dumps(ntp_template, indent=4)))
 
     # get current ntp
@@ -5512,7 +5560,11 @@ def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id):
     snmp_trap_template = copy.deepcopy(config_snmp_trap)
 
     # replace flat names
-    name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    if 'bypasspair' in snmp_trap_template.get('parent_type', ''):
+        snmp_trap_template['source_interface'] = interfaces_n2id.get(config_snmp_trap['source_interface'] + '_bypasspair', config_snmp_trap['source_interface'])
+    else:
+        name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    snmp_trap_template.pop('parent_type', None)
 
     local_debug("SNMP_TRAP TEMPLATE: " + str(json.dumps(snmp_trap_template, indent=4)))
 
@@ -5548,7 +5600,11 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     snmp_trap_template = copy.deepcopy(config_snmp_trap)
 
     # replace flat names
-    name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    if 'bypasspair' in snmp_trap_template.get('parent_type', ''):
+        snmp_trap_template['source_interface'] = interfaces_n2id.get(config_snmp_trap['source_interface'] + '_bypasspair', config_snmp_trap['source_interface'])
+    else:
+        name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    snmp_trap_template.pop('parent_type', None)
 
     local_debug("SNMP_TRAP TEMPLATE: " + str(json.dumps(snmp_trap_template, indent=4)))
 
@@ -5638,10 +5694,20 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
             name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
             if role.get('interfaces', ''):
                 for iface in role.get('interfaces'):
-                    name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    if 'bypasspair' in iface.get('parent_type', ''):
+                        interface_name = iface.get('interface_id', '')
+                        iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+                    else:
+                        name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    iface.pop('parent_type', None)
     if dnsservices_template.get('domains_to_interfaces', ''):
         for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-            name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            if 'bypasspair' in dom_iface.get('parent_type', ''):
+                interface_name = dom_iface.get('interface_id', '')
+                dom_iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+            else:
+                name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            dom_iface.pop('parent_type', None)
     name_lookup_in_template(dnsservices_template, 'element_id', elements_n2id)
     # create dnsservices
     dnsservices_resp = sdk.post.dnsservices(site_id, element_id, dnsservices_template)
@@ -5683,10 +5749,20 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
             name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
             if role.get('interfaces', ''):
                 for iface in role.get('interfaces'):
-                    name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    if 'bypasspair' in iface.get('parent_type', ''):
+                        interface_name = iface.get('interface_id', '')
+                        iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+                    else:
+                        name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    iface.pop('parent_type', None)
     if dnsservices_template.get('domains_to_interfaces', ''):
         for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-            name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            if 'bypasspair' in dom_iface.get('parent_type', ''):
+                interface_name = dom_iface.get('interface_id', '')
+                dom_iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+            else:
+                name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            dom_iface.pop('parent_type', None)
     name_lookup_in_template(dnsservices_template, 'element_id', elements_n2id)
 
     # get current dnsservices
@@ -5782,7 +5858,10 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
     # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
     element_extension_namespace = config_element_extension.get('namespace')
     if element_extension_namespace not in ["dnsmasq/prod"]:
-        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        if 'bypasspair' in element_extension_template.get('parent_type', ''):
+            element_extension_template['entity_id'] = interfaces_n2id.get(config_element_extension['entity_id'] + '_bypasspair', config_element_extension['entity_id'])
+        else:
+            name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
         # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
@@ -5832,7 +5911,12 @@ def modify_element_extension(config_element_extension, element_extension_id, ele
     # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
     element_extension_namespace = config_element_extension.get('namespace')
     if element_extension_namespace not in ["dnsmasq/prod"]:
-        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        if 'bypasspair' in element_extension_template.get('parent_type', ''):
+            element_extension_template['entity_id'] = interfaces_n2id.get(
+                config_element_extension['entity_id'] + '_bypasspair',
+                config_element_extension['entity_id'])
+        else:
+            name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
         # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
@@ -5935,13 +6019,22 @@ def create_element_securityzone(config_element_securityzone, waninterface_n2id, 
     # perform name -> ID lookups
     name_lookup_in_template(element_securityzone_template, 'zone_id', securityzones_n2id)
 
+    bp_interfaces = ''
+
     # replace complex names
     esz_entry_interface_ids = config_element_securityzone.get('interface_ids')
     if esz_entry_interface_ids and isinstance(esz_entry_interface_ids, list):
         esz_entry_interface_ids_template = []
+        if 'bypasspair' in config_element_securityzone.get('parent_type', ''):
+            member_interfaces = config_element_securityzone.get('parent_type').split('_')
+            if member_interfaces:
+                bp_interfaces = member_interfaces[1:]
         for esz_entry_interface_id in esz_entry_interface_ids:
-            esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id,
-                                                                        esz_entry_interface_id))
+            if esz_entry_interface_id in bp_interfaces:
+                esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id + '_bypasspair', esz_entry_interface_id))
+            else:
+                esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id, esz_entry_interface_id))
+        element_securityzone_template.pop('parent_type', None)
         element_securityzone_template['interface_ids'] = esz_entry_interface_ids_template
 
     esz_entry_lannetwork_ids = config_element_securityzone.get('lannetwork_ids')
@@ -6012,13 +6105,23 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
     # perform name -> ID lookups
     name_lookup_in_template(element_securityzone_template, 'zone_id', securityzones_n2id)
 
+    bp_interfaces = ''
+
     # replace complex names
     esz_entry_interface_ids = config_element_securityzone.get('interface_ids')
     if esz_entry_interface_ids and isinstance(esz_entry_interface_ids, list):
         esz_entry_interface_ids_template = []
+        if 'bypasspair' in config_element_securityzone.get('parent_type', ''):
+            member_interfaces = config_element_securityzone.get('parent_type').split('_')
+            if member_interfaces:
+                bp_interfaces = member_interfaces[1:]
         for esz_entry_interface_id in esz_entry_interface_ids:
-            esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id,
-                                                                        esz_entry_interface_id))
+            if esz_entry_interface_id in bp_interfaces:
+                esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id + '_bypasspair', esz_entry_interface_id))
+            else:
+                esz_entry_interface_ids_template.append(
+                    interfaces_n2id.get(esz_entry_interface_id, esz_entry_interface_id))
+        element_securityzone_template.pop('parent_type', None)
         element_securityzone_template['interface_ids'] = esz_entry_interface_ids_template
 
     esz_entry_lannetwork_ids = config_element_securityzone.get('lannetwork_ids')
@@ -6150,8 +6253,11 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     app_probe_template = copy.deepcopy(config_app_probe)
 
     # replace flat names
-    name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
-
+    if 'bypasspair' in app_probe_template.get('parent_type', ''):
+        app_probe_template['source_interface_id'] = interfaces_n2id.get(app_probe_template.get('source_interface_id')+'_bypasspair')
+    else:
+        name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
+    app_probe_template.pop('parent_type', None)
     # get current app probe
     app_probe_resp = sdk.get.application_probe(site_id, element_id)
     if app_probe_resp.cgx_status:
@@ -7067,7 +7173,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # refresh interfaces as ones were added.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache, model_name=element_model)
                 interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
                 # extend interfaces_n2id with the loopback funny_name cache, Make sure API interfaces trump funny names
@@ -7371,6 +7477,49 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # -- End SYSLOG config
 
+                # -- Start SNMP
+                # parse SNMP config.
+                config_snmp_agent, config_snmp_traps = parse_snmp_config(config_snmp)
+
+                # SNMP TRAPS
+                snmp_traps_resp = sdk.get.snmptraps(site_id, element_id)
+                snmp_traps_cache, leftover_snmp_traps = extract_items(snmp_traps_resp, 'snmp_traps')
+                # build lookup cache based on server + version. Have to do manually.
+                snmp_traps_n2id = build_lookup_dict_snmp_trap(snmp_traps_cache)
+
+                # iterate configs (list)
+                for config_snmp_trap_entry in config_snmp_traps:
+
+                    # deepcopy to modify.
+                    config_snmp_trap = copy.deepcopy(config_snmp_trap_entry)
+
+                    # no need to get snmp_trap config, no child config objects.
+
+                    # Determine snmp_trap ID.
+                    # look for implicit ID in object.
+                    implicit_snmp_trap_id = config_snmp_trap.get('id')
+                    config_server_ip = config_snmp_trap.get('server_ip')
+                    config_version = config_snmp_trap.get('version')
+                    server_version_snmp_trap_id = snmp_traps_n2id.get("{0}+{1}".format(config_server_ip,
+                                                                                       config_version))
+
+                    if implicit_snmp_trap_id is not None:
+                        snmp_trap_id = implicit_snmp_trap_id
+
+                    elif server_version_snmp_trap_id is not None:
+                        # look up ID on existing agent.
+                        snmp_trap_id = server_version_snmp_trap_id
+
+                    else:
+                        # no snmp_trap object.
+                        snmp_trap_id = None
+
+                    # remove from delete queue
+                    leftover_snmp_traps = [entry for entry in leftover_snmp_traps if entry != snmp_trap_id]
+
+                # delete remaining snmp agent configs
+                delete_snmp_traps(leftover_snmp_traps, site_id, element_id)
+
                 # -- Start NTP config
                 # We cannot delete ntp. So checking if ntp is modified in config
                 # If modified, we will reset the source interface ids and later update it again
@@ -7641,7 +7790,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache, model_name=element_model)
                 interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -7752,6 +7901,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Start Bypasspair
 
                 # Go back through config, and now create/modify existing bypasspairs.
+                config_bypasspairs = get_config_interfaces_by_type(config_interfaces_defaults, 'bypasspair')
                 for config_interface_name, config_interface_value in config_bypasspairs.items():
                     local_debug("DO BYPASSPAIR: {0}".format(config_interface_name), config_interface_value)
                     # recombine object
@@ -8124,7 +8274,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache, model_name=element_model)
                 interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names

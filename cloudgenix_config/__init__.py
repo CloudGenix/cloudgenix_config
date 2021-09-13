@@ -384,13 +384,14 @@ def extract_items(resp_object, error_label=None, id_key='id'):
             return [], []
 
 
-def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=False):
+def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=False, model_name=None):
     """
     Build key/value lookup dict
     :param list_content: List of dicts to derive lookup structs from
     :param key_val: value to extract from entry to be key
     :param value_val: value to extract from entry to be value
     :param force_nag: Bool, if True will nag even if key in global ALREADY_NAGGED_DUP_KEYS
+    :param model_name: Element model name
     :return: lookup dict
     """
     global ALREADY_NAGGED_DUP_KEYS
@@ -403,6 +404,11 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
         item_value = item.get(value_val)
         # print(item_key, item_value)
         if item_key and item_value is not None:
+            # Below check to handle lookup in ion 9k
+            # 9k can have same port and bypasspair names
+            # Adding '_bypasspair' for bypasspairs in range 12-15
+            if key_val == 'name' and model_name == 'ion 9000' and item.get('type') == 'bypasspair' and int(item_key) in range(12,17):
+                lookup_dict[str(item_key) + '_bypasspair'] = item_value
             # check if it's a duplicate key.
             if str(item_key) in lookup_dict:
                 # First duplicate we've seen - save for warning.
@@ -411,7 +417,7 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
                 blacklist_duplicate_entries.append({item_key: duplicate_value})
                 blacklist_duplicate_entries.append({item_key: item_value})
                 # remove from lookup dict to prevent accidental overlap usage
-                del lookup_dict[str(item_key)]
+                #del lookup_dict[str(item_key)]
 
             # check if it was a third+ duplicate key for a previous key
             elif item_key in blacklist_duplicate_keys:
