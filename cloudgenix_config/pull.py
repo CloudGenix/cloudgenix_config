@@ -160,6 +160,9 @@ DNS_SERVICES_STR = "dnsservices"
 APPLICATION_PROBE_STR = "application_probe"
 IPFIX_STR = "ipfix"
 SITE_IPFIXLOCALPREFIXES_STR = "site_ipfix_localprefixes"
+SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR = "site_ngfw_securitypolicylocalprefixes"
+MULTICASTGLOBALCONFIGS_STR = "multicastglobalconfigs"
+MULTICASTRPS_STR = "multicastrps"
 
 # Global Config Cache holders
 sites_cache = []
@@ -167,6 +170,9 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
+ngfw_security_policysetstack_cache = []
+ngfw_securitypolicylocalprefixes_cache = []
+syslogserverprofiles_cache = []
 securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
@@ -270,6 +276,9 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
+    global ngfw_security_policysetstack_cache
+    global ngfw_securitypolicylocalprefixes_cache
+    global syslogserverprofiles_cache
     global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
@@ -315,9 +324,21 @@ def update_global_cache():
     policysets_resp = sdk.get.policysets()
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
-    # secuirity_policysets
+    # security_policysets
     security_policysets_resp = sdk.get.securitypolicysets()
-    security_policysets_cache, _ = extract_items(security_policysets_resp, 'secuirity_policysets')
+    security_policysets_cache, _ = extract_items(security_policysets_resp, 'security_policysets')
+
+    # ngfw_security_policysetstack
+    ngfw_security_policysetstack_resp = sdk.get.ngfwsecuritypolicysetstacks()
+    ngfw_security_policysetstack_cache, _ = extract_items(ngfw_security_policysetstack_resp, 'ngfw_securitypolicysetstack')
+
+    # ngfw_securitypolicylocalprefixes
+    ngfw_securitypolicylocalprefixes_resp = sdk.get.ngfwsecuritypolicylocalprefixes()
+    ngfw_securitypolicylocalprefixes_cache, _ = extract_items(ngfw_securitypolicylocalprefixes_resp, 'ngfw_securitypolicylocalprefixes')
+
+    # syslogserverprofiles
+    syslogserverprofiles_resp = sdk.get.syslogserverprofiles()
+    syslogserverprofiles_cache, _ = extract_items(syslogserverprofiles_resp, 'syslogserverprofiles')
 
     # secuirityzones
     securityzones_resp = sdk.get.securityzones()
@@ -429,6 +450,15 @@ def update_global_cache():
 
     # security_policysets name
     id_name_cache.update(build_lookup_dict(security_policysets_cache, key_val='id', value_val='name'))
+
+    # ngfw_securitypolicysetstack name
+    id_name_cache.update(build_lookup_dict(ngfw_security_policysetstack_cache, key_val='id', value_val='name'))
+
+    # ngfw_securitypolicylocalprefixes name
+    id_name_cache.update(build_lookup_dict(ngfw_securitypolicylocalprefixes_cache, key_val='id', value_val='name'))
+
+    # syslogserverprofiles name
+    id_name_cache.update(build_lookup_dict(syslogserverprofiles_cache, key_val='id', value_val='name'))
 
     # securityzones name
     id_name_cache.update(build_lookup_dict(securityzones_cache, key_val='id', value_val='name'))
@@ -558,6 +588,9 @@ def build_version_strings():
     global APPLICATION_PROBE_STR
     global IPFIX_STR
     global SITE_IPFIXLOCALPREFIXES_STR
+    global SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR
+    global MULTICASTGLOBALCONFIGS_STR
+    global MULTICASTRPS_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -592,7 +625,10 @@ def build_version_strings():
         APPLICATION_PROBE_STR = add_version_to_object(sdk.get.application_probe, "application_probe")
         IPFIX_STR = add_version_to_object(sdk.get.ipfix, "ipfix")
         SITE_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ipfixlocalprefixes, "site_ipfix_localprefixes")
-
+        SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ngfwsecuritypolicylocalprefixes,
+                                                                          "site_ngfw_securitypolicylocalprefixes")
+        MULTICASTGLOBALCONFIGS_STR = add_version_to_object(sdk.get.multicastglobalconfigs, "multicastglobalconfigs")
+        MULTICASTRPS_STR = add_version_to_object(sdk.get.multicastrps, "multicastrps")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -882,6 +918,23 @@ def _pull_config_for_single_site(site_name_id):
         site[SITE_IPFIXLOCALPREFIXES_STR].append(site_ipfix_localprefix_template)
 
     delete_if_empty(site, SITE_IPFIXLOCALPREFIXES_STR)
+
+    # Get Site NGFW Securitypolicylocalprefixes
+    site[SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR] = []
+    response = sdk.get.site_ngfwsecuritypolicylocalprefixes(site['id'])
+    if not response.cgx_status:
+        throw_error("Site NGFW security policy localprefixes get failed: ", response)
+    site_ngfw_securitypolicylocalprefixes = response.cgx_content['items']
+
+    for site_ngfw_securitypolicylocalprefix in site_ngfw_securitypolicylocalprefixes:
+        site_ngfw_securitypolicylocalprefix_template = copy.deepcopy(site_ngfw_securitypolicylocalprefix)
+        # replace flat name
+        name_lookup_in_template(site_ngfw_securitypolicylocalprefix_template, 'prefix_id', id_name_cache)
+
+        strip_meta_attributes(site_ngfw_securitypolicylocalprefix_template)
+        site[SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR].append(site_ngfw_securitypolicylocalprefix_template)
+
+    delete_if_empty(site, SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
@@ -1251,6 +1304,32 @@ def _pull_config_for_single_site(site_name_id):
         # Check for completely empty routing:
         delete_if_empty(element, 'routing')
 
+        # Get multicastglobalconfigs
+        element[MULTICASTGLOBALCONFIGS_STR] = []
+        response = sdk.get.multicastglobalconfigs(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Multicast Global Configs get failed: ", response)
+        multicastglobalconfigs = response.cgx_content['items']
+        for multicastglobalconfig in multicastglobalconfigs:
+            multicastglobalconfig_template = copy.deepcopy(multicastglobalconfig)
+            strip_meta_attributes(multicastglobalconfig_template, leave_name=True)
+            # names used, but config doesn't index by name for this value currently.
+            element[MULTICASTGLOBALCONFIGS_STR].append(multicastglobalconfig_template)
+        delete_if_empty(element, MULTICASTGLOBALCONFIGS_STR)
+
+        # Get multicastrps
+        element[MULTICASTRPS_STR] = []
+        response = sdk.get.multicastrps(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Multicast Rendezvous Point get failed: ", response)
+        multicastrps = response.cgx_content['items']
+        for multicastrp in multicastrps:
+            multicastrp_template = copy.deepcopy(multicastrp)
+            strip_meta_attributes(multicastrp_template, leave_name=True)
+            # names used, but config doesn't index by name for this value currently.
+            element[MULTICASTRPS_STR].append(multicastrp_template)
+        delete_if_empty(element, MULTICASTRPS_STR)
+
         # Get syslog
         element[SYSLOG_STR] = []
         response = sdk.get.syslogservers(site['id'], element['id'])
@@ -1267,6 +1346,7 @@ def _pull_config_for_single_site(site_name_id):
                 syslogserver_template['parent_type'] = 'bypasspair' + bps
             # replace flat name
             name_lookup_in_template(syslogserver_template, 'source_interface', id_name_cache)
+            name_lookup_in_template(syslogserver_template, 'syslog_profile_id', id_name_cache)
             strip_meta_attributes(syslogserver_template, leave_name=True)
             # names used, but config doesn't index by name for this value currently.
             element[SYSLOG_STR].append(syslogserver_template)
@@ -1576,6 +1656,7 @@ def _pull_config_for_single_site(site_name_id):
     # replace flat names
     name_lookup_in_template(site_template, 'policy_set_id', id_name_cache)
     name_lookup_in_template(site_template, 'security_policyset_id', id_name_cache)
+    name_lookup_in_template(site_template, 'security_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'network_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'service_binding', id_name_cache)

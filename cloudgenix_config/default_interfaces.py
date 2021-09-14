@@ -2164,6 +2164,121 @@ ion_9000 = """
             used_for: none
 """
 
+ion_1200 = """
+        {
+          "name": "4",
+          "description": null,
+          "type": "port",
+          "attached_lan_networks": null,
+          "site_wan_interface_ids": null,
+          "mac_address": null,
+          "mtu": 1500,
+          "ipv4_config": null,
+          "dhcp_relay": null,
+          "ethernet_port": {
+            "full_duplex": false,
+            "speed": 0
+          },
+          "admin_up": false,
+          "nat_address": null,
+          "nat_port": 0,
+          "used_for": "none",
+          "bound_interfaces": null,
+          "sub_interface": null,
+          "pppoe_config": null,
+          "parent": null,
+          "network_context_id": null,
+          "bypass_pair": null,
+          "service_link_config": null,
+          "scope": "local",
+          "tags": null
+        },
+        {
+          "name": "3",
+          "description": null,
+          "type": "port",
+          "attached_lan_networks": null,
+          "site_wan_interface_ids": null,
+          "mac_address": null,
+          "mtu": 1500,
+          "ipv4_config": null,
+          "dhcp_relay": null,
+          "ethernet_port": {
+            "full_duplex": false,
+            "speed": 0
+          },
+          "admin_up": false,
+          "nat_address": null,
+          "nat_port": 0,
+          "used_for": "none",
+          "bound_interfaces": null,
+          "sub_interface": null,
+          "pppoe_config": null,
+          "parent": null,
+          "network_context_id": null,
+          "bypass_pair": null,
+          "service_link_config": null,
+          "scope": "local",
+          "tags": null
+        },
+        {
+          "name": "2",
+          "description": null,
+          "type": "port",
+          "attached_lan_networks": null,
+          "site_wan_interface_ids": null,
+          "mac_address": null,
+          "mtu": 1500,
+          "ipv4_config": null,
+          "dhcp_relay": null,
+          "ethernet_port": {
+            "full_duplex": false,
+            "speed": 0
+          },
+          "admin_up": false,
+          "nat_address": null,
+          "nat_port": 0,
+          "used_for": "none",
+          "bound_interfaces": null,
+          "sub_interface": null,
+          "pppoe_config": null,
+          "parent": null,
+          "network_context_id": null,
+          "bypass_pair": null,
+          "service_link_config": null,
+          "scope": "local",
+          "tags": null
+        },
+        {
+          "name": "1",
+          "description": null,
+          "type": "port",
+          "attached_lan_networks": null,
+          "site_wan_interface_ids": null,
+          "mac_address": null,
+          "mtu": 1500,
+          "ipv4_config": null,
+          "dhcp_relay": null,
+          "ethernet_port": {
+            "full_duplex": false,
+            "speed": 0
+          },
+          "admin_up": false,
+          "nat_address": null,
+          "nat_port": 0,
+          "used_for": "none",
+          "bound_interfaces": null,
+          "sub_interface": null,
+          "pppoe_config": null,
+          "parent": null,
+          "network_context_id": null,
+          "bypass_pair": null,
+          "service_link_config": null,
+          "scope": "local",
+          "tags": null
+        }
+"""
+
 ion_3104v = ion_3102v
 ion_3108v = ion_3102v
 ion_7108v = ion_3102v

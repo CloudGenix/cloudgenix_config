@@ -209,6 +209,7 @@ upgrade_path_regex = {
     "5\.2\..*" : "5.4.3", ### 5.2.xyz -> 5.4.3
     "5\.3\..*" : "5.5.1", ### 5.3.xyz -> 5.4.3
     "5\.4\..*" : "5.5.1", ### 5.4.xyz -> 5.5.1
+    "5\.5\..*" : "5.6.1", ### 5.5.xyz -> 5.6.1
 }
 
 downgrade_path_regex = {
@@ -219,6 +220,7 @@ downgrade_path_regex = {
     "5\.3\..*" : "5.2.7", ### 5.3 to 5.2.7
     "5\.4\..*" : "5.2.7", ### 5.4 to 5.2.7
     "5\.5\..*" : "5.4.3", ### 5.5 to 5.4.3
+    "5\.6\..*" : "5.5.1", ### 5.6 to 5.5.1
 }
 
 # Global Config Cache holders
@@ -227,6 +229,9 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
+ngfw_security_policysetstack_cache = []
+ngfw_securitypolicylocalprefixes_cache = []
+syslogserverprofiles_cache = []
 securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
@@ -257,6 +262,9 @@ sites_n2id = {}
 elements_n2id = {}
 policysets_n2id = {}
 security_policysets_n2id = {}
+ngfw_security_policysetstack_n2id = {}
+ngfw_securitypolicylocalprefixes_n2id = {}
+syslogserverprofiles_n2id = {}
 securityzones_n2id = {}
 network_policysetstack_n2id = {}
 priority_policysetstack_n2id = {}
@@ -291,6 +299,7 @@ machines_byserial = {}
 securityzones_id2n = {}
 natlocalprefixes_id2n = {}
 ipfixlocalprefix_id2n = {}
+ngfw_securitypolicylocalprefixes_id2n = {}
 
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
@@ -427,6 +436,9 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
+    global ngfw_security_policysetstack_cache
+    global ngfw_securitypolicylocalprefixes_cache
+    global syslogserverprofiles_cache
     global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
@@ -455,6 +467,9 @@ def update_global_cache():
     global elements_n2id
     global policysets_n2id
     global security_policysets_n2id
+    global ngfw_security_policysetstack_n2id
+    global ngfw_securitypolicylocalprefixes_n2id
+    global syslogserverprofiles_n2id
     global securityzones_n2id
     global network_policysetstack_n2id
     global priority_policysetstack_n2id
@@ -487,6 +502,7 @@ def update_global_cache():
     global securityzones_id2n
     global natlocalprefixes_id2n
     global ipfixlocalprefix_id2n
+    global ngfw_securitypolicylocalprefixes_id2n
 
     # sites
     sites_resp = sdk.get.sites()
@@ -504,11 +520,23 @@ def update_global_cache():
     policysets_resp = sdk.get.policysets()
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
-    # secuirity_policysets
+    # security_policysets
     security_policysets_resp = sdk.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'security_policysets')
 
-    # secuirityzones
+    # ngfw_security_policysetstack
+    ngfw_security_policysetstack_resp = sdk.get.ngfwsecuritypolicysetstacks()
+    ngfw_security_policysetstack_cache, _ = extract_items(ngfw_security_policysetstack_resp, 'ngfw_securitypolicysetstack')
+
+    # ngfw_securitypolicylocalprefixes
+    ngfw_securitypolicylocalprefixes_resp = sdk.get.ngfwsecuritypolicylocalprefixes()
+    ngfw_securitypolicylocalprefixes_cache, _ = extract_items(ngfw_securitypolicylocalprefixes_resp, 'ngfw_securitypolicylocalprefixes')
+
+    # syslogserverprofiles
+    syslogserverprofiles_resp = sdk.get.syslogserverprofiles()
+    syslogserverprofiles_cache, _ = extract_items(syslogserverprofiles_resp, 'syslogserverprofiles')
+
+    # securityzones
     securityzones_resp = sdk.get.securityzones()
     securityzones_cache, _ = extract_items(securityzones_resp, 'securityzones')
 
@@ -616,6 +644,15 @@ def update_global_cache():
     # security_policysets name
     security_policysets_n2id = build_lookup_dict(security_policysets_cache)
 
+    # ngfw_security_policysetstack name
+    ngfw_security_policysetstack_n2id = build_lookup_dict(ngfw_security_policysetstack_cache)
+
+    # ngfw_securitypolicylocalprefixes name
+    ngfw_securitypolicylocalprefixes_n2id = build_lookup_dict(ngfw_securitypolicylocalprefixes_cache)
+
+    # syslogserverprofiles name
+    syslogserverprofiles_n2id = build_lookup_dict(syslogserverprofiles_cache)
+
     # securityzones name
     securityzones_n2id = build_lookup_dict(securityzones_cache)
 
@@ -705,6 +742,8 @@ def update_global_cache():
     # id to name for tenant_ipfixlocalprefixes
     ipfixlocalprefix_id2n = build_lookup_dict(ipfixlocalprefix_cache, key_val='id', value_val='name')
 
+    # id to name for ngfw_securitypolicylocalprefixes
+    ngfw_securitypolicylocalprefixes_id2n = build_lookup_dict(ngfw_securitypolicylocalprefixes_cache, key_val='id', value_val='name')
 
     return
 
@@ -793,9 +832,13 @@ def parse_site_config(config_site):
                                                                 sdk.put.site_natlocalprefixes, default=[])
     config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
                                                                 sdk.put.site_ipfixlocalprefixes, default=[])
+    config_site_ngfw_securitypolicylocalprefixes, _ = config_lower_version_get(config_site, 'site_ngfw_securitypolicylocalprefixes',
+                                                                               sdk.put.site_ngfwsecuritypolicylocalprefixes, default=[])
+
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+        config_site_ngfw_securitypolicylocalprefixes
 
 
 def parse_element_config(config_element):
@@ -820,9 +863,12 @@ def parse_element_config(config_element):
     config_dnsservices, _ = config_lower_version_get(config_element, 'dnsservices', sdk.put.dnsservices, default=[])
     config_app_probe, _ = config_lower_version_get(config_element, 'application_probe', sdk.put.application_probe, default={})
     config_ipfix, _ = config_lower_version_get(config_element, 'ipfix', sdk.put.ipfix, default=[])
+    config_multicastglobalconfigs, _ = config_lower_version_get(config_element, 'multicastglobalconfigs', sdk.put.multicastglobalconfigs, default=[])
+    config_multicastrps, _ = config_lower_version_get(config_element, 'multicastrps', sdk.put.multicastrps, default=[])
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, config_ipfix
+        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
+        config_ipfix, config_multicastglobalconfigs, config_multicastrps
 
 
 def parse_routing_config(config_routing):
@@ -1812,6 +1858,7 @@ def create_site(config_site):
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
+    name_lookup_in_template(site_template, 'security_policysetstack_id', ngfw_security_policysetstack_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
@@ -1868,6 +1915,7 @@ def modify_site(config_site, site_id):
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
+    name_lookup_in_template(site_template, 'security_policysetstack_id', ngfw_security_policysetstack_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
@@ -3149,6 +3197,154 @@ def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, 
     return
 
 
+def create_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_id):
+    """
+        Create a Site NGFW Security Policy Local Prefix mapping
+        :param config_site_ngfw_securitypolicylocalprefix: Site NGFW Security Policy localprefix config dict
+        :param site_id: Site ID to use
+        :return: Site NGFW Security Policy Local Prefix ID
+        """
+    # make a copy of site_ngfw_securitypolicylocalprefix to modify
+    site_ngfw_securitypolicylocalprefix_template = copy.deepcopy(config_site_ngfw_securitypolicylocalprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_ngfw_securitypolicylocalprefix_template, 'prefix_id',
+                            ngfw_securitypolicylocalprefixes_n2id)
+
+    # replace complex names (none for site ngfw security policy localprefixes)
+
+    local_debug("SITE_NGFW_SECURITYPOLICYLOCALPREFIX TEMPLATE: " + str(
+        json.dumps(site_ngfw_securitypolicylocalprefix_template, indent=4)))
+
+    # create site_ngfw_securitypolicylocalprefix
+    site_ngfw_securitypolicylocalprefix_resp = sdk.post.site_ngfwsecuritypolicylocalprefixes(site_id, site_ngfw_securitypolicylocalprefix_template)
+
+    if not site_ngfw_securitypolicylocalprefix_resp.cgx_status:
+        throw_error("Site NGFW Security Policy Localprefix creation failed: ", site_ngfw_securitypolicylocalprefix_resp)
+
+    site_ngfw_securitypolicylocalprefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get('id')
+    site_ngfw_securitypolicylocalprefix_prefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get(
+        'prefix_id')
+
+    if not site_ngfw_securitypolicylocalprefix_id or not site_ngfw_securitypolicylocalprefix_prefix_id:
+        throw_error("Unable to determine site_ngfw_securitypolicylocalprefix attributes (ID {0}, Prefix ID {1}).."
+                    "".format(site_ngfw_securitypolicylocalprefix_id, site_ngfw_securitypolicylocalprefix_prefix_id))
+
+    snspl_id = ngfw_securitypolicylocalprefixes_id2n.get(site_ngfw_securitypolicylocalprefix_prefix_id, site_ngfw_securitypolicylocalprefix_prefix_id)
+    output_message(" Created Site NGFW Security Policy Localprefix for Prefix '{0}'.".format(snspl_id))
+
+    return site_ngfw_securitypolicylocalprefix_id
+
+
+def modify_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_ngfw_securitypolicylocalprefix_id, site_id):
+    """
+        Modify Existing Site NGFW Security Policy Local Prefix mapping
+        :param config_site_ngfw_securitypolicylocalprefix: Site NGFW Security Policy localprefix config dict
+        :param site_ngfw_securitypolicylocalprefix_id: Existing Site NGFW Security Policy localprefix ID
+        :param site_id: Site ID to use
+        :return: Returned Site NGFW Security Policy localprefix ID
+        """
+    site_ngfw_securitypolicylocalprefix_config = {}
+    # make a copy of site_ngfw_securitypolicylocalprefix to modify
+    site_ngfw_securitypolicylocalprefix_template = copy.deepcopy(config_site_ngfw_securitypolicylocalprefix)
+
+    # perform name -> ID lookups
+    name_lookup_in_template(site_ngfw_securitypolicylocalprefix_template, 'prefix_id',
+                            ngfw_securitypolicylocalprefixes_n2id)
+
+    # replace complex names (none for site_ngfw_securitypolicylocalprefixes)
+
+    local_debug("SITE_NGFW_SECURITYPOLICYLOCALPREFIX TEMPLATE: " + str(
+        json.dumps(site_ngfw_securitypolicylocalprefix_template, indent=4)))
+
+    # get current site_ngfw_securitypolicylocalprefix
+    site_ngfw_securitypolicylocalprefix_resp = sdk.get.site_ngfwsecuritypolicylocalprefixes(site_id,
+                                                                                            site_ngfw_securitypolicylocalprefix_id)
+    if site_ngfw_securitypolicylocalprefix_resp.cgx_status:
+        site_ngfw_securitypolicylocalprefix_config = site_ngfw_securitypolicylocalprefix_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Site NGFW Security Policy Localprefix: ",
+                    site_ngfw_securitypolicylocalprefix_resp)
+
+    # extract prev_revision
+    prev_revision = site_ngfw_securitypolicylocalprefix_config.get("_etag")
+
+    # Check for changes:
+    site_ngfw_securitypolicylocalprefix_change_check = copy.deepcopy(site_ngfw_securitypolicylocalprefix_config)
+    site_ngfw_securitypolicylocalprefix_config.update(site_ngfw_securitypolicylocalprefix_template)
+    if not force_update and site_ngfw_securitypolicylocalprefix_config == site_ngfw_securitypolicylocalprefix_change_check:
+        # no change in config, pass.
+        site_ngfw_securitypolicylocalprefix_id = site_ngfw_securitypolicylocalprefix_change_check.get('id')
+        site_ngfw_securitypolicylocalprefix_prefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get('prefix_id')
+        snspl_name = ngfw_securitypolicylocalprefixes_id2n.get(site_ngfw_securitypolicylocalprefix_prefix_id,
+                                                             site_ngfw_securitypolicylocalprefix_prefix_id)
+
+        # Try to get prefix name this is for.
+        output_message(" No Change for Site NGFW Security Policy Localprefix for prefix '{0}'"
+                       "".format(snspl_name))
+
+        return site_ngfw_securitypolicylocalprefix_id
+
+    if debuglevel >= 3:
+        local_debug("SITE_NGFW_SECURITYPOLICYLOCALPREFIX DIFF: {0}".format(
+            find_diff(site_ngfw_securitypolicylocalprefix_change_check,
+                      site_ngfw_securitypolicylocalprefix_config)))
+
+    # Update Site_ngfw_securitypolicylocalprefix.
+    site_ngfw_securitypolicylocalprefix_resp2 = sdk.put.site_ngfwsecuritypolicylocalprefixes(site_id,
+                                                                                             site_ngfw_securitypolicylocalprefix_id,
+                                                                                             site_ngfw_securitypolicylocalprefix_config)
+
+    if not site_ngfw_securitypolicylocalprefix_resp2.cgx_status:
+        throw_error("Site NGFW Security Policy Localprefix update failed: ", site_ngfw_securitypolicylocalprefix_resp2)
+
+    site_ngfw_securitypolicylocalprefix_prefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get(
+        'prefix_id')
+    site_ngfw_securitypolicylocalprefix_id = site_ngfw_securitypolicylocalprefix_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = site_ngfw_securitypolicylocalprefix_resp2.cgx_content.get("_etag")
+
+    if not site_ngfw_securitypolicylocalprefix_prefix_id or not site_ngfw_securitypolicylocalprefix_id:
+        throw_error("Unable to determine Site NGFW Security Policy Localprefix attributes")
+
+    snspl_name = ngfw_securitypolicylocalprefixes_id2n.get(site_ngfw_securitypolicylocalprefix_prefix_id,
+                                                         site_ngfw_securitypolicylocalprefix_prefix_id)
+
+    output_message(" Updated Site NGFW Security Policy Localprefix for prefix '{0}' (Etag {1} -> {2})."
+                   "".format(snspl_name,
+                             prev_revision, current_revision))
+
+    return site_ngfw_securitypolicylocalprefix_id
+
+
+def delete_site_ngfw_securitypolicylocalprefixes(leftover_site_ngfw_securitypolicylocalprefixes, site_id, id2n=None):
+    """
+    Delete Site NGFW Security Policy localprefix Mapping
+    :param leftover_site_ngfw_securitypolicylocalprefixes: List of Site NGFW Security Policy localprefix IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for site_ngfw_securitypolicylocalprefix_id in leftover_site_ngfw_securitypolicylocalprefixes:
+        # delete all leftover site_ngfw_securitypolicylocalprefixes.
+        snspl_name = ngfw_securitypolicylocalprefixes_id2n.get(id2n.get(site_ngfw_securitypolicylocalprefix_id, site_ngfw_securitypolicylocalprefix_id),
+                                              site_ngfw_securitypolicylocalprefix_id)
+        output_message(" Deleting Unconfigured Site NGFW Security Policy Localprefix '{0}'."
+                       "".format(site_ngfw_securitypolicylocalprefix_id))
+        site_ngfw_securitypolicylocalprefix_del_resp = sdk.delete.site_ngfwsecuritypolicylocalprefixes(site_id,
+                                                                                                       site_ngfw_securitypolicylocalprefix_id)
+        if not site_ngfw_securitypolicylocalprefix_del_resp.cgx_status:
+            throw_error("Could not delete Site NGFW Security Policy Localprefix {0}: "
+                        "".format(site_ngfw_securitypolicylocalprefix_id),
+                        site_ngfw_securitypolicylocalprefix_del_resp)
+    return
+
+
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
                      api_interfaces_cache=None, interfaces_funny_n2id=None):
     """
@@ -3443,7 +3639,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         output_message("   Created interface {0}.".format(interface_name))
 
     # update caches
-    # Below check is for 9k. Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    # Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
     if config_interface_type == 'bypasspair':
         interfaces_n2id[str(interface_name)+'_bypasspair'] = interface_id
     else:
@@ -5201,8 +5397,171 @@ def modify_toolkit(config_toolkit, site_id, element_id):
 
     return toolkit_id
 
+def create_multicastrps(config_multicastrps, site_id, element_id):
+    """
+    Create a new multicastrps
+    :param config_multicastrps: multicastrps config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Created multicastrps ID
+    """
+    # make a copy of multicastrps to modify
+    multicastrps_template = copy.deepcopy(config_multicastrps)
 
-def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
+    # create multicastrps
+    multicastrps_resp = sdk.post.multicastrps(site_id, element_id, multicastrps_template)
+
+    if not multicastrps_resp.cgx_status:
+        throw_error("Multicast RP creation failed: ", multicastrps_resp)
+
+    multicastrps_id = multicastrps_resp.cgx_content.get('id')
+    multicastrps_name = multicastrps_resp.cgx_content.get('name', multicastrps_id)
+
+    if not multicastrps_id:
+        throw_error("Unable to determine Multicast RP attributes (ID {0})..".format(multicastrps_id))
+
+    output_message("   Created Multicast RP {0}.".format(multicastrps_name))
+
+    return multicastrps_id
+
+def modify_multicastrps(config_multicastrps, multicastrps_id, site_id, element_id):
+    """
+    Modify a multicastrps
+    :param config_multicastrps: multicastrps config dict
+    :param multicastrps_id: multicastrps ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified multicastrps ID
+    """
+    multicastrps_config = {}
+    # make a copy of multicastrps to modify
+    multicastrps_template = copy.deepcopy(config_multicastrps)
+
+    # get current multicastrps
+    multicastrps_resp = sdk.get.multicastrps(site_id, element_id, multicastrps_id)
+    if multicastrps_resp.cgx_status:
+        multicastrps_config = multicastrps_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Multicast RP: ", multicastrps_resp)
+
+    # extract prev_revision
+    prev_revision = multicastrps_config.get("_etag")
+
+    # Check for changes:
+    multicastrps_change_check = copy.deepcopy(multicastrps_config)
+    multicastrps_config.update(multicastrps_template)
+    if not force_update and multicastrps_config == multicastrps_change_check:
+        # no change in config, pass.
+        multicastrps_id = multicastrps_change_check.get('id')
+        multicastrps_name = multicastrps_change_check.get('name')
+        output_message("   No Change for Multicast RP {0}.".format(multicastrps_name))
+        return multicastrps_id
+
+    if debuglevel >= 3:
+        local_debug("Multicastrps DIFF: {0}".format(find_diff(multicastrps_change_check, multicastrps_config)))
+
+    # Update multicastrps.
+    multicastrps_resp2 = sdk.put.multicastrps(site_id, element_id, multicastrps_id, multicastrps_config)
+
+    if not multicastrps_resp2.cgx_status:
+        throw_error("Multicast RP update failed: ", multicastrps_resp2)
+
+    multicastrps_id = multicastrps_resp.cgx_content.get('id')
+    multicastrps_name = multicastrps_resp.cgx_content.get('name', multicastrps_id)
+
+    # extract current_revision
+    current_revision = multicastrps_resp2.cgx_content.get("_etag")
+
+    if not multicastrps_id:
+        throw_error("Unable to determine Multicast RP attributes (ID {0})..".format(multicastrps_id))
+
+    output_message("   Updated Multicast RP {0} (Etag {1} -> {2}).".format(multicastrps_name, prev_revision,
+                                                                           current_revision))
+
+    return multicastrps_id
+
+def delete_multicastrps(leftover_multicastrps, site_id, element_id, id2n=None):
+    """
+    Delete a multicastrps
+    :param leftover_multicastrps: multicastrps config dict
+    :param multicastrps_id: multicastrps ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified multicastrps ID
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for multicastrps_id in leftover_multicastrps:
+        # delete all leftover multicastrps.
+
+        output_message("   Deleting Unconfigured Multicast RP {0}.".format(id2n.get(multicastrps_id, multicastrps_id)))
+        multicastrps_del_resp = sdk.delete.multicastrps(site_id, element_id, multicastrps_id)
+        if not multicastrps_del_resp.cgx_status:
+            throw_error("Could not delete Multicast RP {0}: ".format(id2n.get(multicastrps_id, multicastrps_id)),
+                        multicastrps_del_resp)
+    return
+
+def modify_multicastglobalconfigs(config_multicastglobalconfigs, multicastglobalconfig_id, site_id, element_id):
+    """
+    Modify a multicastglobalconfig
+    :param config_multicastglobalconfigs: multicastglobalconfig config dict
+    :param multicastglobalconfig_id: multicastglobalconfig ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified multicastglobalconfig ID
+    """
+    multicastglobalconfig_config = {}
+    # make a copy of multicastglobalconfig to modify
+    multicastglobalconfig_template = copy.deepcopy(config_multicastglobalconfigs)
+
+    # get current multicastglobalconfig
+    multicastglobalconfig_resp = sdk.get.multicastglobalconfigs(site_id, element_id, multicastglobalconfig_id)
+    if multicastglobalconfig_resp.cgx_status:
+        multicastglobalconfig_config = multicastglobalconfig_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Multicast Global Config: ", multicastglobalconfig_resp)
+
+    # extract prev_revision
+    prev_revision = multicastglobalconfig_config.get("_etag")
+
+    # Check for changes:
+    multicastglobalconfig_change_check = copy.deepcopy(multicastglobalconfig_config)
+    multicastglobalconfig_config.update(multicastglobalconfig_template)
+    if not force_update and multicastglobalconfig_config == multicastglobalconfig_change_check:
+        # no change in config, pass.
+        multicastglobalconfig_id = multicastglobalconfig_change_check.get('id')
+        multicastglobalconfig_name = multicastglobalconfig_change_check.get('name')
+        output_message("   No Change for Multicast Global Config {0}.".format(multicastglobalconfig_name))
+        return multicastglobalconfig_id
+
+    if debuglevel >= 3:
+        local_debug("Multicast Global Config DIFF: {0}".format(
+            find_diff(multicastglobalconfig_change_check, multicastglobalconfig_config)))
+
+    # Update multicastglobalconfig.
+    multicastglobalconfig_resp2 = sdk.put.multicastglobalconfig(site_id, element_id, multicastglobalconfig_id,
+                                                                multicastglobalconfig_config)
+
+    if not multicastglobalconfig_resp2.cgx_status:
+        throw_error("Multicast Global Config update failed: ", multicastglobalconfig_resp2)
+
+    multicastglobalconfig_id = multicastglobalconfig_resp.cgx_content.get('id')
+    multicastglobalconfig_name = multicastglobalconfig_resp.cgx_content.get('name', multicastglobalconfig_id)
+
+    # extract current_revision
+    current_revision = multicastglobalconfig_resp2.cgx_content.get("_etag")
+
+    if not multicastglobalconfig_id:
+        throw_error("Unable to determine Multicast Global Config attributes (ID {0})..".format(multicastglobalconfig_id))
+
+    output_message("   Updated Multicast Global Config {0} (Etag {1} -> {2}).".format(multicastglobalconfig_name, prev_revision,
+                                                                           current_revision))
+
+    return multicastglobalconfig_id
+
+def create_syslog(config_syslog, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id):
     """
     Create a new Syslog
     :param config_syslog: Syslog config dict
@@ -5220,6 +5579,7 @@ def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
     else:
         name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
     syslog_template.pop('parent_type', None)
+    name_lookup_in_template(syslog_template, 'syslog_profile_id', syslogserverprofiles_n2id)
     local_debug("SYSLOG TEMPLATE: " + str(json.dumps(syslog_template, indent=4)))
 
     # create syslog
@@ -5239,8 +5599,7 @@ def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
     return syslog_id
 
 
-def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
-                  site_id, element_id):
+def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id):
     """
     Modify an existing Syslog
     :param config_syslog: Syslog config dict
@@ -5260,6 +5619,7 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
     else:
         name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
     syslog_template.pop('parent_type', None)
+    name_lookup_in_template(syslog_template, 'syslog_profile_id', syslogserverprofiles_n2id)
     local_debug("SYSLOG TEMPLATE: " + str(json.dumps(syslog_template, indent=4)))
 
     # get current syslog
@@ -6564,8 +6924,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes \
-                = parse_site_config(config_site)
+                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+                config_site_ngfw_securitypolicylocalprefixes = parse_site_config(config_site)
 
             # Determine site ID.
             # look for implicit ID in object.
@@ -7018,6 +7378,62 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Site_ipfix_localprefixes
 
+            # -- Start Site_ngfw_securitypolicylocalprefixes
+            site_ngfw_securitypolicylocalprefixes_resp = sdk.get.site_ngfwsecuritypolicylocalprefixes(site_id)
+            site_ngfw_securitypolicylocalprefixes_cache, leftover_site_ngfw_securitypolicylocalprefixes = extract_items(
+                site_ngfw_securitypolicylocalprefixes_resp, 'site_ngfw_securitypolicylocalprefixes')
+
+            # build lookup cache based on prefix id.
+            site_ngfw_securitypolicylocalprefixes_prefixid2id = build_lookup_dict(
+                site_ngfw_securitypolicylocalprefixes_cache, key_val='prefix_id')
+
+            # iterate configs (list)
+            for config_site_ngfw_securitypolicylocalprefix_entry in config_site_ngfw_securitypolicylocalprefixes:
+
+                # deepcopy to modify.
+                config_site_ngfw_securitypolicylocalprefix = copy.deepcopy(
+                    config_site_ngfw_securitypolicylocalprefix_entry)
+
+                # no need to get site_ngfw_securitypolicylocalprefix config, no child config objects.
+
+                # Determine site_ngfw_securitypolicylocalprefix ID.
+                # look for implicit ID in object.
+                implicit_site_ngfw_securitypolicylocalprefix_id = config_site_ngfw_securitypolicylocalprefix.get('id')
+                # if no ID, select by prefix ID
+                config_site_ngfw_securitypolicylocalprefix_prefix = config_site_ngfw_securitypolicylocalprefix.get('prefix_id')
+                # do name to id lookup
+                config_site_ngfw_securitypolicylocalprefix_prefix_id = ngfw_securitypolicylocalprefixes_n2id.get(
+                    config_site_ngfw_securitypolicylocalprefix_prefix,
+                    config_site_ngfw_securitypolicylocalprefix_prefix)
+                # finally, get site ngfw securitypolicylocalprefix id from prefix id
+                config_site_ngfw_securitypolicylocalprefix_id = \
+                    site_ngfw_securitypolicylocalprefixes_prefixid2id.get(
+                        config_site_ngfw_securitypolicylocalprefix_prefix_id)
+
+                if implicit_site_ngfw_securitypolicylocalprefix_id is not None:
+                    site_ngfw_securitypolicylocalprefix_id = implicit_site_ngfw_securitypolicylocalprefix_id
+                elif config_site_ngfw_securitypolicylocalprefix_id is not None:
+                    # look up ID by prefix_id on existing site_ngfw_securitypolicylocalprefix.
+                    site_ngfw_securitypolicylocalprefix_id = config_site_ngfw_securitypolicylocalprefix_id
+                else:
+                    # no site_ngfw_securitypolicylocalprefix object.
+                    site_ngfw_securitypolicylocalprefix_id = None
+
+                # Create or modify site_ngfw_securitypolicylocalprefix.
+                if site_ngfw_securitypolicylocalprefix_id is not None:
+                    # Site_ngfw_securitypolicylocalprefix exists, modify.
+                    site_ngfw_securitypolicylocalprefix_id = modify_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_ngfw_securitypolicylocalprefix_id, site_id)
+
+                else:
+                    # Site_ngfw_securitypolicylocalprefix does not exist, create.
+                    site_ngfw_securitypolicylocalprefix_id = create_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_id)
+
+                # remove from delete queue
+                leftover_site_ngfw_securitypolicylocalprefixes = [entry for entry in leftover_site_ngfw_securitypolicylocalprefixes
+                                                                  if entry != site_ngfw_securitypolicylocalprefix_id]
+
+            # -- End Site_ngfw_securitypolicylocalprefixes
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -7029,7 +7445,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                     config_toolkit, config_element_extensions, config_element_security_zones, \
-                    config_dnsservices, config_app_probe, config_ipfix = parse_element_config(config_element)
+                    config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, config_multicastrps = parse_element_config(config_element)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -7386,6 +7802,43 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_staticroutes(leftover_staticroutes, site_id, element_id)
 
                 # END STATIC ROUTING
+
+                # -- Start Multicastrps config
+                multicastrps_resp = sdk.get.multicastrps(site_id, element_id)
+                multicastrps_cache, leftover_multicastrps = extract_items(multicastrps_resp, 'multicastrps')
+                # build lookup cache based on prefix.
+                multicastrps_n2id = build_lookup_dict(multicastrps_cache)
+
+                # iterate configs (list)
+                for config_multicastrps_entry in config_multicastrps:
+
+                    # deepcopy to modify.
+                    config_multicastrps_record = copy.deepcopy(config_multicastrps_entry)
+
+                    # no need to get multicastrps config, no child config objects.
+
+                    # Determine multicastrps ID.
+                    # look for implicit ID in object.
+                    implicit_multicastrps_id = config_multicastrps_entry.get('id')
+                    config_multicastrps_name = config_multicastrps_entry.get('name')
+                    name_multicastrps_id = multicastrps_n2id.get(config_multicastrps_name)
+
+                    if implicit_multicastrps_id is not None:
+                        multicastrps_id = implicit_multicastrps_id
+
+                    elif name_multicastrps_id is not None:
+                        # look up ID by name on existing interfaces.
+                        multicastrps_id = name_multicastrps_id
+
+                    else:
+                        # no multicastrps object.
+                        multicastrps_id = None
+
+                    # remove from delete queue
+                    leftover_multicastrps = [entry for entry in leftover_multicastrps if entry != multicastrps_id]
+
+                delete_multicastrps(leftover_multicastrps, site_id, element_id)
+                # -- End Multicastrps config
 
                 # -- Start DNSSERVICES config
                 dnsservices_resp = sdk.get.dnsservices(site_id, element_id)
@@ -8695,6 +9148,90 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # -- End Routing
 
+                # -- Start Multicast Global Configs
+                multicastglobalconfigs_resp = sdk.get.multicastglobalconfigs(site_id, element_id)
+                multicastglobalconfigs_cache, leftover_multicastglobalconfigs = extract_items(
+                    multicastglobalconfigs_resp, 'multicastglobalconfigs')
+                # build lookup cache based on prefix.
+                multicastglobalconfigs_n2id = build_lookup_dict(multicastglobalconfigs_cache)
+
+                # iterate configs (list)
+                for config_multicastglobalconfigs_entry in config_multicastglobalconfigs:
+
+                    # deepcopy to modify.
+                    config_multicastglobalconfigs_record = copy.deepcopy(config_multicastglobalconfigs_entry)
+
+                    # no need to get multicastglobalconfigs config, no child config objects.
+
+                    # Determine multicastglobalconfigs ID.
+                    # look for implicit ID in object.
+                    implicit_multicastglobalconfigs_id = config_multicastglobalconfigs_entry.get('id')
+                    config_multicastglobalconfigs_name = config_multicastglobalconfigs_entry.get('name')
+                    name_multicastglobalconfigs_id = multicastglobalconfigs_n2id.get(config_multicastglobalconfigs_name)
+
+                    if implicit_multicastglobalconfigs_id is not None:
+                        multicastglobalconfigs_id = implicit_multicastglobalconfigs_id
+
+                    elif name_multicastglobalconfigs_id is not None:
+                        # look up ID by name on existing interfaces.
+                        multicastglobalconfigs_id = name_multicastglobalconfigs_id
+
+                    else:
+                        # no multicastglobalconfigs object.
+                        multicastglobalconfigs_id = None
+
+                    # Create or modify multicastglobalconfigs.
+                    if multicastglobalconfigs_id is not None:
+                        # multicastglobalconfigs exists, modify.
+                        multicastglobalconfigs_id = modify_multicastglobalconfigs(
+                            config_multicastglobalconfigs_record, multicastglobalconfigs_id, site_id, element_id)
+                # END Multicast Global Configs
+
+                # -- Start Multicastrps config
+                multicastrps_resp = sdk.get.multicastrps(site_id, element_id)
+                multicastrps_cache, leftover_multicastrps = extract_items(multicastrps_resp, 'multicastrps')
+                # build lookup cache based on prefix.
+                multicastrps_n2id = build_lookup_dict(multicastrps_cache)
+
+                # iterate configs (list)
+                for config_multicastrps_entry in config_multicastrps:
+
+                    # deepcopy to modify.
+                    config_multicastrps_record = copy.deepcopy(config_multicastrps_entry)
+
+                    # no need to get multicastrps config, no child config objects.
+
+                    # Determine multicastrps ID.
+                    # look for implicit ID in object.
+                    implicit_multicastrps_id = config_multicastrps_entry.get('id')
+                    config_multicastrps_name = config_multicastrps_entry.get('name')
+                    name_multicastrps_id = multicastrps_n2id.get(config_multicastrps_name)
+
+                    if implicit_multicastrps_id is not None:
+                        multicastrps_id = implicit_multicastrps_id
+
+                    elif name_multicastrps_id is not None:
+                        # look up ID by name on existing interfaces.
+                        multicastrps_id = name_multicastrps_id
+
+                    else:
+                        # no multicastrps object.
+                        multicastrps_id = None
+
+                    # Create or modify multicastrps.
+                    if multicastrps_id is not None:
+                        # multicastrps exists, modify.
+                        multicastrps_id = modify_multicastrps(config_multicastrps_record, multicastrps_id, site_id,
+                                                              element_id)
+
+                    else:
+                        # multicastrps does not exist, create.
+                        multicastrps_id = create_multicastrps(config_multicastrps_record, site_id, element_id)
+
+                    # remove from delete queue
+                    leftover_multicastrps = [entry for entry in leftover_multicastrps if entry != multicastrps_id]
+                # -- End Multicastrps config
+
                 # -- Start SNMP
                 # parse SNMP config.
                 config_snmp_agent, config_snmp_traps = parse_snmp_config(config_snmp)
@@ -8829,11 +9366,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Create or modify syslog.
                     if syslog_id is not None:
                         # Syslog exists, modify.
-                        syslog_id = modify_syslog(config_syslog_record, syslog_id, interfaces_n2id, site_id, element_id)
+                        syslog_id = modify_syslog(config_syslog_record, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id)
 
                     else:
                         # Syslog does not exist, create.
-                        syslog_id = create_syslog(config_syslog_record, interfaces_n2id, site_id, element_id)
+                        syslog_id = create_syslog(config_syslog_record, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id)
 
                     # remove from delete queue
                     leftover_syslogs = [entry for entry in leftover_syslogs if entry != syslog_id]
@@ -9108,6 +9645,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # delete remaining snmp agent configs
                 delete_snmp_agents(leftover_snmp_agents, site_id, element_id)
 
+                # delete remaining multicastrps configs
+                multicastrps_id2n = build_lookup_dict(multicastrps_cache, key_val='id', value_val='name')
+                delete_multicastrps(leftover_multicastrps, site_id, element_id, id2n=multicastrps_id2n)
+
                 # delete remaining staticroutes
                 delete_staticroutes(leftover_staticroutes, site_id, element_id)
 
@@ -9155,6 +9696,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                    value_val='prefix_id')
             delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id,
                                           id2n=site_nat_localprefixes_id2prefixid)
+
+            # delete remaining site_ngfw_securitypolicylocalprefixes
+            # build site_ngfw_securitypolicylocalprefixe_id to prefix_id mapping
+            site_ngfw_securitypolicylocalprefixes_id2prefixid = build_lookup_dict(site_ngfw_securitypolicylocalprefixes_cache, key_val='id',
+                                                                      value_val='prefix_id')
+            delete_site_ngfw_securitypolicylocalprefixes(leftover_site_ngfw_securitypolicylocalprefixes, site_id, id2n=site_ngfw_securitypolicylocalprefixes_id2prefixid)
 
             # delete remaining site_ipfix_localprefixes
             # build site_ipfix_localprefix_id to prefix_id mapping

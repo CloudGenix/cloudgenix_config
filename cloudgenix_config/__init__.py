@@ -301,6 +301,8 @@ def get_default_ifconfig_from_model_string(model_string):
     """
     if model_string == "ion 1000":
         return yaml.safe_load(ion_1000)
+    elif model_string == "ion 1200":
+        return yaml.safe_load(ion_1200)
     elif model_string == "ion 2000":
         return yaml.safe_load(ion_2000)
     elif model_string == "ion 3000":
@@ -406,8 +408,8 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
         if item_key and item_value is not None:
             # Below check to handle lookup in ion 9k
             # 9k can have same port and bypasspair names
-            # Adding '_bypasspair' for bypasspairs in range 12-15
-            if key_val == 'name' and model_name == 'ion 9000' and item.get('type') == 'bypasspair' and int(item_key) in range(12,17):
+            # Adding '_bypasspair' for bypasspairs
+            if key_val == 'name' and item.get('type') == 'bypasspair':
                 lookup_dict[str(item_key) + '_bypasspair'] = item_value
             # check if it's a duplicate key.
             if str(item_key) in lookup_dict:
