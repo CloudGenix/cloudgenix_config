@@ -160,7 +160,6 @@ DNS_SERVICES_STR = "dnsservices"
 APPLICATION_PROBE_STR = "application_probe"
 IPFIX_STR = "ipfix"
 SITE_IPFIXLOCALPREFIXES_STR = "site_ipfix_localprefixes"
-SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR = "site_ngfw_securitypolicylocalprefixes"
 MULTICASTGLOBALCONFIGS_STR = "multicastglobalconfigs"
 MULTICASTRPS_STR = "multicastrps"
 
@@ -171,7 +170,6 @@ machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
 ngfw_security_policysetstack_cache = []
-ngfw_securitypolicylocalprefixes_cache = []
 syslogserverprofiles_cache = []
 securityzones_cache = []
 network_policysetstack_cache = []
@@ -277,7 +275,6 @@ def update_global_cache():
     global policysets_cache
     global security_policysets_cache
     global ngfw_security_policysetstack_cache
-    global ngfw_securitypolicylocalprefixes_cache
     global syslogserverprofiles_cache
     global securityzones_cache
     global network_policysetstack_cache
@@ -331,10 +328,6 @@ def update_global_cache():
     # ngfw_security_policysetstack
     ngfw_security_policysetstack_resp = sdk.get.ngfwsecuritypolicysetstacks()
     ngfw_security_policysetstack_cache, _ = extract_items(ngfw_security_policysetstack_resp, 'ngfw_securitypolicysetstack')
-
-    # ngfw_securitypolicylocalprefixes
-    ngfw_securitypolicylocalprefixes_resp = sdk.get.ngfwsecuritypolicylocalprefixes()
-    ngfw_securitypolicylocalprefixes_cache, _ = extract_items(ngfw_securitypolicylocalprefixes_resp, 'ngfw_securitypolicylocalprefixes')
 
     # syslogserverprofiles
     syslogserverprofiles_resp = sdk.get.syslogserverprofiles()
@@ -453,9 +446,6 @@ def update_global_cache():
 
     # ngfw_securitypolicysetstack name
     id_name_cache.update(build_lookup_dict(ngfw_security_policysetstack_cache, key_val='id', value_val='name'))
-
-    # ngfw_securitypolicylocalprefixes name
-    id_name_cache.update(build_lookup_dict(ngfw_securitypolicylocalprefixes_cache, key_val='id', value_val='name'))
 
     # syslogserverprofiles name
     id_name_cache.update(build_lookup_dict(syslogserverprofiles_cache, key_val='id', value_val='name'))
@@ -588,7 +578,6 @@ def build_version_strings():
     global APPLICATION_PROBE_STR
     global IPFIX_STR
     global SITE_IPFIXLOCALPREFIXES_STR
-    global SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR
     global MULTICASTGLOBALCONFIGS_STR
     global MULTICASTRPS_STR
 
@@ -625,8 +614,6 @@ def build_version_strings():
         APPLICATION_PROBE_STR = add_version_to_object(sdk.get.application_probe, "application_probe")
         IPFIX_STR = add_version_to_object(sdk.get.ipfix, "ipfix")
         SITE_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ipfixlocalprefixes, "site_ipfix_localprefixes")
-        SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ngfwsecuritypolicylocalprefixes,
-                                                                          "site_ngfw_securitypolicylocalprefixes")
         MULTICASTGLOBALCONFIGS_STR = add_version_to_object(sdk.get.multicastglobalconfigs, "multicastglobalconfigs")
         MULTICASTRPS_STR = add_version_to_object(sdk.get.multicastrps, "multicastrps")
 
@@ -918,23 +905,6 @@ def _pull_config_for_single_site(site_name_id):
         site[SITE_IPFIXLOCALPREFIXES_STR].append(site_ipfix_localprefix_template)
 
     delete_if_empty(site, SITE_IPFIXLOCALPREFIXES_STR)
-
-    # Get Site NGFW Securitypolicylocalprefixes
-    site[SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR] = []
-    response = sdk.get.site_ngfwsecuritypolicylocalprefixes(site['id'])
-    if not response.cgx_status:
-        throw_error("Site NGFW security policy localprefixes get failed: ", response)
-    site_ngfw_securitypolicylocalprefixes = response.cgx_content['items']
-
-    for site_ngfw_securitypolicylocalprefix in site_ngfw_securitypolicylocalprefixes:
-        site_ngfw_securitypolicylocalprefix_template = copy.deepcopy(site_ngfw_securitypolicylocalprefix)
-        # replace flat name
-        name_lookup_in_template(site_ngfw_securitypolicylocalprefix_template, 'prefix_id', id_name_cache)
-
-        strip_meta_attributes(site_ngfw_securitypolicylocalprefix_template)
-        site[SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR].append(site_ngfw_securitypolicylocalprefix_template)
-
-    delete_if_empty(site, SITE_NGFW_SECURITYPOLICYLOCALPREFIXES_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}

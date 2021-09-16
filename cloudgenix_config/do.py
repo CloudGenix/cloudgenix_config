@@ -230,7 +230,6 @@ machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
 ngfw_security_policysetstack_cache = []
-ngfw_securitypolicylocalprefixes_cache = []
 syslogserverprofiles_cache = []
 securityzones_cache = []
 network_policysetstack_cache = []
@@ -263,7 +262,6 @@ elements_n2id = {}
 policysets_n2id = {}
 security_policysets_n2id = {}
 ngfw_security_policysetstack_n2id = {}
-ngfw_securitypolicylocalprefixes_n2id = {}
 syslogserverprofiles_n2id = {}
 securityzones_n2id = {}
 network_policysetstack_n2id = {}
@@ -299,7 +297,6 @@ machines_byserial = {}
 securityzones_id2n = {}
 natlocalprefixes_id2n = {}
 ipfixlocalprefix_id2n = {}
-ngfw_securitypolicylocalprefixes_id2n = {}
 
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
@@ -437,7 +434,6 @@ def update_global_cache():
     global policysets_cache
     global security_policysets_cache
     global ngfw_security_policysetstack_cache
-    global ngfw_securitypolicylocalprefixes_cache
     global syslogserverprofiles_cache
     global securityzones_cache
     global network_policysetstack_cache
@@ -468,7 +464,6 @@ def update_global_cache():
     global policysets_n2id
     global security_policysets_n2id
     global ngfw_security_policysetstack_n2id
-    global ngfw_securitypolicylocalprefixes_n2id
     global syslogserverprofiles_n2id
     global securityzones_n2id
     global network_policysetstack_n2id
@@ -502,7 +497,6 @@ def update_global_cache():
     global securityzones_id2n
     global natlocalprefixes_id2n
     global ipfixlocalprefix_id2n
-    global ngfw_securitypolicylocalprefixes_id2n
 
     # sites
     sites_resp = sdk.get.sites()
@@ -527,10 +521,6 @@ def update_global_cache():
     # ngfw_security_policysetstack
     ngfw_security_policysetstack_resp = sdk.get.ngfwsecuritypolicysetstacks()
     ngfw_security_policysetstack_cache, _ = extract_items(ngfw_security_policysetstack_resp, 'ngfw_securitypolicysetstack')
-
-    # ngfw_securitypolicylocalprefixes
-    ngfw_securitypolicylocalprefixes_resp = sdk.get.ngfwsecuritypolicylocalprefixes()
-    ngfw_securitypolicylocalprefixes_cache, _ = extract_items(ngfw_securitypolicylocalprefixes_resp, 'ngfw_securitypolicylocalprefixes')
 
     # syslogserverprofiles
     syslogserverprofiles_resp = sdk.get.syslogserverprofiles()
@@ -647,9 +637,6 @@ def update_global_cache():
     # ngfw_security_policysetstack name
     ngfw_security_policysetstack_n2id = build_lookup_dict(ngfw_security_policysetstack_cache)
 
-    # ngfw_securitypolicylocalprefixes name
-    ngfw_securitypolicylocalprefixes_n2id = build_lookup_dict(ngfw_securitypolicylocalprefixes_cache)
-
     # syslogserverprofiles name
     syslogserverprofiles_n2id = build_lookup_dict(syslogserverprofiles_cache)
 
@@ -742,9 +729,6 @@ def update_global_cache():
     # id to name for tenant_ipfixlocalprefixes
     ipfixlocalprefix_id2n = build_lookup_dict(ipfixlocalprefix_cache, key_val='id', value_val='name')
 
-    # id to name for ngfw_securitypolicylocalprefixes
-    ngfw_securitypolicylocalprefixes_id2n = build_lookup_dict(ngfw_securitypolicylocalprefixes_cache, key_val='id', value_val='name')
-
     return
 
 
@@ -832,13 +816,9 @@ def parse_site_config(config_site):
                                                                 sdk.put.site_natlocalprefixes, default=[])
     config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
                                                                 sdk.put.site_ipfixlocalprefixes, default=[])
-    config_site_ngfw_securitypolicylocalprefixes, _ = config_lower_version_get(config_site, 'site_ngfw_securitypolicylocalprefixes',
-                                                                               sdk.put.site_ngfwsecuritypolicylocalprefixes, default=[])
-
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-        config_site_ngfw_securitypolicylocalprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
 
 
 def parse_element_config(config_element):
@@ -1854,6 +1834,7 @@ def create_site(config_site):
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
+    site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -3194,154 +3175,6 @@ def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, 
             throw_error("Could not delete Site IPFIX Localprefix mapping for Localprefix {0}: "
                         "".format(silp_name),
                         site_ipfix_localprefix_del_resp)
-    return
-
-
-def create_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_id):
-    """
-        Create a Site NGFW Security Policy Local Prefix mapping
-        :param config_site_ngfw_securitypolicylocalprefix: Site NGFW Security Policy localprefix config dict
-        :param site_id: Site ID to use
-        :return: Site NGFW Security Policy Local Prefix ID
-        """
-    # make a copy of site_ngfw_securitypolicylocalprefix to modify
-    site_ngfw_securitypolicylocalprefix_template = copy.deepcopy(config_site_ngfw_securitypolicylocalprefix)
-
-    # perform name -> ID lookups
-    name_lookup_in_template(site_ngfw_securitypolicylocalprefix_template, 'prefix_id',
-                            ngfw_securitypolicylocalprefixes_n2id)
-
-    # replace complex names (none for site ngfw security policy localprefixes)
-
-    local_debug("SITE_NGFW_SECURITYPOLICYLOCALPREFIX TEMPLATE: " + str(
-        json.dumps(site_ngfw_securitypolicylocalprefix_template, indent=4)))
-
-    # create site_ngfw_securitypolicylocalprefix
-    site_ngfw_securitypolicylocalprefix_resp = sdk.post.site_ngfwsecuritypolicylocalprefixes(site_id, site_ngfw_securitypolicylocalprefix_template)
-
-    if not site_ngfw_securitypolicylocalprefix_resp.cgx_status:
-        throw_error("Site NGFW Security Policy Localprefix creation failed: ", site_ngfw_securitypolicylocalprefix_resp)
-
-    site_ngfw_securitypolicylocalprefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get('id')
-    site_ngfw_securitypolicylocalprefix_prefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get(
-        'prefix_id')
-
-    if not site_ngfw_securitypolicylocalprefix_id or not site_ngfw_securitypolicylocalprefix_prefix_id:
-        throw_error("Unable to determine site_ngfw_securitypolicylocalprefix attributes (ID {0}, Prefix ID {1}).."
-                    "".format(site_ngfw_securitypolicylocalprefix_id, site_ngfw_securitypolicylocalprefix_prefix_id))
-
-    snspl_id = ngfw_securitypolicylocalprefixes_id2n.get(site_ngfw_securitypolicylocalprefix_prefix_id, site_ngfw_securitypolicylocalprefix_prefix_id)
-    output_message(" Created Site NGFW Security Policy Localprefix for Prefix '{0}'.".format(snspl_id))
-
-    return site_ngfw_securitypolicylocalprefix_id
-
-
-def modify_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_ngfw_securitypolicylocalprefix_id, site_id):
-    """
-        Modify Existing Site NGFW Security Policy Local Prefix mapping
-        :param config_site_ngfw_securitypolicylocalprefix: Site NGFW Security Policy localprefix config dict
-        :param site_ngfw_securitypolicylocalprefix_id: Existing Site NGFW Security Policy localprefix ID
-        :param site_id: Site ID to use
-        :return: Returned Site NGFW Security Policy localprefix ID
-        """
-    site_ngfw_securitypolicylocalprefix_config = {}
-    # make a copy of site_ngfw_securitypolicylocalprefix to modify
-    site_ngfw_securitypolicylocalprefix_template = copy.deepcopy(config_site_ngfw_securitypolicylocalprefix)
-
-    # perform name -> ID lookups
-    name_lookup_in_template(site_ngfw_securitypolicylocalprefix_template, 'prefix_id',
-                            ngfw_securitypolicylocalprefixes_n2id)
-
-    # replace complex names (none for site_ngfw_securitypolicylocalprefixes)
-
-    local_debug("SITE_NGFW_SECURITYPOLICYLOCALPREFIX TEMPLATE: " + str(
-        json.dumps(site_ngfw_securitypolicylocalprefix_template, indent=4)))
-
-    # get current site_ngfw_securitypolicylocalprefix
-    site_ngfw_securitypolicylocalprefix_resp = sdk.get.site_ngfwsecuritypolicylocalprefixes(site_id,
-                                                                                            site_ngfw_securitypolicylocalprefix_id)
-    if site_ngfw_securitypolicylocalprefix_resp.cgx_status:
-        site_ngfw_securitypolicylocalprefix_config = site_ngfw_securitypolicylocalprefix_resp.cgx_content
-    else:
-        throw_error("Unable to retrieve Site NGFW Security Policy Localprefix: ",
-                    site_ngfw_securitypolicylocalprefix_resp)
-
-    # extract prev_revision
-    prev_revision = site_ngfw_securitypolicylocalprefix_config.get("_etag")
-
-    # Check for changes:
-    site_ngfw_securitypolicylocalprefix_change_check = copy.deepcopy(site_ngfw_securitypolicylocalprefix_config)
-    site_ngfw_securitypolicylocalprefix_config.update(site_ngfw_securitypolicylocalprefix_template)
-    if not force_update and site_ngfw_securitypolicylocalprefix_config == site_ngfw_securitypolicylocalprefix_change_check:
-        # no change in config, pass.
-        site_ngfw_securitypolicylocalprefix_id = site_ngfw_securitypolicylocalprefix_change_check.get('id')
-        site_ngfw_securitypolicylocalprefix_prefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get('prefix_id')
-        snspl_name = ngfw_securitypolicylocalprefixes_id2n.get(site_ngfw_securitypolicylocalprefix_prefix_id,
-                                                             site_ngfw_securitypolicylocalprefix_prefix_id)
-
-        # Try to get prefix name this is for.
-        output_message(" No Change for Site NGFW Security Policy Localprefix for prefix '{0}'"
-                       "".format(snspl_name))
-
-        return site_ngfw_securitypolicylocalprefix_id
-
-    if debuglevel >= 3:
-        local_debug("SITE_NGFW_SECURITYPOLICYLOCALPREFIX DIFF: {0}".format(
-            find_diff(site_ngfw_securitypolicylocalprefix_change_check,
-                      site_ngfw_securitypolicylocalprefix_config)))
-
-    # Update Site_ngfw_securitypolicylocalprefix.
-    site_ngfw_securitypolicylocalprefix_resp2 = sdk.put.site_ngfwsecuritypolicylocalprefixes(site_id,
-                                                                                             site_ngfw_securitypolicylocalprefix_id,
-                                                                                             site_ngfw_securitypolicylocalprefix_config)
-
-    if not site_ngfw_securitypolicylocalprefix_resp2.cgx_status:
-        throw_error("Site NGFW Security Policy Localprefix update failed: ", site_ngfw_securitypolicylocalprefix_resp2)
-
-    site_ngfw_securitypolicylocalprefix_prefix_id = site_ngfw_securitypolicylocalprefix_resp.cgx_content.get(
-        'prefix_id')
-    site_ngfw_securitypolicylocalprefix_id = site_ngfw_securitypolicylocalprefix_resp2.cgx_content.get('id')
-
-    # extract current_revision
-    current_revision = site_ngfw_securitypolicylocalprefix_resp2.cgx_content.get("_etag")
-
-    if not site_ngfw_securitypolicylocalprefix_prefix_id or not site_ngfw_securitypolicylocalprefix_id:
-        throw_error("Unable to determine Site NGFW Security Policy Localprefix attributes")
-
-    snspl_name = ngfw_securitypolicylocalprefixes_id2n.get(site_ngfw_securitypolicylocalprefix_prefix_id,
-                                                         site_ngfw_securitypolicylocalprefix_prefix_id)
-
-    output_message(" Updated Site NGFW Security Policy Localprefix for prefix '{0}' (Etag {1} -> {2})."
-                   "".format(snspl_name,
-                             prev_revision, current_revision))
-
-    return site_ngfw_securitypolicylocalprefix_id
-
-
-def delete_site_ngfw_securitypolicylocalprefixes(leftover_site_ngfw_securitypolicylocalprefixes, site_id, id2n=None):
-    """
-    Delete Site NGFW Security Policy localprefix Mapping
-    :param leftover_site_ngfw_securitypolicylocalprefixes: List of Site NGFW Security Policy localprefix IDs to delete
-    :param site_id: Site ID to use
-    :param id2n: Optional - ID to Name lookup dict
-    :return: None
-    """
-    # ensure id2n is empty dict if not set.
-    if id2n is None:
-        id2n = {}
-
-    for site_ngfw_securitypolicylocalprefix_id in leftover_site_ngfw_securitypolicylocalprefixes:
-        # delete all leftover site_ngfw_securitypolicylocalprefixes.
-        snspl_name = ngfw_securitypolicylocalprefixes_id2n.get(id2n.get(site_ngfw_securitypolicylocalprefix_id, site_ngfw_securitypolicylocalprefix_id),
-                                              site_ngfw_securitypolicylocalprefix_id)
-        output_message(" Deleting Unconfigured Site NGFW Security Policy Localprefix '{0}'."
-                       "".format(site_ngfw_securitypolicylocalprefix_id))
-        site_ngfw_securitypolicylocalprefix_del_resp = sdk.delete.site_ngfwsecuritypolicylocalprefixes(site_id,
-                                                                                                       site_ngfw_securitypolicylocalprefix_id)
-        if not site_ngfw_securitypolicylocalprefix_del_resp.cgx_status:
-            throw_error("Could not delete Site NGFW Security Policy Localprefix {0}: "
-                        "".format(site_ngfw_securitypolicylocalprefix_id),
-                        site_ngfw_securitypolicylocalprefix_del_resp)
     return
 
 
@@ -6925,7 +6758,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-                config_site_ngfw_securitypolicylocalprefixes = parse_site_config(config_site)
+                = parse_site_config(config_site)
 
             # Determine site ID.
             # look for implicit ID in object.
@@ -7377,62 +7210,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                      if entry != site_ipfix_localprefix_id]
 
             # -- End Site_ipfix_localprefixes
-
-            # -- Start Site_ngfw_securitypolicylocalprefixes
-            site_ngfw_securitypolicylocalprefixes_resp = sdk.get.site_ngfwsecuritypolicylocalprefixes(site_id)
-            site_ngfw_securitypolicylocalprefixes_cache, leftover_site_ngfw_securitypolicylocalprefixes = extract_items(
-                site_ngfw_securitypolicylocalprefixes_resp, 'site_ngfw_securitypolicylocalprefixes')
-
-            # build lookup cache based on prefix id.
-            site_ngfw_securitypolicylocalprefixes_prefixid2id = build_lookup_dict(
-                site_ngfw_securitypolicylocalprefixes_cache, key_val='prefix_id')
-
-            # iterate configs (list)
-            for config_site_ngfw_securitypolicylocalprefix_entry in config_site_ngfw_securitypolicylocalprefixes:
-
-                # deepcopy to modify.
-                config_site_ngfw_securitypolicylocalprefix = copy.deepcopy(
-                    config_site_ngfw_securitypolicylocalprefix_entry)
-
-                # no need to get site_ngfw_securitypolicylocalprefix config, no child config objects.
-
-                # Determine site_ngfw_securitypolicylocalprefix ID.
-                # look for implicit ID in object.
-                implicit_site_ngfw_securitypolicylocalprefix_id = config_site_ngfw_securitypolicylocalprefix.get('id')
-                # if no ID, select by prefix ID
-                config_site_ngfw_securitypolicylocalprefix_prefix = config_site_ngfw_securitypolicylocalprefix.get('prefix_id')
-                # do name to id lookup
-                config_site_ngfw_securitypolicylocalprefix_prefix_id = ngfw_securitypolicylocalprefixes_n2id.get(
-                    config_site_ngfw_securitypolicylocalprefix_prefix,
-                    config_site_ngfw_securitypolicylocalprefix_prefix)
-                # finally, get site ngfw securitypolicylocalprefix id from prefix id
-                config_site_ngfw_securitypolicylocalprefix_id = \
-                    site_ngfw_securitypolicylocalprefixes_prefixid2id.get(
-                        config_site_ngfw_securitypolicylocalprefix_prefix_id)
-
-                if implicit_site_ngfw_securitypolicylocalprefix_id is not None:
-                    site_ngfw_securitypolicylocalprefix_id = implicit_site_ngfw_securitypolicylocalprefix_id
-                elif config_site_ngfw_securitypolicylocalprefix_id is not None:
-                    # look up ID by prefix_id on existing site_ngfw_securitypolicylocalprefix.
-                    site_ngfw_securitypolicylocalprefix_id = config_site_ngfw_securitypolicylocalprefix_id
-                else:
-                    # no site_ngfw_securitypolicylocalprefix object.
-                    site_ngfw_securitypolicylocalprefix_id = None
-
-                # Create or modify site_ngfw_securitypolicylocalprefix.
-                if site_ngfw_securitypolicylocalprefix_id is not None:
-                    # Site_ngfw_securitypolicylocalprefix exists, modify.
-                    site_ngfw_securitypolicylocalprefix_id = modify_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_ngfw_securitypolicylocalprefix_id, site_id)
-
-                else:
-                    # Site_ngfw_securitypolicylocalprefix does not exist, create.
-                    site_ngfw_securitypolicylocalprefix_id = create_site_ngfw_securitypolicylocalprefixes(config_site_ngfw_securitypolicylocalprefix, site_id)
-
-                # remove from delete queue
-                leftover_site_ngfw_securitypolicylocalprefixes = [entry for entry in leftover_site_ngfw_securitypolicylocalprefixes
-                                                                  if entry != site_ngfw_securitypolicylocalprefix_id]
-
-            # -- End Site_ngfw_securitypolicylocalprefixes
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -9697,12 +9474,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id,
                                           id2n=site_nat_localprefixes_id2prefixid)
 
-            # delete remaining site_ngfw_securitypolicylocalprefixes
-            # build site_ngfw_securitypolicylocalprefixe_id to prefix_id mapping
-            site_ngfw_securitypolicylocalprefixes_id2prefixid = build_lookup_dict(site_ngfw_securitypolicylocalprefixes_cache, key_val='id',
-                                                                      value_val='prefix_id')
-            delete_site_ngfw_securitypolicylocalprefixes(leftover_site_ngfw_securitypolicylocalprefixes, site_id, id2n=site_ngfw_securitypolicylocalprefixes_id2prefixid)
-
             # delete remaining site_ipfix_localprefixes
             # build site_ipfix_localprefix_id to prefix_id mapping
             site_ipfix_localprefixes_id2prefixid = build_lookup_dict(site_ipfix_localprefixes_cache, key_val='id',
@@ -9760,7 +9531,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             else:
                 # no site object.
                 del_site_id = None
-                throw_warning("Could not find site {0} ({1}). Continuing: ".format(config_site_name, del_site_id))
+                # Fix for CGCBL-508
+                throw_error("Could not find site {0} ({1}). Exiting: ".format(config_site_name, del_site_id))
 
             del_site_name = sites_id2n.get(del_site_id, del_site_id)
 
