@@ -9122,7 +9122,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     config_syslog_record = copy.deepcopy(config_syslog_entry)
 
                     # no need to get syslog config, no child config objects.
-
+                    # Fix for CGCBL-516
+                    if config_syslog_record.get('syslog_profile_id'):
+                        config_syslog_record['server_port'] = None
                     # Determine syslog ID.
                     # look for implicit ID in object.
                     implicit_syslog_id = config_syslog_entry.get('id')

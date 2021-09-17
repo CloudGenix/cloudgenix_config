@@ -1317,6 +1317,9 @@ def _pull_config_for_single_site(site_name_id):
             # replace flat name
             name_lookup_in_template(syslogserver_template, 'source_interface', id_name_cache)
             name_lookup_in_template(syslogserver_template, 'syslog_profile_id', id_name_cache)
+            # Fix for CGCBL-516
+            if syslogserver_template.get('syslog_profile_id'):
+                syslogserver_template['server_port'] = None
             strip_meta_attributes(syslogserver_template, leave_name=True)
             # names used, but config doesn't index by name for this value currently.
             element[SYSLOG_STR].append(syslogserver_template)
