@@ -56,7 +56,7 @@ try:
         config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-        nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
+        nameable_interface_types, skip_interface_list, check_default_ipv4_config, get_function_default_args, CloudGenixConfigError
 
     from cloudgenix_config import __version__ as import_cloudgenix_config_version
 except Exception:
@@ -64,7 +64,7 @@ except Exception:
         config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-        nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
+        nameable_interface_types, skip_interface_list, check_default_ipv4_config, get_function_default_args, CloudGenixConfigError
 
     from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
@@ -6711,8 +6711,6 @@ def validate_resource(resource, api, filename=None, last=False):
     :return:
     """
     req_attr = get_parse_resource_doc(api)
-    # if not resource:
-    #     return
     if not req_attr:
         throw_warning(f"Failed to fetch required attributes for resource '{api}'. Continuing")
         return
@@ -6721,9 +6719,23 @@ def validate_resource(resource, api, filename=None, last=False):
         file = filename + '-' + cloudgenix.version + '.yml'
     else:
         file = cloudgenix.version + '.yml'
+
     config_yml = open(file, 'a')
+
+    attr = getattr(sdk.put, api)
+    args = get_function_default_args(attr)
+    # extract API version
+    api_version = args.get('api_version')
+    # if invalid API version, set to default value
+    if not api_version:
+        api_version = "UNDEFINED"
+    if api == "elementaccessconfigs":
+        api = "toolkit"
+    # Adding version to api string
+    new_api = api+' '+api_version
     dump = {}
-    dump[api] = {}
+    dump[new_api] = {}
+
     if type(resource) == dict:
 
         for key, value in resource.items():
@@ -6740,9 +6752,9 @@ def validate_resource(resource, api, filename=None, last=False):
                     resource[key] = None
             # Build the dict to dump into file
             if 'name' in resource:
-                dump[api][resource['name']] = resource
+                dump[new_api][resource['name']] = resource
             else:
-                dump[api] = resource
+                dump[new_api] = resource
 
             if missing_attr:
                 throw_warning(
@@ -6760,9 +6772,9 @@ def validate_resource(resource, api, filename=None, last=False):
                     item[key] = None
             # Build the dict to dump into file
             if 'name' in resource:
-                dump[api][resource['name']] = resource
+                dump[new_api][resource['name']] = resource
             else:
-                dump[api] = resource
+                dump[new_api] = resource
             if missing_attr:
                 throw_warning(
                     f"YAML resource '{api} - {item.get('name') if 'name' in item else item.get('zone_id')}' missing mandatory attributes '{missing_attr}'")
@@ -6852,7 +6864,7 @@ def check_required_attributes(config_sites, filename=None):
             validate_resource([config_routing_bgp_global], 'bgpconfigs', filename=filename)
             validate_resource(config_routing_bgp_peers, 'bgppeers', filename=filename)
             validate_resource(config_snmp_agent, 'snmpagents', filename=filename)
-            validate_resource(config_snmp_traps, 'snmptraps', filename=filename, last=True)
+            validate_resource(config_snmp_traps, 'snmptraps', filename=filename, last=True) # Setting parameter last=True to throw error
 
     return
 
