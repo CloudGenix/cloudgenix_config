@@ -6737,7 +6737,6 @@ def validate_resource(resource, api, filename=None, last=False):
     dump[new_api] = {}
 
     if type(resource) == dict:
-
         for key, value in resource.items():
             # recombine element object
             resource = recombine_named_key_value(key, value, name_key='name')
@@ -6762,6 +6761,8 @@ def validate_resource(resource, api, filename=None, last=False):
 
     elif type(resource) == list:
         for item in resource:
+            if type(item) == list and not item: # Handling empty dnsservices
+                continue
             missing_attr = []
             for key in req_attr:
                 # Ignore the below fields
@@ -6800,7 +6801,8 @@ def check_required_attributes(config_sites, filename=None):
     # Insert metadata line inside file (# SDK version: v5.6.1b1)
     file = filename + '-' + cloudgenix.version + '.yml'
     config_yml = open(file, 'w')
-    config_yml.write(f"# SDK version: {cloudgenix.version}\n\n")
+    config_yml.write(f"# CGX SDK version: {cloudgenix.version}\n")
+    config_yml.write(f"# CGX Config version: {import_cloudgenix_config_version}\n\n")
     config_yml.close()
     # Fetch and Parse through all the configs from sites object
     for config_site_name, config_site_value in config_sites.items():

@@ -1727,7 +1727,9 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
             return CONFIG
         else:
             config_yml = open(output_filename, "w")
-            config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+            config_yml.write("---\ntype: cloudgenix template\n")
+            config_yml.write(f"sdk_version: {cloudgenix.version}\n")
+            config_yml.write(f"config_version: {import_cloudgenix_config_version}\n")
             # write header by default, but skip if asked.
             if not no_header:
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
