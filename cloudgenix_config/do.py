@@ -132,7 +132,8 @@ __license__ = """
 
 # Constant settings
 FILE_TYPE_REQUIRED = "cloudgenix template"
-FILE_VERSION_REQUIRED = "1.0"
+SDK_VERSION_REQUIRED = 'v5.6.1b1'
+CONFIG_VERSION_REQUIRED = '1.5.0b1'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
@@ -772,20 +773,35 @@ def parse_root_config(data_file):
     if not FROM_CLOUDBLADE:
         # Verify template.
         yml_type = str(config_lower_get(data_file, 'type'))
-        yml_ver = str(config_lower_get(data_file, 'version'))
+        # Removing yml version and adding sdk version and config version
+        sdk_ver = str(config_lower_get(data_file, 'sdk_version'))
+        config_ver = str(config_lower_get(data_file, 'config_version'))
+        if (cloudgenix.version >= SDK_VERSION_REQUIRED and import_cloudgenix_config_version >= CONFIG_VERSION_REQUIRED):
+            if sdk_ver == 'None' or config_ver == 'None':
+                throw_error("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version")
+            else:
+                detect_msg = {
+                    "Expected Type": FILE_TYPE_REQUIRED,
+                    "Read Type": yml_type,
+                    "Expected SDK Version": '>= '+SDK_VERSION_REQUIRED,
+                    "Read SDK Version": sdk_ver,
+                    "Expected Config Version": '>= '+CONFIG_VERSION_REQUIRED,
+                    "Read Config Version": config_ver
+                }
 
-        detect_msg = {
-            "Expected Type": FILE_TYPE_REQUIRED,
-            "Read Type": yml_type,
-            "Expected Version": FILE_VERSION_REQUIRED,
-            "Read Version": yml_ver
-        }
+                local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
 
-        local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
+                if not yml_type == FILE_TYPE_REQUIRED or not (sdk_ver >= SDK_VERSION_REQUIRED and config_ver >= CONFIG_VERSION_REQUIRED):
+                    throw_error("YAML file not correct type or version. Required mandatory meta attributes: type, sdk_version and config_version ", detect_msg)
 
-        if not yml_type == FILE_TYPE_REQUIRED or not yml_ver == FILE_VERSION_REQUIRED:
-            throw_error("YAML file not correct type or version: ", detect_msg)
+        else:
+            detect_msg = {
+                "Expected Type": FILE_TYPE_REQUIRED,
+                "Read Type": yml_type
+            }
 
+            if not yml_type == FILE_TYPE_REQUIRED:
+                throw_error("YAML file not correct type: ", detect_msg)
     # grab sites
     config_sites, _ = config_lower_version_get(data_file, 'sites', sdk.put.sites, default={})
 
@@ -6680,200 +6696,9 @@ def delete_ipfix(leftover_ipfix, site_id, element_id, id2n=None):
     return
 
 
-def get_parse_resource_doc(api):
-    """
-    Get the docstring for a resource and also parse it for mandatory params
-    :param api: Resource api to fetch the docstring (interfaces, ntp, dns etc)
-    :return: Required attributes
-    """
-    attr = getattr(sdk.put, api)
-    doc, req_attr = '', []
-    if attr:
-        doc = attr.__doc__
-    else:
-        throw_warning(f"SDK PUT does not contain attribute {api}. Continuing")
-        return
-    res = re.search(r"Required Attributes[\s:*]+\[(.*)\]", doc)
-    if res:
-        attr_reg = re.compile(r"u\'(\w+)\'")
-        req_attr = attr_reg.findall(res[1])
-
-    return req_attr
-
-
-def validate_resource(resource, api, filename=None, last=False):
-    """
-    Validate a resource in yml
-    :param resource: Resource dict
-    :param api: Resource api to validate (interfaces, ntp, dns etc)
-    :param filename: Filename to dump the new updated config
-    :param last: if its the last resource to validate. Default=False
-    :return:
-    """
-    req_attr = get_parse_resource_doc(api)
-    if not req_attr:
-        throw_warning(f"Failed to fetch required attributes for resource '{api}'. Continuing")
-        return
-    # Get the filename (format - <filename>-<cloudgenix.version>.yml)
-    if filename:
-        file = filename + '-' + cloudgenix.version + '.yml'
-    else:
-        file = cloudgenix.version + '.yml'
-
-    config_yml = open(file, 'a')
-
-    attr = getattr(sdk.put, api)
-    args = get_function_default_args(attr)
-    # extract API version
-    api_version = args.get('api_version')
-    # if invalid API version, set to default value
-    if not api_version:
-        api_version = "UNDEFINED"
-    if api == "elementaccessconfigs":
-        api = "toolkit"
-    # Adding version to api string
-    new_api = api+' '+api_version
-    dump = {}
-    dump[new_api] = {}
-
-    if type(resource) == dict:
-        for key, value in resource.items():
-            # recombine element object
-            resource = recombine_named_key_value(key, value, name_key='name')
-            missing_attr = []
-            for key in req_attr:
-                # Ignore the below fields
-                if key in ('id', 'site_id', 'tenant_id'):
-                    continue
-                elif not key in resource.keys():
-                    missing_attr.append(key)
-
-                    resource[key] = None
-            # Build the dict to dump into file
-            if 'name' in resource:
-                dump[new_api][resource['name']] = resource
-            else:
-                dump[new_api] = resource
-
-            if missing_attr:
-                throw_warning(
-                    f"YAML resource '{api} - {resource.get('name') if 'name' in resource else resource.get('zone_id')}' missing mandatory attributes '{missing_attr}'")
-
-    elif type(resource) == list:
-        for item in resource:
-            if type(item) == list and not item: # Handling empty dnsservices
-                continue
-            missing_attr = []
-            for key in req_attr:
-                # Ignore the below fields
-                if key in ('id', 'site_id', 'tenant_id'):
-                    continue
-                elif not key in item.keys():
-                    missing_attr.append(key)
-                    item[key] = None
-            # Build the dict to dump into file
-            if 'name' in resource:
-                dump[new_api][resource['name']] = resource
-            else:
-                dump[new_api] = resource
-            if missing_attr:
-                throw_warning(
-                    f"YAML resource '{api} - {item.get('name') if 'name' in item else item.get('zone_id')}' missing mandatory attributes '{missing_attr}'")
-
-    yaml.safe_dump(dump, config_yml, default_flow_style=False)
-    config_yml.close()
-
-    if last:
-        if os.path.getsize(file) > 25:  # Size of file with just the first metadata line
-            throw_error(f"Fix all the mandatory attributes in the yml and run do_site() again")
-        else:
-            os.remove(file)
-    return
-
-
-def check_required_attributes(config_sites, filename=None):
-    """
-    Validate the mandatory attributes for the api
-    :param config_sites: Sites dict object
-    :param filename: Filename to dump the new updated config
-    :return:
-    """
-    # Insert metadata line inside file (# SDK version: v5.6.1b1)
-    file = filename + '-' + cloudgenix.version + '.yml'
-    config_yml = open(file, 'w')
-    config_yml.write(f"# CGX SDK version: {cloudgenix.version}\n")
-    config_yml.write(f"# CGX Config version: {import_cloudgenix_config_version}\n\n")
-    config_yml.close()
-    # Fetch and Parse through all the configs from sites object
-    for config_site_name, config_site_value in config_sites.items():
-        # recombine site object
-        config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
-
-        # parse site config
-        config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes = parse_site_config(config_site)
-
-        output_message(f"Validating resources for site - '{config_site_name}'")
-        # validate_resource(config_site, 'sites')
-        validate_resource(config_waninterfaces, 'waninterfaces', filename=filename)
-        validate_resource(config_lannetworks, 'lannetworks', filename=filename)
-        validate_resource(config_dhcpservers, 'dhcpservers', filename=filename)
-        validate_resource(config_site_extensions, 'site_extensions', filename=filename)
-        validate_resource(config_site_security_zones, 'sitesecurityzones', filename=filename)
-        validate_resource(config_spokeclusters, 'spokeclusters', filename=filename)
-        validate_resource(config_site_nat_localprefixes, 'site_natlocalprefixes', filename=filename)
-        validate_resource(config_site_ipfix_localprefixes, 'site_ipfixlocalprefixes', filename=filename)
-
-        for config_element_name, config_element_value in config_elements.items():
-            # recombine element object
-            config_element = recombine_named_key_value(config_element_name, config_element_value, name_key='name')
-
-            # parse element config
-            config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
-            config_toolkit, config_element_extensions, config_element_security_zones, \
-            config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, config_multicastrps = parse_element_config(
-                config_element)
-
-            # parse routing config
-            config_routing_aspathaccesslists, config_routing_ipcommunitylists, config_routing_prefixlists, \
-            config_routing_routemaps, config_routing_static, \
-            config_routing_bgp = parse_routing_config(config_routing)
-
-            # parse snmp config
-            config_snmp_agent, config_snmp_traps = parse_snmp_config(config_snmp)
-
-            # parse BGP config
-            config_routing_bgp_global, config_routing_bgp_peers = parse_bgp_config(config_routing_bgp)
-
-            output_message(f"Validating resources for element - '{config_element_name}' on site - '{config_site_name}'")
-            # validate_resource(config_element, 'elements')
-            validate_resource(config_interfaces, 'interfaces', filename=filename)
-            validate_resource(config_syslog, 'syslogservers', filename=filename)
-            validate_resource(config_ntp, 'ntp', filename=filename)
-            validate_resource([config_toolkit], 'elementaccessconfigs', filename=filename)
-            validate_resource(config_element_extensions, 'element_extensions', filename=filename)
-            validate_resource(config_element_security_zones, 'elementsecurityzones', filename=filename)
-            validate_resource([config_dnsservices], 'dnsservices', filename=filename)
-            validate_resource([config_app_probe], 'application_probe', filename=filename)
-            validate_resource(config_ipfix, 'ipfix', filename=filename)
-            validate_resource(config_multicastglobalconfigs, 'multicastglobalconfigs', filename=filename)
-            validate_resource(config_multicastrps, 'multicastrps', filename=filename)
-            validate_resource(config_routing_aspathaccesslists, 'routing_aspathaccesslists', filename=filename)
-            validate_resource(config_routing_ipcommunitylists, 'routing_ipcommunitylists', filename=filename)
-            validate_resource(config_routing_prefixlists, 'routing_prefixlists', filename=filename)
-            validate_resource(config_routing_routemaps, 'routing_routemaps', filename=filename)
-            validate_resource(config_routing_static, 'staticroutes', filename=filename)
-            validate_resource([config_routing_bgp_global], 'bgpconfigs', filename=filename)
-            validate_resource(config_routing_bgp_peers, 'bgppeers', filename=filename)
-            validate_resource(config_snmp_agent, 'snmpagents', filename=filename)
-            validate_resource(config_snmp_traps, 'snmptraps', filename=filename, last=True) # Setting parameter last=True to throw error
-
-    return
-
-
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
-            passed_interval_timeout=None, passed_force_update=None, wait_element_config=None, filename=None):
+            passed_interval_timeout=None, passed_force_update=None, wait_element_config=None):
     """
     Main Site config/deploy worker function.
     :param loaded_config: Loaded config in Python Dict format
@@ -6938,8 +6763,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
     # update global var cache.
     update_global_cache()
-    # validate yaml resources
-    check_required_attributes(config_sites, filename=filename)
+    exit()
     # handle create
     if not destroy:
 
@@ -10041,7 +9865,7 @@ def go():
                 user_password = None
     # Do the real work
     try:
-        do_site(loaded_config, destroy, declaim=declaim, wait_element_config=wait_element_config, filename=datafile.name)
+        do_site(loaded_config, destroy, declaim=declaim, wait_element_config=wait_element_config)
     except CloudGenixConfigError:
         # Exit silently if error hit.
         sys.exit(1)

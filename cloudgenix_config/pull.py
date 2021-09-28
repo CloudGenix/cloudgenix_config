@@ -204,6 +204,8 @@ dup_name_dict_sites = {}
 # Handle cloudblade calls
 FROM_CLOUDBLADE = 0
 
+SDK_VERSION_REQUIRED = 'v5.6.1b1'
+CONFIG_VERSION_REQUIRED = '1.5.0b1'
 # Define constructor globally for now.
 sdk = cloudgenix.API()
 jd = cloudgenix.jd
@@ -1692,6 +1694,9 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     SITES = sites_cache
     CONFIG[SITES_STR] = {}
 
+    sdk_version = cloudgenix.version
+    config_version = import_cloudgenix_config_version
+
     if sites is None:
         # no site specified.
         throw_error("A 'Site Name', comma-seperated list of sites 'Site A, Site B', or "
@@ -1723,13 +1728,16 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
         if return_result:
             # add headers to CONFIG.
             CONFIG['type'] = "cloudgenix template"
-            CONFIG['version'] = "1.0"
+            if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
+                CONFIG['sdk_version'] = sdk_version
+                CONFIG['config_version'] = config_version
             return CONFIG
         else:
             config_yml = open(output_filename, "w")
             config_yml.write("---\ntype: cloudgenix template\n")
-            config_yml.write(f"sdk_version: {cloudgenix.version}\n")
-            config_yml.write(f"config_version: {import_cloudgenix_config_version}\n")
+            if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
+                config_yml.write(f"sdk_version: {sdk_version}\n")
+                config_yml.write(f"config_version: {config_version}\n")
             # write header by default, but skip if asked.
             if not no_header:
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
@@ -1783,12 +1791,16 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
 
                 # Write out YAML file.
                 config_yml = open(final_dir + final_site_name + ".yml", "w")
-                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+                config_yml.write("---\ntype: cloudgenix template\n")
+                if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
+                    config_yml.write(f"sdk_version: {sdk_version}\n")
+                    config_yml.write(f"config_version: {config_version}\n")
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                     if sdk.email:
                         config_yml.write("# by {0}\n".format(sdk.email))
+                    config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
@@ -1824,12 +1836,16 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
 
                 # Write out YAML file.
                 config_yml = open(final_dir + final_site_name + ".yml", "w")
-                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
+                config_yml.write("---\ntype: cloudgenix template\n")
+                if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
+                    config_yml.write(f"sdk_version: {sdk_version}\n")
+                    config_yml.write(f"config_version: {config_version}\n")
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                     if sdk.email:
                         config_yml.write("# by {0}\n".format(sdk.email))
+                    config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
