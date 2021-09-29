@@ -6763,7 +6763,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
     # update global var cache.
     update_global_cache()
-    exit()
+
     # handle create
     if not destroy:
 
