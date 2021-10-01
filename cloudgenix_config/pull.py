@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.5.0b1
+**Version:** 1.6.0b1
 
 **Author:** CloudGenix
 
@@ -205,7 +205,7 @@ dup_name_dict_sites = {}
 FROM_CLOUDBLADE = 0
 
 SDK_VERSION_REQUIRED = 'v5.6.1b1'
-CONFIG_VERSION_REQUIRED = '1.5.0b1'
+CONFIG_VERSION_REQUIRED = '1.6.0b1'
 # Define constructor globally for now.
 sdk = cloudgenix.API()
 jd = cloudgenix.jd
