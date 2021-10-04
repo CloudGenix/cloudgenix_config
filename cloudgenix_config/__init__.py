@@ -200,7 +200,6 @@ def compare_versions(config_ver, sdk_ver, query):
         # This function is only run when there is a mismatch. If majors match, then
         # there must be a minor mismatch.
         throw_warning("{0} Config and SDK minor version mismatch: Config: {1}, SDK {2}. "
-                      "Attempting to continue, will use SDK version."
                       "".format(query, config_ver, sdk_ver))
     else:
         # major mismatch, stop.
@@ -628,3 +627,103 @@ def check_default_ipv4_config(ipv4_config):
         else:
             is_none = 0
     return is_none
+
+
+def use_sdk_yaml_version(tgt_dict, query, sdk_func, default=None, sdk_or_yaml='sdk'):
+    """
+    :param tgt_dict: A dict that may containin key of string and version string, EG "test v1.0"
+    :param query: Text portion of string to query in dict
+    :param sdk_func: CloudGenix SDK function to extract version from
+    :param default: A default response to return if key does not exist
+    :param sdk_or_yaml: Input apiversion. Default is 'sdk'
+    :return: default value if not present or API version string.
+    """
+
+    # format is "query vX.Y" where X is major and Y is minor
+    args = get_function_default_args(sdk_func)
+    # extract API version
+    api_version = args.get('api_version')
+
+    if sdk_or_yaml == 'sdk':
+        # if invalid API version, set to default value
+        if not api_version:
+            api_version = "UNDEFINED"
+            throw_error("{0} API version is undefined in current SDK. Cannot configure.".format(query))
+        else:
+            return api_version
+    elif sdk_or_yaml == 'yaml':
+        matching_entry_list = []
+        matching_entry_split = []
+        for key, value in tgt_dict.items():
+            # split the config entry key on space, split = None has special value (one or more spaces).
+            splitkey = key.split()
+            # does the first half match the query?
+            if splitkey[0].lower() == query:
+                matching_entry_list.append(key)
+                matching_entry_split.append(splitkey)
+        # check match cases.
+        if len(matching_entry_list) == 0:
+            # no matches.
+            return default, "UNDEFINED"
+        # one or more matches.
+        elif len(matching_entry_list) == 1:
+            # check API ver content
+            for idx, splitkey in enumerate(matching_entry_split):
+                if len(splitkey) <= 1:
+                    # no api version in string.
+                    throw_error("No API version in {0} config.".format(query, api_version))
+                else:
+                    # check if API version string matches the current SDK config.
+                    if splitkey[1] == api_version:
+                        # best case, exact match. go.
+                        retval = tgt_dict.get(matching_entry_list[idx], default)
+                        return default if retval is None else api_version
+                    elif splitkey[1].upper() == "UNDEFINED":
+                        # undefined API version, use latest.
+                        throw_warning("UNDEFINED API version in {0} config. Using latest SDK ({1})".format(query, api_version))
+                        retval = tgt_dict.get(matching_entry_list[idx], default)
+                        return default if retval is None else api_version
+                    else:
+                        # no match, check if minor mismatch.
+                        return_ver = compare_sdk_yaml_versions(splitkey[1], api_version, query, sdk_or_yaml)
+                        # if we get here, minor mismatch only
+                        retval = tgt_dict.get(matching_entry_list[idx], default)
+                        return default if retval is None else splitkey[1]
+        else:
+            # more than 1 config entry. Throw error.
+            throw_error(
+                "Multiple configs found for {0}. Current SDK version is {1}. Please remove one of the configuration"
+                "entries to continue:".format(query, api_version), matching_entry_list)
+
+        # if we got here, something is broken.
+        return default, "UNDEFINED"
+
+
+def compare_sdk_yaml_versions(config_ver, sdk_ver, query, sdk_or_yaml='sdk'):
+    """
+    Compare two version strings, throw error if not major match, in case of minor mismatch throw warning.
+    :param config_ver: Version from config file
+    :param sdk_ver: Version from SDK
+    :param query: Query version came from
+    :param sdk_or_yaml: Input apiversion. Default is 'sdk'
+    :return: SDK version for use by function.
+    """
+    config_dict = VERSION_REGEX.search(config_ver)
+    sdk_dict = VERSION_REGEX.search(sdk_ver)
+    config_major = config_dict.groupdict().get('major')
+    config_minor = config_dict.groupdict().get('minor')
+    sdk_major = sdk_dict.groupdict().get('major')
+    sdk_minor = sdk_dict.groupdict().get('minor')
+    # compare:
+    if config_major == sdk_major:
+        # This function is only run when there is a mismatch. If majors match, then
+        # there must be a minor mismatch.
+        throw_warning("{0} Config and SDK minor version mismatch: Config: {1}, SDK {2}. "
+                      "Attempting to continue, will use {3} version."
+                      "".format(query, config_ver, sdk_ver, sdk_or_yaml.upper()))
+    else:
+        # major mismatch, stop.
+        throw_error("{0} Config and SDK major version mismatch. Config: {1}, SDK {2}. Halting.\n"
+                    "Please update config to latest SDK version".format(query, config_ver, sdk_ver))
+
+    return sdk_ver if sdk_or_yaml == 'sdk' else config_ver
