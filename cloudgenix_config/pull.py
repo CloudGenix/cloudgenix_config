@@ -1695,7 +1695,11 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     CONFIG[SITES_STR] = {}
 
     sdk_version = cloudgenix.version
+    if 'v' in sdk_version:
+        sdk_version.replace('v', '')
     config_version = import_cloudgenix_config_version
+    if 'v' in config_version:
+        config_version.replace('v', '')
 
     if sites is None:
         # no site specified.

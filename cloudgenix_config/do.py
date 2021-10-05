@@ -779,8 +779,13 @@ def parse_root_config(data_file):
         yml_type = str(config_lower_get(data_file, 'type'))
         # Removing yml version and adding sdk version and config version. Fix for CGCBL-565
         sdk_ver = str(config_lower_get(data_file, 'sdk_version'))
+        if 'v' in sdk_ver:
+            sdk_ver.replace('v', '')
         config_ver = str(config_lower_get(data_file, 'config_version'))
-        if (cloudgenix.version >= SDK_VERSION_REQUIRED and import_cloudgenix_config_version >= CONFIG_VERSION_REQUIRED):
+        if 'v' in config_ver:
+            config_ver.replace('v', '')
+
+        if (cloudgenix.version.replace('v', '') >= SDK_VERSION_REQUIRED and import_cloudgenix_config_version.replace('v', '') >= CONFIG_VERSION_REQUIRED):
             if sdk_ver == 'None' or config_ver == 'None':
                 throw_error("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version")
             else:
@@ -1694,7 +1699,7 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
     return
 
 
-def unbind_elements(element_id_list, site_id, declaim=False):
+def unbind_elements(element_id_list, site_id, declaim=False, version=None):
     """
     Unbind (unassign) element(s) from a site
     :param element_id_list: List of element IDs to unbind.
@@ -1736,7 +1741,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
 
             intf_list = intf_resp.cgx_content.get('items', [])
 
-            bypass_member_list = []
+            bypass_member_list, vi_list = [], []
 
             # look for interfaces that are members of a bypass list.
             for interface in intf_list:
@@ -1748,7 +1753,10 @@ def unbind_elements(element_id_list, site_id, declaim=False):
                     lan = bypass_pair.get('lan')
                     if lan:
                         bypass_member_list.append(lan)
-
+                # Fix for CGCBL-500
+                if interface.get('type', '') == 'virtual_interface':
+                    vi_list.append(interface.get('id'))
+            delete_interfaces(vi_list, site_id, element_item_id)
             # iterate the interface list, removing all lan networks/ wan interfaces.
             for interface in intf_list:
 
@@ -1769,9 +1777,11 @@ def unbind_elements(element_id_list, site_id, declaim=False):
                         intf_template["attached_lan_networks"] = None
 
                     if changed and intf_name and intf_id:
+                        interfaces_version = use_sdk_yaml_version(element_item, 'interfaces', sdk.put.interfaces,
+                                                                  default={}, sdk_or_yaml=apiversion)
                         # reconfigure the interface.
                         output_message(" Removing LAN Networks/WAN Interfaces from {0}.".format(intf_name))
-                        reconf_resp = sdk.put.interfaces(site_id, element_item_id, intf_id, intf_template)
+                        reconf_resp = sdk.put.interfaces(site_id, element_item_id, intf_id, intf_template, api_version=interfaces_version)
 
                         if not reconf_resp.cgx_status:
                             throw_error("Could not strip config from {0}: ".format(intf_name),
@@ -1815,7 +1825,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
             matching_element = {"id": element_item_id}
 
             # use the temp fake element to flush the Spoke HA configuration prior to unbind.
-            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {})
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, version=version)
 
             # refresh the element
             element_resp = sdk.get.elements(element_item_id)
@@ -1840,7 +1850,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
             # Wipe them out. All of them..
-            elem_resp = sdk.put.elements(element_item_id, elem_template)
+            elem_resp = sdk.put.elements(element_item_id, elem_template, api_version=version)
             if not elem_resp.cgx_status:
                 if declaim:
                     # element may be stuck offline, and we are going to do a declaim.
@@ -9593,7 +9603,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # BEGIN SITE CLEANUP.
 
             # unbind any remaining elements.
-            unbind_elements(leftover_elements, site_id, declaim=declaim)
+            unbind_elements(leftover_elements, site_id, declaim=declaim, version=elements_version)
 
             # delete remaining spokecluster configs
             # build a spokecluster_id to name mapping.
@@ -9677,9 +9687,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # -- Start Elements
             # Get all elements assigned to this site from the global element cache.
             site_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == del_site_id]
-
+            elements_version = use_sdk_yaml_version(config_site, 'elements', sdk.put.elements, default={}, sdk_or_yaml=apiversion)
             # unbind the elements
-            unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
+            unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim, version=elements_version)
             # -- End Elements
 
             # Fix for issue #48
@@ -9768,7 +9778,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # disable site.
             output_message("Disabling site..")
             config_site['admin_state'] = 'disabled'
-            set_site_state(config_site, del_site_id)
+            set_site_state(config_site, del_site_id, version=sites_version)
 
             # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:
