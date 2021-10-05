@@ -9775,6 +9775,19 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End WAN Interfaces
 
+            # Fix for CGCBL-336
+            serviceendpoints_resp = sdk.get.serviceendpoints()
+            if not serviceendpoints_resp.cgx_status:
+                throw_warning("Could not query serviceendpoints")
+
+            # Get the list of serviceendpoints
+            serviceendpoints = serviceendpoints_resp.cgx_content.get('items', [])
+            for service_ep in serviceendpoints:
+                if service_ep.get("site_id") == del_site_id:
+                    output_message(f"Deleting serviceendpoints associated with site {del_site_name}")
+                    service_ep_id = service_ep.get("id")
+                    sdk.delete.serviceendpoints(service_ep_id)
+
             # disable site.
             output_message("Disabling site..")
             config_site['admin_state'] = 'disabled'
