@@ -58,7 +58,7 @@ try:
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
         nameable_interface_types, skip_interface_list, check_default_ipv4_config, use_sdk_yaml_version, \
-        CloudGenixConfigError
+        get_function_default_args, CloudGenixConfigError
 
     from cloudgenix_config import __version__ as import_cloudgenix_config_version
 except Exception:
@@ -67,7 +67,7 @@ except Exception:
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
         nameable_interface_types, skip_interface_list, check_default_ipv4_config, use_sdk_yaml_version, \
-        CloudGenixConfigError
+        get_function_default_args, CloudGenixConfigError
 
     from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
@@ -3428,6 +3428,10 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
     local_debug("INTERFACE TEMPLATE: " + str(json.dumps(interface_template, indent=4)))
 
+    args = get_function_default_args(sdk.put.interfaces())
+    # extract API version and use to reset interface to default
+    api_version = args.get('api_version')
+
     # For new bypasspairs, unconfgure parent interfaces.
     if config_interface_type == 'bypasspair':
         # modify lan and wan with default config.
@@ -3445,10 +3449,10 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         default_template = get_member_default_config()
         output_message("   Setting Bypasspair parents for {0} to default.".format(interface_template_name))
         new_lan_id = modify_interface(default_template, lan_if_id, interfaces_n2id, waninterfaces_n2id,
-                                      lannetworks_n2id, site_id, element_id, version=version)
+                                      lannetworks_n2id, site_id, element_id, version=api_version)
 
         new_wan_id = modify_interface(default_template, wan_if_id, interfaces_n2id, waninterfaces_n2id,
-                                      lannetworks_n2id, site_id, element_id, version=version)
+                                      lannetworks_n2id, site_id, element_id, version=api_version)
     # For new pppoe, set parent to default.
     elif config_interface_type == 'pppoe':
 
@@ -3460,7 +3464,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         default_template = get_member_default_config()
         output_message("   Setting PPPoE parent for {0} to default.".format(interface_template_name))
         new_parent_id = modify_interface(default_template, parent_if_id, interfaces_n2id, waninterfaces_n2id,
-                                         lannetworks_n2id, site_id, element_id, version=version)
+                                         lannetworks_n2id, site_id, element_id, version=api_version)
 
     # For new subinterface, set parent to default if this is the FIRST SUBINTERFACE to use that parent.
     elif config_interface_type == 'subinterface':
@@ -3475,7 +3479,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             default_template = get_member_default_config()
             output_message("   Setting Subinterface parent for {0} to default.".format(interface_template_name))
             new_parent_id = modify_interface(default_template, parent_if_id, interfaces_n2id, waninterfaces_n2id,
-                                             lannetworks_n2id, site_id, element_id, version=version)
+                                             lannetworks_n2id, site_id, element_id, version=api_version)
             if new_parent_id:
                 # if this is the first subif to use a parent if, we need to force update the cache at the end.
                 update_api_interfaces_cache = True
@@ -3508,7 +3512,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                     output_message("   Setting member interface {0} to default.".format(bound_iface))
                     new_parent_id = modify_interface(default_template, member_iface_id, interfaces_n2id,
                                                      waninterfaces_n2id, lannetworks_n2id, site_id,
-                                                     element_id, version=version)
+                                                     element_id, version=api_version)
                 bound_iface_list.append(member_iface_id)
             # Assigning the id to name mapped list back
             interface_template['bound_interfaces'] = bound_iface_list
@@ -7942,6 +7946,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END SERVICELINK
 
+                args = get_function_default_args(sdk.put.interfaces())
+                # extract API version and use to reset interface to default
+                api_version = args.get('api_version')
+
                 # START SUBINTERFACE
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -7987,7 +7995,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     output_message("   Setting Subinterface {0} to default.".format(interfaces_id2n.get(subif)))
                     new_parent_id = modify_interface(default_template, subif, interfaces_n2id,
                                                      waninterfaces_n2id,
-                                                     lannetworks_n2id, site_id, element_id, version=interfaces_version)
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
                 # cleanup - delete unused subinterfaces
                 delete_interfaces(leftover_subinterfaces, site_id, element_id, id2n=interfaces_id2n)
 
@@ -8047,7 +8055,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     output_message("   Setting PPPoE {0} to default.".format(interfaces_id2n.get(pppoe)))
                     new_parent_id = modify_interface(default_template, pppoe, interfaces_n2id,
                                                      waninterfaces_n2id,
-                                                     lannetworks_n2id, site_id, element_id, version=interfaces_version)
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
 
                 # cleanup - delete unused pppoe
                 delete_interfaces(leftover_pppoe, site_id, element_id, id2n=interfaces_id2n)
