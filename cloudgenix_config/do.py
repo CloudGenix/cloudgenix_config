@@ -1753,10 +1753,6 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
                     lan = bypass_pair.get('lan')
                     if lan:
                         bypass_member_list.append(lan)
-                # Fix for CGCBL-500
-                if interface.get('type', '') == 'virtual_interface':
-                    vi_list.append(interface.get('id'))
-            delete_interfaces(vi_list, site_id, element_item_id)
             # iterate the interface list, removing all lan networks/ wan interfaces.
             for interface in intf_list:
 
@@ -3349,9 +3345,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                     if n2id_ipsec_template.get('authentication', {}):
                         ipsec_secret = n2id_ipsec_template.get('authentication', {}).get('secret')
                         if ipsec_secret:
-                            ipsec_secret_bytes = ipsec_secret.encode("ascii")
-                            base64_ipsec_secret_bytes = base64.b64encode(ipsec_secret_bytes)
-                            base64_ipsec_secret_string = base64_ipsec_secret_bytes.decode("ascii")
+                            base64_ipsec_secret_string = base64.b64encode(ipsec_secret.encode()).decode()
                             n2id_ipsec_template['authentication']['secret'] = base64_ipsec_secret_string
                     name_lookup_in_template(n2id_ipsec_template, 'ipsec_profile_id', ipsecprofiles_n2id)
 
@@ -3661,9 +3655,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                     if n2id_ipsec_template.get('authentication', {}):
                         ipsec_secret = n2id_ipsec_template.get('authentication', {}).get('secret')
                         if ipsec_secret:
-                            ipsec_secret_bytes = ipsec_secret.encode("ascii")
-                            base64_ipsec_secret_bytes = base64.b64encode(ipsec_secret_bytes)
-                            base64_ipsec_secret_string = base64_ipsec_secret_bytes.decode("ascii")
+                            base64_ipsec_secret_string = base64.b64encode(ipsec_secret.encode()).decode()
                             n2id_ipsec_template['authentication']['secret'] = base64_ipsec_secret_string
 
                     name_lookup_in_template(n2id_ipsec_template, 'ipsec_profile_id', ipsecprofiles_n2id)

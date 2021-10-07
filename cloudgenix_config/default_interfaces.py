@@ -65,6 +65,7 @@ member_port = """
             attached_lan_networks: null
             bound_interfaces: null
             bypass_pair: null
+            cellular_config: null
             description: null
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
@@ -75,6 +76,7 @@ member_port = """
             ipv4_config: null
             mac_address: null
             mtu: 1500
+            multicast_config: null
             nat_address: null
             nat_pools: null
             nat_port: 0
@@ -85,6 +87,8 @@ member_port = """
             scope: local
             service_link_config: null
             site_wan_interface_ids: null
+            secondary_ip_configs: null
+            static_arp_configs: null
             sub_interface: null
             tags:
             type: port
