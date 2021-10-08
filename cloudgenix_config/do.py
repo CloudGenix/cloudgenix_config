@@ -3428,7 +3428,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
     local_debug("INTERFACE TEMPLATE: " + str(json.dumps(interface_template, indent=4)))
 
-    args = get_function_default_args(sdk.put.interfaces())
+    args = get_function_default_args(sdk.put.interfaces)
     # extract API version and use to reset interface to default
     api_version = args.get('api_version')
 
@@ -7946,7 +7946,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END SERVICELINK
 
-                args = get_function_default_args(sdk.put.interfaces())
+                args = get_function_default_args(sdk.put.interfaces)
                 # extract API version and use to reset interface to default
                 api_version = args.get('api_version')
 
