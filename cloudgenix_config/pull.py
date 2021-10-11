@@ -966,7 +966,7 @@ def _pull_config_for_single_site(site_name_id):
                 # interface is a parent, skip
                 # Pull interface config for bypasspair and virtual interface as it can have subif/pppoe/servicelink configs
                 # And its mandatory that parent gets created first
-                if if_type not in ('virtual_interface', 'bypasspair'):
+                if if_type not in ('virtual_interface', 'bypasspair', 'port'):
                     continue
             if not FORCE_PARENTS and interface.get('name') in skip_interface_list:
                 # Unconfigurable interface, skip.

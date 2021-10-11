@@ -405,11 +405,6 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
         item_value = item.get(value_val)
         # print(item_key, item_value)
         if item_key and item_value is not None:
-            # Below check to handle lookup in ion 9k
-            # 9k can have same port and bypasspair names
-            # Adding '_bypasspair' for bypasspairs
-            if key_val == 'name' and item.get('type') == 'bypasspair':
-                lookup_dict[str(item_key) + '_bypasspair'] = item_value
             # check if it's a duplicate key.
             if str(item_key) in lookup_dict:
                 # First duplicate we've seen - save for warning.
@@ -427,7 +422,15 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
 
             else:
                 # no duplicates, append
-                lookup_dict[str(item_key)] = item_value
+                # Below check to handle lookup in ion 9k
+                # 9k can have same port and bypasspair names
+                # Adding '_bypasspair' for bypasspairs
+                if key_val == 'name' and item.get('type') == 'bypasspair':
+                    lookup_dict[str(item_key) + '_bypasspair'] = item_value
+                # elif value_val == 'name' and item.get('type') == 'bypasspair':
+                #     lookup_dict[item_key] = item_value + '_bypasspair'
+                else:
+                    lookup_dict[str(item_key)] = item_value
 
     for duplicate_key in blacklist_duplicate_keys:
         matching_entries = [entry for entry in blacklist_duplicate_entries if duplicate_key in entry]
