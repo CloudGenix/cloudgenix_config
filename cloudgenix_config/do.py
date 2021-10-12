@@ -787,7 +787,7 @@ def parse_root_config(data_file):
 
         if (cloudgenix.version.replace('v', '') >= SDK_VERSION_REQUIRED and import_cloudgenix_config_version.replace('v', '') >= CONFIG_VERSION_REQUIRED):
             if sdk_ver == 'None' or config_ver == 'None':
-                throw_error("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version")
+                throw_warning("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version")
             else:
                 detect_msg = {
                     "Expected Type": FILE_TYPE_REQUIRED,
@@ -801,7 +801,7 @@ def parse_root_config(data_file):
                 local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
 
                 if not yml_type == FILE_TYPE_REQUIRED or not (sdk_ver >= SDK_VERSION_REQUIRED and config_ver >= CONFIG_VERSION_REQUIRED):
-                    throw_error("YAML file not correct type or version. Required mandatory meta attributes: type, sdk_version and config_version ", detect_msg)
+                    throw_warning("YAML file not correct type or version. Required mandatory meta attributes: type, sdk_version and config_version ", detect_msg)
 
         else:
             detect_msg = {
@@ -810,7 +810,7 @@ def parse_root_config(data_file):
             }
 
             if not yml_type == FILE_TYPE_REQUIRED:
-                throw_error("YAML file not correct type: ", detect_msg)
+                throw_warning("YAML file not correct type: ", detect_msg)
     # grab sites
     config_sites, _ = config_lower_version_get(data_file, 'sites', sdk.put.sites, default={})
 
