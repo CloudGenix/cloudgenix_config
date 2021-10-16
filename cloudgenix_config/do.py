@@ -4121,7 +4121,8 @@ def get_parent_child_dict(config_interfaces, id2n=None):
                             config_interfaces_value)
 
             parent_if_name = id2n.get(parent_if, parent_if)
-
+            if 'bypasspair' in config_interfaces_value.get('parent_type', ''):
+                parent_if_name = parent_if_name + '_bypasspair'
             # subinterfaces can handle many children, one parent
             existing_children = parent_if_map.get(config_interfaces_name)
             if existing_children is None:
@@ -4141,7 +4142,8 @@ def get_parent_child_dict(config_interfaces, id2n=None):
                             config_interfaces_value)
 
             parent_if_name = id2n.get(parent_if, parent_if)
-
+            if 'bypasspair' in config_interfaces_value.get('parent_type', ''):
+                parent_if_name = parent_if_name + '_bypasspair'
             if parent_if_name in used_parent_name_list:
                 # used multiple times.
                 throw_error("PPPoE interface {0} is using a port that is a parent of another interface:"
@@ -8073,8 +8075,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_parent_interfaces = config_parent2child.keys()
                 for config_parent_interface in config_parent_interfaces:
                     # try to get bypass if ID from the list of parent IF names, if the BP is a parent.
-                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id,
+                    if 'bypasspair' in config_parent_interface:
+                        config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id,
                                                                          funny_n2id=interfaces_funny_n2id)
+                    else:
+                        config_parent_interface_id = None
                     if config_parent_interface_id:
                         # if we find one, make sure it isn't in delete queue
                         local_debug("PARENT BYPASS ID, REMOVING FROM DELETE QUEUE: ", config_parent_interface_id)
@@ -9902,6 +9907,8 @@ def go():
     declaim = args['declaim']
     config_file = args['Config File'][0]
     apiversion = str(args['apiversion']).lower()
+    if not apiversion in ('sdk', 'yaml', 'yml'):
+        throw_error("Incorrect apiversion value. Allowed values are 'SDK, YAML, YML'")
     # load config file
     with open(config_file, 'r') as datafile:
         loaded_config = yaml.safe_load(datafile)

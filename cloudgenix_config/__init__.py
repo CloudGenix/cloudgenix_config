@@ -654,7 +654,7 @@ def use_sdk_yaml_version(tgt_dict, query, sdk_func, default=None, sdk_or_yaml='s
             throw_error("{0} API version is undefined in current SDK. Cannot configure.".format(query))
         else:
             return api_version
-    elif sdk_or_yaml == 'yaml':
+    elif sdk_or_yaml == 'yaml' or sdk_or_yaml == 'yml':
         matching_entry_list = []
         matching_entry_split = []
         for key, value in tgt_dict.items():

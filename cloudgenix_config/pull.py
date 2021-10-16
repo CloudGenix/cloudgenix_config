@@ -1054,6 +1054,7 @@ def _pull_config_for_single_site(site_name_id):
             # replace flat names in interface itself
             name_lookup_in_template(interface_template, 'parent', id_name_cache)
             name_lookup_in_template(interface_template, 'nat_zone_id', id_name_cache)
+            name_lookup_in_template(interface_template, 'network_context_id', id_name_cache)
             # replace ipfix fields
             name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', id_name_cache)
             name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', id_name_cache)
