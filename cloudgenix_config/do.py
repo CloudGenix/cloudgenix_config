@@ -259,6 +259,7 @@ ipfixfiltercontext_cache = []
 ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
+apnprofiles_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -292,6 +293,7 @@ ipfixfiltercontext_n2id = {}
 ipfixtemplate_n2id = {}
 ipfixlocalprefix_n2id = {}
 ipfixglobalprefix_n2id = {}
+apnprofiles_n2id = {}
 
 # Machines/elements need serial to ID mappings
 elements_byserial = {}
@@ -463,6 +465,7 @@ def update_global_cache():
     global ipfixtemplate_cache
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
+    global apnprofiles_cache
 
     global sites_n2id
     global elements_n2id
@@ -495,6 +498,7 @@ def update_global_cache():
     global ipfixtemplate_n2id
     global ipfixlocalprefix_n2id
     global ipfixglobalprefix_n2id
+    global apnprofiles_n2id
 
     global elements_byserial
     global machines_byserial
@@ -627,6 +631,10 @@ def update_global_cache():
     ipfixglobalprefix_resp = sdk.get.ipfixglobalprefixes()
     ipfixglobalprefix_cache, _ = extract_items(ipfixglobalprefix_resp, 'ipfixglobalprefixes')
 
+    # apnprofiles
+    apnprofiles_resp = sdk.get.apnprofiles()
+    apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -719,6 +727,9 @@ def update_global_cache():
 
     # ipfixglobalprefix
     ipfixglobalprefix_n2id = build_lookup_dict(ipfixglobalprefix_cache)
+
+    # apnprofiles name
+    apnprofiles_n2id = build_lookup_dict(apnprofiles_cache)
 
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
@@ -870,10 +881,16 @@ def parse_element_config(config_element):
     config_ipfix, _ = config_lower_version_get(config_element, 'ipfix', sdk.put.ipfix, default=[])
     config_multicastglobalconfigs, _ = config_lower_version_get(config_element, 'multicastglobalconfigs', sdk.put.multicastglobalconfigs, default=[])
     config_multicastrps, _ = config_lower_version_get(config_element, 'multicastrps', sdk.put.multicastrps, default=[])
+    config_element_cellular_modules, _ = config_lower_version_get(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default={})
+    config_cellular_modules_sim_security, _ = config_lower_version_get(config_element,
+                                                                       'cellular_modules_sim_security',
+                                                                       sdk.put.cellular_modules_sim_security,
+                                                                       default={})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
-        config_ipfix, config_multicastglobalconfigs, config_multicastrps
+        config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
+        config_cellular_modules_sim_security
 
 
 def parse_routing_config(config_routing):
@@ -3403,7 +3420,19 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 interface_template["nat_pools"] = n2id_np_template
             else:
                 interface_template["nat_pools"] = None
-
+        elif key == 'cellular_config':
+            # look for key in config, xlate name to ID.
+            config_cellular = config_interface.get('cellular_config', {})
+            if config_cellular and isinstance(config_cellular, dict):
+                element_cellular_modules_resp = sdk.get.element_cellular_modules(element_id)
+                element_cellular_modules_cache, leftover_element_cellular_modules = extract_items(
+                    element_cellular_modules_resp, 'element_cellular_modules')
+                # build lookup cache.
+                element_cellular_modules_n2id = build_lookup_dict(element_cellular_modules_cache)
+                n2id_cellular_template = copy.deepcopy(config_cellular)
+                name_lookup_in_template(n2id_cellular_template, 'apnprofile_id', apnprofiles_n2id)
+                name_lookup_in_template(n2id_cellular_template, 'parent_module_id', element_cellular_modules_n2id)
+                interface_template['cellular_config'] = n2id_cellular_template
         else:
             # just set the key.
             interface_template[key] = value
@@ -3722,6 +3751,19 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                 for bound_iface in bound_ifaces:
                     bound_iface_list.append(interfaces_n2id.get(bound_iface))
                 interface_template['bound_interfaces'] = bound_iface_list
+        elif key == 'cellular_config':
+            # look for key in config, xlate name to ID.
+            config_cellular = config_interface.get('cellular_config', {})
+            if config_cellular and isinstance(config_cellular, dict):
+                element_cellular_modules_resp = sdk.get.element_cellular_modules(element_id)
+                element_cellular_modules_cache, leftover_element_cellular_modules = extract_items(
+                    element_cellular_modules_resp, 'element_cellular_modules')
+                # build lookup cache.
+                element_cellular_modules_n2id = build_lookup_dict(element_cellular_modules_cache)
+                n2id_cellular_template = copy.deepcopy(config_cellular)
+                name_lookup_in_template(n2id_cellular_template, 'apnprofile_id', apnprofiles_n2id)
+                name_lookup_in_template(n2id_cellular_template, 'parent_module_id', element_cellular_modules_n2id)
+                interface_template['cellular_config'] = n2id_cellular_template
         else:
             # just set the key.
             interface_template[key] = value
@@ -6758,6 +6800,132 @@ def delete_ipfix(leftover_ipfix, site_id, element_id, id2n=None):
     return
 
 
+def modify_cellular_module_sim_security(config_cellular_modules_sim_security, cellular_module_sim_security_id, element_id, element_cellular_module_id, version=None):
+    """
+        Modify an existing ipfix
+        :param config_cellular_modules_sim_security: config dict
+        :param cellular_module_sim_security_id: Existing ID
+        :param element_id: Element ID to use
+        :param element_cellular_module_id: Cellular Module ID
+        :return: Returned ID or 0
+        """
+    cellular_modules_sim_security_config = {}
+    # make a copy to modify
+    config_cellular_modules_sim_security_template = copy.deepcopy(config_cellular_modules_sim_security)
+
+    local_debug("TEMPLATE: " + str(json.dumps(config_cellular_modules_sim_security_template, indent=4)))
+    # get current sim security
+    cellular_modules_sim_security_resp = sdk.get.cellular_modules_sim_security(element_id, element_cellular_module_id, cellular_module_sim_security_id)
+    if cellular_modules_sim_security_resp.cgx_status:
+        cellular_modules_sim_security_config = cellular_modules_sim_security_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Cellular Module Sim Security: ", cellular_modules_sim_security_resp)
+
+    # extract prev_revision
+    prev_revision = cellular_modules_sim_security_config.get("_etag")
+
+    # Check for changes:
+    cellular_modules_sim_security_change_check = copy.deepcopy(cellular_modules_sim_security_config)
+    cellular_modules_sim_security_config.update(config_cellular_modules_sim_security_template)
+
+    if not force_update and cellular_modules_sim_security_config == cellular_modules_sim_security_change_check:
+        # no change in config, pass.
+        cellular_modules_sim_security_id = cellular_modules_sim_security_change_check.get('id')
+        cellular_modules_sim_security_name = cellular_modules_sim_security_change_check.get('name')
+        output_message("   No Change for Cellular Module Sim Security {0}.".format(cellular_modules_sim_security_name))
+        return cellular_modules_sim_security_id
+
+    if debuglevel >= 3:
+        local_debug("Cellular Module Sim Security DIFF: {0}".format(find_diff(cellular_modules_sim_security_change_check, cellular_modules_sim_security_config)))
+
+    if cellular_modules_sim_security_config.get('pin'):
+        base64_pin_string = base64.b64encode(str(cellular_modules_sim_security_config.get('pin')).encode()).decode()
+        cellular_modules_sim_security_config['pin'] = base64_pin_string
+
+    # Update cellular_modules_sim_security.
+    cellular_module_sim_security_resp2 = sdk.put.cellular_modules_sim_security(element_id, element_cellular_module_id, cellular_module_sim_security_id, cellular_modules_sim_security_config, api_version=version)
+
+    if not cellular_module_sim_security_resp2.cgx_status:
+        throw_error("Cellular Module Sim Security update failed: ", cellular_module_sim_security_resp2)
+
+    cellular_modules_sim_security_id = cellular_modules_sim_security_resp.cgx_content.get('id')
+    cellular_modules_sim_security_name = cellular_modules_sim_security_resp.cgx_content.get('name', cellular_modules_sim_security_id)
+
+    # extract current_revision
+    current_revision = cellular_module_sim_security_resp2.cgx_content.get("_etag")
+
+    if not cellular_modules_sim_security_id:
+        throw_error("Unable to determine Cellular Module Sim Security attributes (ID {0})..".format(cellular_modules_sim_security_id))
+
+    output_message("   Updated Cellular Module Sim Security {0} (Etag {1} -> {2}).".format(cellular_modules_sim_security_name, prev_revision,
+                                                                    current_revision))
+
+    return cellular_modules_sim_security_id
+
+
+def modify_element_cellular_module(config_element_cellular_module, element_cellular_module_id, element_id, version=None):
+    """
+            Modify an existing ipfix
+            :param config_element_cellular_module: config dict
+            :param element_cellular_module_id: Existing ID
+            :param element_id: Element ID to use
+            :return: Returned ID or 0
+            """
+    cellular_modules_config = {}
+    # make a copy to modify
+    config_cellular_modules_template = copy.deepcopy(config_element_cellular_module)
+
+    local_debug("TEMPLATE: " + str(json.dumps(config_cellular_modules_template, indent=4)))
+
+    # get current cellular module
+    cellular_modules_resp = sdk.get.element_cellular_modules(element_id, element_cellular_module_id)
+    if cellular_modules_resp.cgx_status:
+        cellular_modules_config = cellular_modules_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Cellular Module: ", cellular_modules_resp)
+
+    # extract prev_revision
+    prev_revision = cellular_modules_config.get("_etag")
+
+    # Check for changes:
+    cellular_modules_change_check = copy.deepcopy(cellular_modules_config)
+    cellular_modules_config.update(config_cellular_modules_template)
+
+    if not force_update and cellular_modules_config == cellular_modules_change_check:
+        # no change in config, pass.
+        cellular_modules_id = cellular_modules_change_check.get('id')
+        cellular_modules_name = cellular_modules_change_check.get('name')
+        output_message("   No Change for Cellular Module {0}.".format(cellular_modules_name))
+        return cellular_modules_id
+
+    if debuglevel >= 3:
+        local_debug("Cellular Module DIFF: {0}".format(
+            find_diff(cellular_modules_change_check, cellular_modules_config)))
+
+    # Update Cellular Module.
+    cellular_module_resp2 = sdk.put.element_cellular_modules(element_id, element_cellular_module_id, cellular_modules_config, api_version=version)
+
+    if not cellular_module_resp2.cgx_status:
+        throw_error("Cellular Module update failed: ", cellular_module_resp2)
+
+    cellular_modules_id = cellular_modules_resp.cgx_content.get('id')
+    cellular_modules_name = cellular_modules_resp.cgx_content.get('name', cellular_modules_id)
+
+    # extract current_revision
+    current_revision = cellular_module_resp2.cgx_content.get("_etag")
+
+    if not cellular_modules_id:
+        throw_error("Unable to determine Cellular Module attributes (ID {0})..".format(
+            cellular_modules_id))
+
+    output_message(
+        "   Updated Cellular Module {0} (Etag {1} -> {2}).".format(cellular_modules_name,
+                                                                                prev_revision,
+                                                                                current_revision))
+
+    return cellular_modules_id
+
+
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None, wait_element_config=None, passed_apiversion='sdk'):
@@ -7326,8 +7494,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
-                    config_toolkit, config_element_extensions, config_element_security_zones, \
-                    config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, config_multicastrps = parse_element_config(config_element)
+                config_toolkit, config_element_extensions, config_element_security_zones, \
+                config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
+                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security \
+                    = parse_element_config(config_element)
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
                                                                 default={}, sdk_or_yaml=apiversion)
@@ -7358,8 +7528,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                    default={}, sdk_or_yaml=apiversion)
                 routing_static_version = use_sdk_yaml_version(config_routing, 'static', sdk.put.staticroutes,
                                                                     default={}, sdk_or_yaml=apiversion)
-                snmp_traps_version = use_sdk_yaml_version(config_snmp, 'traps', sdk.put.snmptraps, default=[])
-                snmp_agent_version = use_sdk_yaml_version(config_snmp, 'agent', sdk.put.snmpagents, default=[])
+                snmp_traps_version = use_sdk_yaml_version(config_snmp, 'traps', sdk.put.snmptraps, default=[], sdk_or_yaml=apiversion)
+                snmp_agent_version = use_sdk_yaml_version(config_snmp, 'agent', sdk.put.snmpagents, default=[], sdk_or_yaml=apiversion)
+                element_cellular_modules_version = use_sdk_yaml_version(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default=[], sdk_or_yaml=apiversion)
+                cellular_modules_sim_security_version = use_sdk_yaml_version(config_element, 'cellular_modules_sim_security', sdk.put.cellular_modules_sim_security, default=[], sdk_or_yaml=apiversion)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -8163,6 +8335,42 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END VIRTUAL INTERFACE
 
+                config_cellular_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'cellular')
+                leftover_cellular_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'cellular', key_name='id')
+
+                for config_interface_name, config_interface_value in config_cellular_interfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue before configuring cellular
+                    leftover_cellular_interfaces = [entry for entry in leftover_cellular_interfaces if
+                                                   entry != interface_id]
+
+                # cleanup - delete unused cellular interfaces, modified cellular and child interfaces
+                delete_interfaces(leftover_cellular_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END CELLULAR
+
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
@@ -8174,6 +8382,68 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id.update(interfaces_n2id_api)
 
                 # Now we will create/modify all the interfaces as per the yml configuration
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_cellular_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'cellular')
+
+                for config_interface_name, config_interface_value in config_cellular_interfaces.items():
+
+                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
+                    # look for unconfigurable interfaces.
+                    if config_interface_name in skip_interface_list:
+                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
+                        # dont configure this interface, break out of loop.
+                        continue
+                    # look for parent interface
+                    elif config_interface_name in config_parent2child.keys():
+                        throw_warning("Cannot configure interface {0}, it is set as a parent for {1}."
+                                      "".format(config_interface_name,
+                                                ", ".join(config_parent2child.get(config_interface_name))))
+                        # skip this interface
+                        continue
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
+
+                    else:
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
+
+                    # no need for delete queue, as already deleted.
+
+                # END Cellular Interface
 
                 # START Virtual Interface
 
@@ -8657,6 +8927,89 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
+
+                # START Cellular Modules
+
+                element_cellular_modules_resp = sdk.get.element_cellular_modules(element_id)
+                element_cellular_modules_cache, leftover_element_cellular_modules = extract_items(element_cellular_modules_resp, 'element_cellular_modules')
+                # build lookup cache.
+                element_cellular_modules_n2id = build_lookup_dict(element_cellular_modules_cache)
+
+                # iterate configs (dict)
+                for config_element_cellular_modules_name, config_element_cellular_modules_value in \
+                        config_element_cellular_modules.items():
+
+                    # recombine object
+                    config_element_cellular_modules_entry = recombine_named_key_value(config_element_cellular_modules_name,
+                                                                         config_element_cellular_modules_value,
+                                                                         name_key='name')
+
+                    # deepcopy to modify.
+                    config_element_cellular_module = copy.deepcopy(config_element_cellular_modules_entry)
+
+                    # Determine ID.
+                    # look for implicit ID in object.
+                    implicit_element_cellular_module_id = config_element_cellular_module.get('id')
+                    name_element_cellular_module_id = element_cellular_modules_n2id.get(config_element_cellular_module.get('name'))
+
+                    if implicit_element_cellular_module_id is not None:
+                        element_cellular_module_id = implicit_element_cellular_module_id
+
+                    elif name_element_cellular_module_id is not None:
+                        # look up ID by name on existing sites.
+                        element_cellular_module_id = name_element_cellular_module_id
+
+                    else:
+                        # no object.
+                        element_cellular_module_id = None
+
+                    # Create or modify.
+                    if element_cellular_module_id is not None:
+                        # modify.
+                        modify_element_cellular_module(config_element_cellular_module, element_cellular_module_id, element_id,
+                                                                                    version=element_cellular_modules_version)
+
+                    # START Cellular Modules SIM Security
+                    cellular_modules_sim_security_resp = sdk.get.cellular_modules_sim_security(element_id, element_cellular_module_id)
+                    cellular_modules_sim_security_cache, leftover_element_cellular_modules = extract_items(
+                        cellular_modules_sim_security_resp, 'element_cellular_modules')
+                    # build lookup cache.
+                    cellular_modules_sim_security_n2id = build_lookup_dict(cellular_modules_sim_security_cache)
+
+                    # iterate configs (dict)
+                    for config_cellular_modules_sim_security_name, config_cellular_modules_sim_security_value in \
+                            config_cellular_modules_sim_security.items():
+
+                        # recombine object
+                        config_cellular_modules_sim_security_entry = recombine_named_key_value(
+                            config_cellular_modules_sim_security_name,
+                            config_cellular_modules_sim_security_value,
+                            name_key='name')
+
+                        # deepcopy to modify.
+                        config_cellular_modules_sim_security = copy.deepcopy(config_cellular_modules_sim_security_entry)
+                        # Determine ID.
+                        # look for implicit ID in object.
+                        implicit_cellular_modules_sim_security_id = config_cellular_modules_sim_security.get('id')
+                        name_cellular_modules_sim_security_id = cellular_modules_sim_security_n2id.get(
+                            config_cellular_modules_sim_security.get('name'))
+
+                        if implicit_cellular_modules_sim_security_id is not None:
+                            cellular_module_sim_security_id = implicit_cellular_modules_sim_security_id
+                        elif name_cellular_modules_sim_security_id is not None:
+                            cellular_module_sim_security_id = name_cellular_modules_sim_security_id
+                        else:
+                            # no object.
+                            cellular_module_sim_security_id = None
+
+                        # Create or modify.
+                        if cellular_module_sim_security_id is not None:
+                            # modify.
+                            cellular_module_sim_security_id = modify_cellular_module_sim_security(config_cellular_modules_sim_security, cellular_module_sim_security_id,
+                                                                                                    element_id, element_cellular_module_id, version=cellular_modules_sim_security_version)
+
+                        # END Cellular Modules SIM Security
+                # END Cellular Modules
 
                 # -- Start Element Spoke HA config
                 # Since for some reason, Spoke HA config is tied into element object, we can't configure it

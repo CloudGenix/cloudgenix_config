@@ -162,6 +162,9 @@ IPFIX_STR = "ipfix"
 SITE_IPFIXLOCALPREFIXES_STR = "site_ipfix_localprefixes"
 MULTICASTGLOBALCONFIGS_STR = "multicastglobalconfigs"
 MULTICASTRPS_STR = "multicastrps"
+CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
+ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
+ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 
 # Global Config Cache holders
 sites_cache = []
@@ -195,6 +198,7 @@ ipfixfiltercontext_cache = []
 ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
+apnprofiles_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -302,6 +306,7 @@ def update_global_cache():
     global ipfixtemplate_cache
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
+    global apnprofiles_cache
 
     global id_name_cache
     global wannetworks_id2type
@@ -431,6 +436,10 @@ def update_global_cache():
     ipfixglobalprefix_resp = sdk.get.ipfixglobalprefixes()
     ipfixglobalprefix_cache, _ = extract_items(ipfixglobalprefix_resp, 'ipfixglobalprefixes')
 
+    # apnprofiles
+    apnprofiles_resp = sdk.get.apnprofiles()
+    apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -523,6 +532,9 @@ def update_global_cache():
     # ipfixglobalprefix name
     id_name_cache.update(build_lookup_dict(ipfixglobalprefix_cache, key_val='id', value_val='name'))
 
+    # apnprofiles name
+    id_name_cache.update(build_lookup_dict(apnprofiles_cache, key_val='id', value_val='name'))
+
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
     wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
@@ -582,6 +594,9 @@ def build_version_strings():
     global SITE_IPFIXLOCALPREFIXES_STR
     global MULTICASTGLOBALCONFIGS_STR
     global MULTICASTRPS_STR
+    global CELLULAR_MODULES_SIM_SECURITY_STR
+    global ELEMENT_CELLULAR_MODULES_STR
+    global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -618,6 +633,9 @@ def build_version_strings():
         SITE_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ipfixlocalprefixes, "site_ipfix_localprefixes")
         MULTICASTGLOBALCONFIGS_STR = add_version_to_object(sdk.get.multicastglobalconfigs, "multicastglobalconfigs")
         MULTICASTRPS_STR = add_version_to_object(sdk.get.multicastrps, "multicastrps")
+        CELLULAR_MODULES_SIM_SECURITY_STR = add_version_to_object(sdk.get.cellular_modules_sim_security, "cellular_modules_sim_security")
+        ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
+        ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -915,6 +933,40 @@ def _pull_config_for_single_site(site_name_id):
         if element['site_id'] != site['id']:
             continue
 
+        # Get cellular_modules
+        element[ELEMENT_CELLULAR_MODULES_STR] = {}
+        element[CELLULAR_MODULES_SIM_SECURITY_STR] = {}
+        cellular_modules_resp = sdk.get.element_cellular_modules(element['id'])
+        if not cellular_modules_resp.cgx_status:
+            throw_error("Cellular Modules get failed: ", response)
+
+        cellular_modules_all = cellular_modules_resp.cgx_content['items']
+        id_name_cache.update(build_lookup_dict(cellular_modules_all, key_val='id', value_val='name'))
+        for module in cellular_modules_all:
+            cellular_modules_template = copy.deepcopy(module)
+            cellular_module_name = cellular_modules_template.get('name')
+
+            # Get cellular_modules_sim_security
+            cellular_modules_sim_security_resp = sdk.get.cellular_modules_sim_security(element['id'], module['id'])
+            if not cellular_modules_sim_security_resp.cgx_status:
+                throw_error("Cellular Modules SIM Security get failed: ", response)
+
+            cellular_modules_sim_security_all = cellular_modules_sim_security_resp.cgx_content['items']
+
+            id_name_cache.update(build_lookup_dict(cellular_modules_sim_security_all, key_val='id', value_val='name'))
+            for sim_security in cellular_modules_sim_security_all:
+                cellular_modules_sim_security_template = copy.deepcopy(sim_security)
+                cellular_modules_sim_security_name = cellular_modules_sim_security_template.get('name')
+                strip_meta_attributes(cellular_modules_sim_security_template)
+                # names used, but config doesn't index by name for this value currently.
+                element[CELLULAR_MODULES_SIM_SECURITY_STR][cellular_modules_sim_security_name] =\
+                    cellular_modules_sim_security_template
+            delete_if_empty(element, CELLULAR_MODULES_SIM_SECURITY_STR)
+            strip_meta_attributes(cellular_modules_template)
+            # names used, but config doesn't index by name for this value currently.
+            element[ELEMENT_CELLULAR_MODULES_STR][cellular_module_name] = cellular_modules_template
+        delete_if_empty(element, ELEMENT_CELLULAR_MODULES_STR)
+
         # Get interfaces
         element[INTERFACES_STR] = {}
         dup_name_dict = {}
@@ -1066,6 +1118,17 @@ def _pull_config_for_single_site(site_name_id):
                     bound_iface_template.append(id_name_cache.get(bound_iface))
                 interface_template['bound_interfaces'] = bound_iface_template
 
+            cellular_config = interface.get('cellular_config', {})
+            if cellular_config:
+                apnprofile_id = cellular_config.get('apnprofile_id')
+                parent_module_id = cellular_config.get('parent_module_id')
+            else:
+                apnprofile_id = None
+                parent_module_id = None
+            if apnprofile_id:
+                interface_template['cellular_config']['apnprofile_id'] = id_name_cache.get(apnprofile_id, apnprofile_id)
+            if parent_module_id:
+                interface_template['cellular_config']['parent_module_id'] = id_name_cache.get(parent_module_id, parent_module_id)
             # strip metadata/names
             strip_meta_attributes(interface_template)
             # ok. Check for duplicates if it is a namable interface. If a dup is found, rename.

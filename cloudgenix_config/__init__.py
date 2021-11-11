@@ -322,6 +322,12 @@ def get_default_ifconfig_from_model_string(model_string):
         return yaml.safe_load(ion_7116v)
     elif model_string == "ion 7132v":
         return yaml.safe_load(ion_7132v)
+    elif model_string == "ion 1200-c-row":
+        return yaml.safe_load(ion_1200_c_row)
+    elif model_string == "ion 1200-c-na":
+        return yaml.safe_load(ion_1200_c_na)
+    elif model_string == "ion 1200-c5g-ww":
+        return yaml.safe_load(ion_1200_c5g_ww)
     else:
         # model not found, return empty dict
         return {}
