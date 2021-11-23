@@ -982,7 +982,12 @@ def _pull_config_for_single_site(site_name_id):
 
         # create a parent list
         parent_id_list = []
+        if_name_dict = {}
         for interface in interfaces:
+            if interface.get('name') in if_name_dict:
+                if_name_dict[interface.get('name')] += 1
+            else:
+                if_name_dict[interface.get('name')] = 1
             parent_id = interface.get('parent')
             if_type = interface.get('type')
             if parent_id is not None and if_type in ['subinterface', 'pppoe', 'port']:
@@ -1018,8 +1023,19 @@ def _pull_config_for_single_site(site_name_id):
                 # interface is a parent, skip
                 # Pull interface config for bypasspair and virtual interface as it can have subif/pppoe/servicelink configs
                 # And its mandatory that parent gets created first
-                if if_type not in ('virtual_interface', 'bypasspair', 'port'):
+                if element.get('model_name') == 'ion 9000':  # Pull only bypasspair config for 9K if there are duplicate names in port
+                    if if_name_dict[interface.get('name')] > 1:
+                        if if_type != 'bypasspair':
+                            continue
+                    elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
+                        continue
+                elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
                     continue
+            elif FORCE_PARENTS:
+                if element.get('model_name') == 'ion 9000':
+                    if if_name_dict[interface.get('name')] > 1:
+                        if if_type != 'bypasspair':
+                            continue
             if not FORCE_PARENTS and interface.get('name') in skip_interface_list:
                 # Unconfigurable interface, skip.
                 continue

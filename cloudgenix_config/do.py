@@ -3562,6 +3562,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                                                                                                      interface_id))
 
         output_message("   Created interface {0}({1}).".format(funny_name, interface_name))
+
+        interfaces_funny_n2id[funny_name] = interface_id
     else:
         if not interface_name or not interface_id:
             throw_error("Unable to determine interface attributes (Name: {0}, ID {1})..".format(interface_name,
@@ -8240,16 +8242,19 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Get a list of all currently configured bypasspairs.
                 interfaces_bypasspairs_cache = get_api_interfaces_by_type(interfaces_cache, 'bypasspair')
                 leftover_bypasspairs = [entry['id'] for entry in interfaces_bypasspairs_cache if entry.get('id')]
-
+                leftover_bypasspairs_members = {entry['id']: [entry.get('bypass_pair').get('wan'), entry.get('bypass_pair').get('lan')] for entry in interfaces_bypasspairs_cache if entry.get('id')}
                 # Remove configured interfaces's parents from delete queue.
                 # because if it is a parent, we don't want to try to delete it.
                 # Exception is currently service link, as parent for service link can be changed.
                 config_parent_interfaces = config_parent2child.keys()
+
+                bypasspair_members = [] # Bypass memeber list to be ignored during do()
                 for config_parent_interface in config_parent_interfaces:
                     # try to get bypass if ID from the list of parent IF names, if the BP is a parent.
                     if 'bypasspair' in config_parent_interface:
-                        config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id,
+                        config_parent_interface_id = get_bypass_id_from_name(config_parent_interface.split('_bypasspair')[0], interfaces_n2id,
                                                                          funny_n2id=interfaces_funny_n2id)
+                        bypasspair_members.extend(leftover_bypasspairs_members.get(config_parent_interface_id))
                     else:
                         config_parent_interface_id = None
                     if config_parent_interface_id:
@@ -8831,6 +8836,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     else:
                         # no interface object.
                         interface_id = None
+
+                    if interface_id in bypasspair_members:
+                        continue
 
                     # Create or modify interface.
                     if interface_id is not None:
