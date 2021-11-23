@@ -8248,13 +8248,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Exception is currently service link, as parent for service link can be changed.
                 config_parent_interfaces = config_parent2child.keys()
 
-                bypasspair_members = [] # Bypass memeber list to be ignored during do()
+                bypasspair_members = []  # Bypass member list to be ignored during do()
                 for config_parent_interface in config_parent_interfaces:
                     # try to get bypass if ID from the list of parent IF names, if the BP is a parent.
                     if 'bypasspair' in config_parent_interface:
                         config_parent_interface_id = get_bypass_id_from_name(config_parent_interface.split('_bypasspair')[0], interfaces_n2id,
                                                                          funny_n2id=interfaces_funny_n2id)
-                        bypasspair_members.extend(leftover_bypasspairs_members.get(config_parent_interface_id))
+                        members = leftover_bypasspairs_members.get(config_parent_interface_id)
+                        if members:
+                            bypasspair_members.extend(members)
                     else:
                         config_parent_interface_id = None
                     if config_parent_interface_id:
