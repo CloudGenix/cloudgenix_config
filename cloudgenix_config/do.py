@@ -8294,6 +8294,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # remove from delete queue
                     leftover_bypasspairs = [entry for entry in leftover_bypasspairs if entry != interface_id]
 
+                    # Reset the configuration before delete. Else api will throw error
+                    for bp in leftover_bypasspairs:
+                        default_template = get_member_default_config()
+                        output_message("   Setting Bypasspair {0} to default.".format(interfaces_id2n.get(bp)))
+                        new_parent_id = modify_interface(default_template, bp, interfaces_n2id,
+                                                         waninterfaces_n2id,
+                                                         lannetworks_n2id, site_id, element_id, version=api_version)
+
                 # DELETE unused bypasspairs at this point.
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
 
