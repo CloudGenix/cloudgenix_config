@@ -1036,6 +1036,10 @@ def _pull_config_for_single_site(site_name_id):
                     if if_name_dict[interface.get('name')] > 1:
                         if if_type != 'bypasspair':
                             continue
+            elif element.get('model_name') == 'ion 9000':
+                if if_name_dict[interface.get('name')] > 1:
+                    if if_type != 'bypasspair':
+                        continue
             if not FORCE_PARENTS and interface.get('name') in skip_interface_list:
                 # Unconfigurable interface, skip.
                 continue
