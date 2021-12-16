@@ -484,7 +484,7 @@ ion_3000 = """
             sub_interface: null
             tags:
             type: bypasspair
-            used_for: private_wan
+            used_for: private
           wan 2:
             admin_up: true
             attached_lan_networks: null
@@ -546,7 +546,7 @@ ion_3000 = """
             sub_interface: null
             tags:
             type: bypasspair
-            used_for: private_wan
+            used_for: private
           wan 3:
             admin_up: true
             attached_lan_networks: null
@@ -608,7 +608,7 @@ ion_3000 = """
             sub_interface: null
             tags:
             type: bypasspair
-            used_for: private_wan
+            used_for: private
           wan 4:
             admin_up: true
             attached_lan_networks: null
@@ -670,7 +670,7 @@ ion_3000 = """
             sub_interface: null
             tags:
             type: bypasspair
-            used_for: private_wan
+            used_for: private
 """
 
 ion_7000 = """
@@ -883,7 +883,7 @@ ion_7000 = """
             sub_interface: null
             tags:
             type: port
-            used_for: private_wan
+            used_for: private
           '3':
             admin_up: false
             attached_lan_networks: null
@@ -1360,7 +1360,7 @@ ion_2000 = """
             sub_interface: null
             tags:
             type: bypasspair
-            used_for: private_wan
+            used_for: private
           controller:
             admin_up: true
             attached_lan_networks: null
@@ -1890,7 +1890,7 @@ ion_9000 = """
             sub_interface: null
             tags:
             type: port
-            used_for: private_wan
+            used_for: private
           '3':
             admin_up: false
             attached_lan_networks: null

@@ -135,6 +135,7 @@ __license__ = """
 
 # Constant settings
 FILE_TYPE_REQUIRED = "cloudgenix template"
+FILE_VERSION_REQUIRED = "1.0"
 SDK_VERSION_REQUIRED = '5.6.1b2'
 CONFIG_VERSION_REQUIRED = '1.6.0b1'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
@@ -815,13 +816,16 @@ def parse_root_config(data_file):
                     throw_warning("YAML file not correct type or version. Required mandatory meta attributes: type, sdk_version and config_version ", detect_msg)
 
         else:
+            yml_ver = str(config_lower_get(data_file, 'version'))
             detect_msg = {
                 "Expected Type": FILE_TYPE_REQUIRED,
-                "Read Type": yml_type
+                "Read Type": yml_type,
+                "Expected Version": FILE_VERSION_REQUIRED,
+                "Read Version": yml_ver
             }
 
-            if not yml_type == FILE_TYPE_REQUIRED:
-                throw_warning("YAML file not correct type: ", detect_msg)
+            if not yml_type == FILE_TYPE_REQUIRED or not yml_ver == FILE_VERSION_REQUIRED:
+                throw_error("YAML file not correct type or version: ", detect_msg)
     # grab sites
     config_sites, _ = config_lower_version_get(data_file, 'sites', sdk.put.sites, default={})
 
