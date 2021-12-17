@@ -796,10 +796,20 @@ def parse_root_config(data_file):
         config_ver = str(config_lower_get(data_file, 'config_version'))
         if 'v' in config_ver:
             config_ver.replace('v', '')
+        yml_ver = str(config_lower_get(data_file, 'version'))
 
         if (cloudgenix.version.replace('v', '') >= SDK_VERSION_REQUIRED and import_cloudgenix_config_version.replace('v', '') >= CONFIG_VERSION_REQUIRED):
             if sdk_ver == 'None' or config_ver == 'None':
-                throw_warning("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version")
+                if yml_ver == 'None':
+                    detect_msg = {
+                        "Expected Type": FILE_TYPE_REQUIRED,
+                        "Read Type": yml_type,
+                        "Expected SDK Version": '>= ' + SDK_VERSION_REQUIRED,
+                        "Read SDK Version": sdk_ver,
+                        "Expected Config Version": '>= ' + CONFIG_VERSION_REQUIRED,
+                        "Read Config Version": config_ver
+                    }
+                    throw_warning("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version", detect_msg)
             else:
                 detect_msg = {
                     "Expected Type": FILE_TYPE_REQUIRED,
