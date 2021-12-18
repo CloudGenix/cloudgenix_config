@@ -103,11 +103,14 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
  use the `--declaim` option. This will unassign AND declaim (AKA "put back in inventory") the permanently offline or broken device. 
  It will also force revocation of all credentials and certificates for that device.
  - Element Extensions with specific PATH IDs are not currently templatable across multiple sites using this script.
+ - For ION 9000, if trying to configure a bypasspair and the port with the same name (12,13,14,15,16), configuration pushes via do_site have to be done in the following two steps:
+     - Include only interface configuration of type port and use the do_site utility to push this configuration first.
+     - Update the YAML file to remove the interface configuration of type port, include interface configuration of type bypasspair and use the do_site utiltiy to push the bypasspair configuration.
 
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.6.0** | **b1** | Support for CloudGenix SDK 5.6.1b2, apiversion flag in cli, bugfixes
+| **1.6.0** | **b1** | Support for CloudGenix SDK 5.6.1b2, cellular devices, multicast, apiversion flag in cli, bugfixes
 | **1.5.0** | **b1** | Removed mandatory 480 seconds delay (workaround for CGSDW-799) after claiming ION|
 | **1.4.0** | **b5** | Default 480 second delay after claiming ION. Workaround for CGSDW-799|
 |           | **b4** | Added wait-element-config parameter to introduce a delay before element configuration|
