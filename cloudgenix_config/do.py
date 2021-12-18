@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.5.0b1
+**Version:** 1.6.0b1
 
 **Author:** CloudGenix
 
@@ -39,6 +39,7 @@ import sys
 import os
 import argparse
 import re
+import base64
 
 # CloudGenix Python SDK
 try:
@@ -56,7 +57,8 @@ try:
         config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-        nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
+        nameable_interface_types, skip_interface_list, check_default_ipv4_config, use_sdk_yaml_version, \
+        get_function_default_args, CloudGenixConfigError
 
     from cloudgenix_config import __version__ as import_cloudgenix_config_version
 except Exception:
@@ -64,7 +66,8 @@ except Exception:
         config_lower_get, name_lookup_in_template, extract_items, build_lookup_dict, build_lookup_dict_snmp_trap, \
         list_to_named_key_value, recombine_named_key_value, get_default_ifconfig_from_model_string, \
         order_interface_by_number, get_member_default_config, default_backwards_bypasspairs, find_diff, \
-        nameable_interface_types, skip_interface_list, check_default_ipv4_config, CloudGenixConfigError
+        nameable_interface_types, skip_interface_list, check_default_ipv4_config, use_sdk_yaml_version, \
+        get_function_default_args, CloudGenixConfigError
 
     from cloudgenix_config.cloudgenix_config import __version__ as import_cloudgenix_config_version
 
@@ -133,6 +136,8 @@ __license__ = """
 # Constant settings
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
+SDK_VERSION_REQUIRED = '5.6.1b2'
+CONFIG_VERSION_REQUIRED = '1.6.0b1'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
@@ -206,9 +211,10 @@ upgrade_path_regex = {
     "4\.7\..*" : "5.0.3", ### 4.7.xyz -> 5.0.3
     "5\.0\..*" : "5.2.7", ### 5.0.xyz -> 5.2.7
     "5\.1\..*" : "5.2.7", ### 5.1.xyz -> 5.2.7
-    "5\.2\..*" : "5.4.3", ### 5.2.xyz -> 5.4.3
-    "5\.3\..*" : "5.5.1", ### 5.3.xyz -> 5.4.3
-    "5\.4\..*" : "5.5.1", ### 5.4.xyz -> 5.5.1
+    "5\.2\..*" : ["5.5..*", "5.4..*", "5.3..*"], ### 5.2.xyz -> 5.5.3 # Fix for CGCBL-566
+    "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
+    "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
+    "5\.5\..*" : "5.6.1", ### 5.5.xyz -> 5.6.1
 }
 
 downgrade_path_regex = {
@@ -217,8 +223,9 @@ downgrade_path_regex = {
     "5\.1\..*" : "4.7.1", ### 5.1 to 4.7.1
     "5\.2\..*" : "5.0.3", ### 5.2 to 5.0.3
     "5\.3\..*" : "5.2.7", ### 5.3 to 5.2.7
-    "5\.4\..*" : "5.2.7", ### 5.4 to 5.2.7
-    "5\.5\..*" : "5.4.3", ### 5.5 to 5.4.3
+    "5\.4\..*" : ["5.2..*", "5.3..*"], ### 5.4 to 5.2.7 # Fix for CGCBL-566
+    "5\.5\..*" : ["5.2..*", "5.3..*", "5.4..*"], ### 5.5 to 5.2.7
+    "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
 }
 
 # Global Config Cache holders
@@ -227,6 +234,8 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
+ngfw_security_policysetstack_cache = []
+syslogserverprofiles_cache = []
 securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
@@ -251,12 +260,15 @@ ipfixfiltercontext_cache = []
 ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
+apnprofiles_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
 elements_n2id = {}
 policysets_n2id = {}
 security_policysets_n2id = {}
+ngfw_security_policysetstack_n2id = {}
+syslogserverprofiles_n2id = {}
 securityzones_n2id = {}
 network_policysetstack_n2id = {}
 priority_policysetstack_n2id = {}
@@ -282,6 +294,7 @@ ipfixfiltercontext_n2id = {}
 ipfixtemplate_n2id = {}
 ipfixlocalprefix_n2id = {}
 ipfixglobalprefix_n2id = {}
+apnprofiles_n2id = {}
 
 # Machines/elements need serial to ID mappings
 elements_byserial = {}
@@ -301,6 +314,7 @@ timeout_state = DEFAULT_WAIT_MAX_TIME
 interval_timeout = DEFAULT_WAIT_INTERVAL
 force_update = False
 site_safety_factor = 1
+apiversion = 'sdk'
 
 # CloudGenix SDK and JSON DUMP helper
 sdk = cloudgenix.API()
@@ -427,6 +441,8 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
+    global ngfw_security_policysetstack_cache
+    global syslogserverprofiles_cache
     global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
@@ -450,11 +466,14 @@ def update_global_cache():
     global ipfixtemplate_cache
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
+    global apnprofiles_cache
 
     global sites_n2id
     global elements_n2id
     global policysets_n2id
     global security_policysets_n2id
+    global ngfw_security_policysetstack_n2id
+    global syslogserverprofiles_n2id
     global securityzones_n2id
     global network_policysetstack_n2id
     global priority_policysetstack_n2id
@@ -480,6 +499,7 @@ def update_global_cache():
     global ipfixtemplate_n2id
     global ipfixlocalprefix_n2id
     global ipfixglobalprefix_n2id
+    global apnprofiles_n2id
 
     global elements_byserial
     global machines_byserial
@@ -504,11 +524,19 @@ def update_global_cache():
     policysets_resp = sdk.get.policysets()
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
-    # secuirity_policysets
+    # security_policysets
     security_policysets_resp = sdk.get.securitypolicysets()
     security_policysets_cache, _ = extract_items(security_policysets_resp, 'security_policysets')
 
-    # secuirityzones
+    # ngfw_security_policysetstack
+    ngfw_security_policysetstack_resp = sdk.get.ngfwsecuritypolicysetstacks()
+    ngfw_security_policysetstack_cache, _ = extract_items(ngfw_security_policysetstack_resp, 'ngfw_securitypolicysetstack')
+
+    # syslogserverprofiles
+    syslogserverprofiles_resp = sdk.get.syslogserverprofiles()
+    syslogserverprofiles_cache, _ = extract_items(syslogserverprofiles_resp, 'syslogserverprofiles')
+
+    # securityzones
     securityzones_resp = sdk.get.securityzones()
     securityzones_cache, _ = extract_items(securityzones_resp, 'securityzones')
 
@@ -604,6 +632,10 @@ def update_global_cache():
     ipfixglobalprefix_resp = sdk.get.ipfixglobalprefixes()
     ipfixglobalprefix_cache, _ = extract_items(ipfixglobalprefix_resp, 'ipfixglobalprefixes')
 
+    # apnprofiles
+    apnprofiles_resp = sdk.get.apnprofiles()
+    apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -615,6 +647,12 @@ def update_global_cache():
 
     # security_policysets name
     security_policysets_n2id = build_lookup_dict(security_policysets_cache)
+
+    # ngfw_security_policysetstack name
+    ngfw_security_policysetstack_n2id = build_lookup_dict(ngfw_security_policysetstack_cache)
+
+    # syslogserverprofiles name
+    syslogserverprofiles_n2id = build_lookup_dict(syslogserverprofiles_cache)
 
     # securityzones name
     securityzones_n2id = build_lookup_dict(securityzones_cache)
@@ -691,6 +729,9 @@ def update_global_cache():
     # ipfixglobalprefix
     ipfixglobalprefix_n2id = build_lookup_dict(ipfixglobalprefix_cache)
 
+    # apnprofiles name
+    apnprofiles_n2id = build_lookup_dict(apnprofiles_cache)
+
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
 
@@ -704,7 +745,6 @@ def update_global_cache():
 
     # id to name for tenant_ipfixlocalprefixes
     ipfixlocalprefix_id2n = build_lookup_dict(ipfixlocalprefix_cache, key_val='id', value_val='name')
-
 
     return
 
@@ -749,20 +789,53 @@ def parse_root_config(data_file):
     if not FROM_CLOUDBLADE:
         # Verify template.
         yml_type = str(config_lower_get(data_file, 'type'))
+        # Removing yml version and adding sdk version and config version. Fix for CGCBL-565
+        sdk_ver = str(config_lower_get(data_file, 'sdk_version'))
+        if 'v' in sdk_ver:
+            sdk_ver.replace('v', '')
+        config_ver = str(config_lower_get(data_file, 'config_version'))
+        if 'v' in config_ver:
+            config_ver.replace('v', '')
         yml_ver = str(config_lower_get(data_file, 'version'))
 
-        detect_msg = {
-            "Expected Type": FILE_TYPE_REQUIRED,
-            "Read Type": yml_type,
-            "Expected Version": FILE_VERSION_REQUIRED,
-            "Read Version": yml_ver
-        }
+        if (cloudgenix.version.replace('v', '') >= SDK_VERSION_REQUIRED and import_cloudgenix_config_version.replace('v', '') >= CONFIG_VERSION_REQUIRED):
+            if sdk_ver == 'None' or config_ver == 'None':
+                if yml_ver == 'None':
+                    detect_msg = {
+                        "Expected Type": FILE_TYPE_REQUIRED,
+                        "Read Type": yml_type,
+                        "Expected SDK Version": '>= ' + SDK_VERSION_REQUIRED,
+                        "Read SDK Version": sdk_ver,
+                        "Expected Config Version": '>= ' + CONFIG_VERSION_REQUIRED,
+                        "Read Config Version": config_ver
+                    }
+                    throw_warning("YAML file missing mandatory meta attributes. Required: type, sdk_version and config_version", detect_msg)
+            else:
+                detect_msg = {
+                    "Expected Type": FILE_TYPE_REQUIRED,
+                    "Read Type": yml_type,
+                    "Expected SDK Version": '>= '+SDK_VERSION_REQUIRED,
+                    "Read SDK Version": sdk_ver,
+                    "Expected Config Version": '>= '+CONFIG_VERSION_REQUIRED,
+                    "Read Config Version": config_ver
+                }
 
-        local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
+                local_debug("CONFIG METADATA READ: " + str(json.dumps(detect_msg, indent=4)))
 
-        if not yml_type == FILE_TYPE_REQUIRED or not yml_ver == FILE_VERSION_REQUIRED:
-            throw_error("YAML file not correct type or version: ", detect_msg)
+                if not yml_type == FILE_TYPE_REQUIRED or not (sdk_ver >= SDK_VERSION_REQUIRED and config_ver >= CONFIG_VERSION_REQUIRED):
+                    throw_warning("YAML file not correct type or version. Required mandatory meta attributes: type, sdk_version and config_version ", detect_msg)
 
+        else:
+            yml_ver = str(config_lower_get(data_file, 'version'))
+            detect_msg = {
+                "Expected Type": FILE_TYPE_REQUIRED,
+                "Read Type": yml_type,
+                "Expected Version": FILE_VERSION_REQUIRED,
+                "Read Version": yml_ver
+            }
+
+            if not yml_type == FILE_TYPE_REQUIRED or not yml_ver == FILE_VERSION_REQUIRED:
+                throw_error("YAML file not correct type or version: ", detect_msg)
     # grab sites
     config_sites, _ = config_lower_version_get(data_file, 'sites', sdk.put.sites, default={})
 
@@ -820,9 +893,18 @@ def parse_element_config(config_element):
     config_dnsservices, _ = config_lower_version_get(config_element, 'dnsservices', sdk.put.dnsservices, default=[])
     config_app_probe, _ = config_lower_version_get(config_element, 'application_probe', sdk.put.application_probe, default={})
     config_ipfix, _ = config_lower_version_get(config_element, 'ipfix', sdk.put.ipfix, default=[])
+    config_multicastglobalconfigs, _ = config_lower_version_get(config_element, 'multicastglobalconfigs', sdk.put.multicastglobalconfigs, default=[])
+    config_multicastrps, _ = config_lower_version_get(config_element, 'multicastrps', sdk.put.multicastrps, default=[])
+    config_element_cellular_modules, _ = config_lower_version_get(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default={})
+    config_cellular_modules_sim_security, _ = config_lower_version_get(config_element,
+                                                                       'cellular_modules_sim_security',
+                                                                       sdk.put.cellular_modules_sim_security,
+                                                                       default={})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
-        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, config_ipfix
+        config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
+        config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
+        config_cellular_modules_sim_security
 
 
 def parse_routing_config(config_routing):
@@ -1125,7 +1207,7 @@ def major_minor(version):
     :return: major+minor version
     """
 
-    major, minor, micro = re.search('(\d+)\.(\d+)\.(\d+)', version).groups()
+    major, minor = re.search('(\d+)\.(\d+)\..+', version).groups()
     return major + '.' + minor
 
 
@@ -1138,7 +1220,7 @@ def get_exact_version(version, image_dict):
     """
 
     for image_version in image_dict.keys():
-        if str(version) in image_version:
+        if re.search(str(version), image_version):
             return image_version
     return None
 
@@ -1326,14 +1408,31 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
         output_message(" Element: Performing step upgrade from {0} to {1}".format(active_image_name, elem_config_version))
         for path in upgrade_path_regex.keys():
             if re.match(path, active_image_name):
-                if major_minor(elem_config_version) > major_minor(upgrade_path_regex[path]):
-                    new_version = get_exact_version(upgrade_path_regex[path], images_dict)
-                    new_image_id = images_dict[new_version]['id'] if new_version else None
+                if type(upgrade_path_regex[path]) == list: # Fix for CGCBL-566
+                    for upgrade_version in upgrade_path_regex[path]:
+                        if major_minor(elem_config_version) > major_minor(upgrade_version):
+                            new_version = get_exact_version(upgrade_version, images_dict)
+                            if not new_version:
+                                continue
+                            new_image_id = images_dict[new_version]['id'] if new_version else None
+                            break
+                        else:
+                            new_version = elem_config_version
+                            new_image_id = image_id
+                            break
+                    else:
+                        continue
+
                     break
                 else:
-                    new_version = elem_config_version
-                    new_image_id = image_id
-                    break
+                    if major_minor(elem_config_version) > major_minor(upgrade_path_regex[path]):
+                        new_version = get_exact_version(upgrade_path_regex[path], images_dict)
+                        new_image_id = images_dict[new_version]['id'] if new_version else None
+                        break
+                    else:
+                        new_version = elem_config_version
+                        new_image_id = image_id
+                        break
 
     # Check if the yml software version is below the current version
     # If yes, perform downgrade as per the upgrade path dictionary
@@ -1342,14 +1441,31 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
         output_message(" Element: Performing step downgrade from {0} to {1}".format(active_image_name, elem_config_version))
         for path in downgrade_path_regex.keys():
             if re.match(path, active_image_name):
-                if major_minor(elem_config_version) < major_minor(downgrade_path_regex[path]):
-                    new_version = get_exact_version(downgrade_path_regex[path], images_dict)
-                    new_image_id = images_dict[new_version]['id'] if new_version else None
+                if type(downgrade_path_regex[path]) == list: # Fix for CGCBL-566
+                    for downgrade_version in downgrade_path_regex[path]:
+                        if major_minor(elem_config_version) < major_minor(downgrade_version):
+                            new_version = get_exact_version(downgrade_version, images_dict)
+                            if not new_version:
+                                continue
+                            new_image_id = images_dict[new_version]['id'] if new_version else None
+                            break
+                        else:
+                            new_version = elem_config_version
+                            new_image_id = image_id
+                            break
+                    else:
+                        continue
+
                     break
                 else:
-                    new_version = elem_config_version
-                    new_image_id = image_id
-                    break
+                    if major_minor(elem_config_version) < major_minor(downgrade_path_regex[path]):
+                        new_version = get_exact_version(downgrade_path_regex[path], images_dict)
+                        new_image_id = images_dict[new_version]['id'] if new_version else None
+                        break
+                    else:
+                        new_version = elem_config_version
+                        new_image_id = image_id
+                        break
 
     # This case is for micro version upgrades. For example 5.4.1 to 5.4.3
     # No checks are needed
@@ -1377,7 +1493,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     return
 
 
-def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id):
+def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, version=None):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
     :param matching_element: Element object (containing ID) to work on
@@ -1477,7 +1593,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
 
     local_debug("ELEM_SPOKEHA_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-    elem_update_resp = sdk.put.elements(element_id, elem_template)
+    elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
     if not elem_update_resp.cgx_status:
         throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text), elem_update_resp)
@@ -1485,7 +1601,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     return
 
 
-def assign_modify_element(matching_element, site_id, config_element):
+def assign_modify_element(matching_element, site_id, config_element, version=None):
     """
     Assign or Modify element object
     :param matching_element: Element API response
@@ -1560,7 +1676,7 @@ def assign_modify_element(matching_element, site_id, config_element):
 
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-            elem_update_resp = sdk.put.elements(element_id, elem_template)
+            elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
             if not elem_update_resp.cgx_status:
                 throw_error("Element {0} Update failed: ".format(element_descriptive_text),
@@ -1605,7 +1721,7 @@ def assign_modify_element(matching_element, site_id, config_element):
 
         local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-        elem_update_resp = sdk.put.elements(element_id, elem_template)
+        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
         if not elem_update_resp.cgx_status:
             throw_error("Element {0} Assign failed: ".format(element_descriptive_text),
@@ -1614,7 +1730,7 @@ def assign_modify_element(matching_element, site_id, config_element):
     return
 
 
-def unbind_elements(element_id_list, site_id, declaim=False):
+def unbind_elements(element_id_list, site_id, declaim=False, version=None):
     """
     Unbind (unassign) element(s) from a site
     :param element_id_list: List of element IDs to unbind.
@@ -1656,7 +1772,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
 
             intf_list = intf_resp.cgx_content.get('items', [])
 
-            bypass_member_list = []
+            bypass_member_list, vi_list = [], []
 
             # look for interfaces that are members of a bypass list.
             for interface in intf_list:
@@ -1668,7 +1784,6 @@ def unbind_elements(element_id_list, site_id, declaim=False):
                     lan = bypass_pair.get('lan')
                     if lan:
                         bypass_member_list.append(lan)
-
             # iterate the interface list, removing all lan networks/ wan interfaces.
             for interface in intf_list:
 
@@ -1689,9 +1804,11 @@ def unbind_elements(element_id_list, site_id, declaim=False):
                         intf_template["attached_lan_networks"] = None
 
                     if changed and intf_name and intf_id:
+                        interfaces_version = use_sdk_yaml_version(element_item, 'interfaces', sdk.put.interfaces,
+                                                                  default={}, sdk_or_yaml=apiversion)
                         # reconfigure the interface.
                         output_message(" Removing LAN Networks/WAN Interfaces from {0}.".format(intf_name))
-                        reconf_resp = sdk.put.interfaces(site_id, element_item_id, intf_id, intf_template)
+                        reconf_resp = sdk.put.interfaces(site_id, element_item_id, intf_id, intf_template, api_version=interfaces_version)
 
                         if not reconf_resp.cgx_status:
                             throw_error("Could not strip config from {0}: ".format(intf_name),
@@ -1735,7 +1852,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
             matching_element = {"id": element_item_id}
 
             # use the temp fake element to flush the Spoke HA configuration prior to unbind.
-            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {})
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, version=version)
 
             # refresh the element
             element_resp = sdk.get.elements(element_item_id)
@@ -1760,7 +1877,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
             # Wipe them out. All of them..
-            elem_resp = sdk.put.elements(element_item_id, elem_template)
+            elem_resp = sdk.put.elements(element_item_id, elem_template, api_version=version)
             if not elem_resp.cgx_status:
                 if declaim:
                     # element may be stuck offline, and we are going to do a declaim.
@@ -1787,7 +1904,7 @@ def unbind_elements(element_id_list, site_id, declaim=False):
     return elem_list
 
 
-def create_site(config_site):
+def create_site(config_site, version=None):
     """
     Create a new site
     :param config_site: Site configuration Dict
@@ -1808,10 +1925,12 @@ def create_site(config_site):
     site_template = fuzzy_pop(site_template, 'site_security_zones')
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
+    site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
+    name_lookup_in_template(site_template, 'security_policysetstack_id', ngfw_security_policysetstack_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
@@ -1820,7 +1939,7 @@ def create_site(config_site):
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
 
     # create site
-    site_resp = sdk.post.sites(site_template)
+    site_resp = sdk.post.sites(site_template, api_version=version)
 
     if not site_resp.cgx_status:
         throw_error("Site creation failed: ", site_resp)
@@ -1840,7 +1959,7 @@ def create_site(config_site):
     return site_id
 
 
-def modify_site(config_site, site_id):
+def modify_site(config_site, site_id, version=None):
     """
     Modify an existing Site
     :param config_site: Site config Dict
@@ -1868,6 +1987,7 @@ def modify_site(config_site, site_id):
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
     name_lookup_in_template(site_template, 'security_policyset_id', security_policysets_n2id)
+    name_lookup_in_template(site_template, 'security_policysetstack_id', ngfw_security_policysetstack_n2id)
     name_lookup_in_template(site_template, 'network_policysetstack_id', network_policysetstack_n2id)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
@@ -1876,7 +1996,7 @@ def modify_site(config_site, site_id):
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
 
     # get current site
-    site_resp = sdk.get.sites(site_id)
+    site_resp = sdk.get.sites(site_id, api_version=version)
     if site_resp.cgx_status:
         site_config = site_resp.cgx_content
     else:
@@ -1900,7 +2020,7 @@ def modify_site(config_site, site_id):
         local_debug("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
 
     # Update Site.
-    site_resp2 = sdk.put.sites(site_id, site_config)
+    site_resp2 = sdk.put.sites(site_id, site_config, api_version=version)
 
     if not site_resp2.cgx_status:
         throw_error("Site update failed: ", site_resp2)
@@ -1923,7 +2043,7 @@ def modify_site(config_site, site_id):
     return site_id
 
 
-def set_site_state(config_site, site_id):
+def set_site_state(config_site, site_id, version=None):
     """
     Modify Site state specifically.
     :param config_site: Site configuration Dict
@@ -1937,7 +2057,7 @@ def set_site_state(config_site, site_id):
         site_state = 'disabled'
 
     # get site
-    site_resp = sdk.get.sites(site_id)
+    site_resp = sdk.get.sites(site_id, api_version=version)
 
     if not site_resp.cgx_status:
         throw_error("Get of site {0} failed: ".format(site_id), site_resp)
@@ -1952,7 +2072,7 @@ def set_site_state(config_site, site_id):
     site_resp.cgx_content['admin_state'] = site_state
 
     # put it back
-    site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content)
+    site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content, api_version=version)
     if not site_modify_resp.cgx_status:
         throw_error("Set of site {0} status failed: ".format(site_id), site_modify_resp)
 
@@ -1961,7 +2081,7 @@ def set_site_state(config_site, site_id):
     return
 
 
-def create_waninterface(config_waninterface, waninterfaces_n2id, site_id):
+def create_waninterface(config_waninterface, waninterfaces_n2id, site_id, version=None):
     """
     Create a WAN Interface
     :param config_waninterface: WAN Interface config dict
@@ -2018,7 +2138,7 @@ def create_waninterface(config_waninterface, waninterfaces_n2id, site_id):
     local_debug("WANINTERFACE TEMPLATE: " + str(json.dumps(waninterface_template, indent=4)))
 
     # create waninterface
-    waninterface_resp = sdk.post.waninterfaces(site_id, waninterface_template)
+    waninterface_resp = sdk.post.waninterfaces(site_id, waninterface_template, api_version=version)
 
     if not waninterface_resp.cgx_status:
         throw_error("Waninterface creation failed: ", waninterface_resp)
@@ -2038,7 +2158,7 @@ def create_waninterface(config_waninterface, waninterfaces_n2id, site_id):
     return waninterface_id
 
 
-def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id, site_id):
+def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id, site_id, version=None):
     """
     Modify Existing WAN Interface
     :param config_waninterface: WAN Interface config dict
@@ -2097,7 +2217,7 @@ def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id
     local_debug("WANINTERFACE TEMPLATE: " + str(json.dumps(waninterface_template, indent=4)))
 
     # get current waninterface
-    waninterface_resp = sdk.get.waninterfaces(site_id, waninterface_id)
+    waninterface_resp = sdk.get.waninterfaces(site_id, waninterface_id, api_version=version)
     if waninterface_resp.cgx_status:
         waninterface_config = waninterface_resp.cgx_content
     else:
@@ -2142,7 +2262,7 @@ def modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id
         throw_error(error_text, error_dict)
 
     # Update Waninterface.
-    waninterface_resp2 = sdk.put.waninterfaces(site_id, waninterface_id, waninterface_config)
+    waninterface_resp2 = sdk.put.waninterfaces(site_id, waninterface_id, waninterface_config, api_version=version)
 
     if not waninterface_resp2.cgx_status:
         throw_error("Waninterface update failed: ", waninterface_resp2)
@@ -2189,7 +2309,7 @@ def delete_waninterfaces(leftover_waninterfaces, site_id, id2n=None):
     return
 
 
-def create_lannetwork(config_lannetwork, lannetworks_n2id, site_id):
+def create_lannetwork(config_lannetwork, lannetworks_n2id, site_id, version=None):
     """
     Create LAN Network
     :param config_lannetwork: LAN Network config dict
@@ -2207,7 +2327,7 @@ def create_lannetwork(config_lannetwork, lannetworks_n2id, site_id):
     local_debug("LANNETWORK TEMPLATE: " + str(json.dumps(lannetwork_template, indent=4)))
 
     # create lannetwork
-    lannetwork_resp = sdk.post.lannetworks(site_id, lannetwork_template)
+    lannetwork_resp = sdk.post.lannetworks(site_id, lannetwork_template, api_version=version)
 
     if not lannetwork_resp.cgx_status:
         throw_error("Lannetwork creation failed: ", lannetwork_resp)
@@ -2227,7 +2347,7 @@ def create_lannetwork(config_lannetwork, lannetworks_n2id, site_id):
     return lannetwork_id
 
 
-def modify_lannetwork(config_lannetwork, lannetwork_id, lannetworks_n2id, site_id):
+def modify_lannetwork(config_lannetwork, lannetwork_id, lannetworks_n2id, site_id, version=None):
     """
     Modify an existing LAN Network
     :param config_lannetwork: LAN Network config dict
@@ -2247,7 +2367,7 @@ def modify_lannetwork(config_lannetwork, lannetwork_id, lannetworks_n2id, site_i
     local_debug("LANNETWORK TEMPLATE: " + str(json.dumps(lannetwork_template, indent=4)))
 
     # get current lannetwork
-    lannetwork_resp = sdk.get.lannetworks(site_id, lannetwork_id)
+    lannetwork_resp = sdk.get.lannetworks(site_id, lannetwork_id, api_version=version)
     if lannetwork_resp.cgx_status:
         lannetwork_config = lannetwork_resp.cgx_content
     else:
@@ -2270,7 +2390,7 @@ def modify_lannetwork(config_lannetwork, lannetwork_id, lannetworks_n2id, site_i
         local_debug("LANNETWORK DIFF: {0}".format(find_diff(lannetwork_change_check, lannetwork_config)))
 
     # Update Lannetwork.
-    lannetwork_resp2 = sdk.put.lannetworks(site_id, lannetwork_id, lannetwork_config)
+    lannetwork_resp2 = sdk.put.lannetworks(site_id, lannetwork_id, lannetwork_config, api_version=version)
 
     if not lannetwork_resp2.cgx_status:
         throw_error("Lannetwork update failed: ", lannetwork_resp2)
@@ -2317,7 +2437,7 @@ def delete_lannetworks(leftover_lannetworks, site_id, id2n=None):
     return
 
 
-def create_dhcpserver(config_dhcpserver, site_id):
+def create_dhcpserver(config_dhcpserver, site_id, version=None):
     """
     Create a new DHCP Server
     :param config_dhcpserver: DHCP Server config dict
@@ -2333,7 +2453,7 @@ def create_dhcpserver(config_dhcpserver, site_id):
     local_debug("DHCPSERVER TEMPLATE: " + str(json.dumps(dhcpserver_template, indent=4)))
 
     # create dhcpserver
-    dhcpserver_resp = sdk.post.dhcpservers(site_id, dhcpserver_template)
+    dhcpserver_resp = sdk.post.dhcpservers(site_id, dhcpserver_template, api_version=version)
 
     if not dhcpserver_resp.cgx_status:
         throw_error("Dhcpserver creation failed: ", dhcpserver_resp)
@@ -2349,7 +2469,7 @@ def create_dhcpserver(config_dhcpserver, site_id):
     return dhcpserver_id
 
 
-def modify_dhcpserver(config_dhcpserver, dhcpserver_id, site_id):
+def modify_dhcpserver(config_dhcpserver, dhcpserver_id, site_id, version=None):
     """
     Modify an existing DHCP Server
     :param config_dhcpserver: DHCP Server config dict
@@ -2367,7 +2487,7 @@ def modify_dhcpserver(config_dhcpserver, dhcpserver_id, site_id):
     local_debug("DHCPSERVER TEMPLATE: " + str(json.dumps(dhcpserver_template, indent=4)))
 
     # get current dhcpserver
-    dhcpserver_resp = sdk.get.dhcpservers(site_id, dhcpserver_id)
+    dhcpserver_resp = sdk.get.dhcpservers(site_id, dhcpserver_id, api_version=version)
     if dhcpserver_resp.cgx_status:
         dhcpserver_config = dhcpserver_resp.cgx_content
     else:
@@ -2390,7 +2510,7 @@ def modify_dhcpserver(config_dhcpserver, dhcpserver_id, site_id):
         local_debug("DHCPSERVER DIFF: {0}".format(find_diff(dhcpserver_change_check, dhcpserver_config)))
 
     # Update Dhcpserver.
-    dhcpserver_resp2 = sdk.put.dhcpservers(site_id, dhcpserver_id, dhcpserver_config)
+    dhcpserver_resp2 = sdk.put.dhcpservers(site_id, dhcpserver_id, dhcpserver_config, api_version=version)
 
     if not dhcpserver_resp2.cgx_status:
         throw_error("Dhcpserver update failed: ", dhcpserver_resp2)
@@ -2433,7 +2553,7 @@ def delete_dhcpservers(leftover_dhcpservers, site_id, id2n=None):
     return
 
 
-def create_site_extension(config_site_extension, site_extensions_n2id, waninterfaces_n2id, lannetworks_n2id, site_id):
+def create_site_extension(config_site_extension, site_extensions_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, version=None):
     """
     Create a new Site Extension
     :param config_site_extension: Site Extension config dict
@@ -2455,7 +2575,7 @@ def create_site_extension(config_site_extension, site_extensions_n2id, waninterf
     local_debug("SITE_EXTENSION TEMPLATE: " + str(json.dumps(site_extension_template, indent=4)))
 
     # create site_extension
-    site_extension_resp = sdk.post.site_extensions(site_id, site_extension_template)
+    site_extension_resp = sdk.post.site_extensions(site_id, site_extension_template, api_version=version)
 
     if not site_extension_resp.cgx_status:
         throw_error("Site_extension creation failed: ", site_extension_resp)
@@ -2476,7 +2596,7 @@ def create_site_extension(config_site_extension, site_extensions_n2id, waninterf
 
 
 def modify_site_extension(config_site_extension, site_extension_id, site_extensions_n2id, waninterfaces_n2id,
-                          lannetworks_n2id, site_id):
+                          lannetworks_n2id, site_id, version=None):
     """
     Modify existing Site Extension
     :param config_site_extension: Site Extension config dict
@@ -2500,7 +2620,7 @@ def modify_site_extension(config_site_extension, site_extension_id, site_extensi
     local_debug("SITE_EXTENSION TEMPLATE: " + str(json.dumps(site_extension_template, indent=4)))
 
     # get current site_extension
-    site_extension_resp = sdk.get.site_extensions(site_id, site_extension_id)
+    site_extension_resp = sdk.get.site_extensions(site_id, site_extension_id, api_version=version)
     if site_extension_resp.cgx_status:
         site_extension_config = site_extension_resp.cgx_content
     else:
@@ -2523,7 +2643,7 @@ def modify_site_extension(config_site_extension, site_extension_id, site_extensi
         local_debug("SITE_EXTENSION DIFF: {0}".format(find_diff(site_extension_change_check, site_extension_config)))
 
     # Update Site_extension.
-    site_extension_resp2 = sdk.put.site_extensions(site_id, site_extension_id, site_extension_config)
+    site_extension_resp2 = sdk.put.site_extensions(site_id, site_extension_id, site_extension_config, api_version=version)
 
     if not site_extension_resp2.cgx_status:
         throw_error("Site_extension update failed: ", site_extension_resp2)
@@ -2572,7 +2692,7 @@ def delete_site_extensions(leftover_site_extensions, site_id, id2n=None):
     return
 
 
-def create_site_securityzone(config_site_securityzone, waninterface_n2id, lannetworks_n2id, site_id):
+def create_site_securityzone(config_site_securityzone, waninterface_n2id, lannetworks_n2id, site_id, version=None):
     """
     Create a Site Security Zone Mapping
     :param config_site_securityzone: Site Securityzone config dict
@@ -2608,7 +2728,7 @@ def create_site_securityzone(config_site_securityzone, waninterface_n2id, lannet
     local_debug("SITE_SECURITYZONE TEMPLATE: " + str(json.dumps(site_securityzone_template, indent=4)))
 
     # create site_securityzone
-    site_securityzone_resp = sdk.post.sitesecurityzones(site_id, site_securityzone_template)
+    site_securityzone_resp = sdk.post.sitesecurityzones(site_id, site_securityzone_template, api_version=version)
 
     if not site_securityzone_resp.cgx_status:
         throw_error("Site Securityzone creation failed: ", site_securityzone_resp)
@@ -2629,7 +2749,7 @@ def create_site_securityzone(config_site_securityzone, waninterface_n2id, lannet
 
 
 def modify_site_securityzone(config_site_securityzone, site_securityzone_id, waninterface_n2id, lannetworks_n2id,
-                             site_id):
+                             site_id, version=None):
     """
     Modify Existing Site Security Zone Mapping
     :param config_site_securityzone: Site Securityzone config dict
@@ -2667,7 +2787,7 @@ def modify_site_securityzone(config_site_securityzone, site_securityzone_id, wan
     local_debug("SITE_SECURITYZONE TEMPLATE: " + str(json.dumps(site_securityzone_template, indent=4)))
 
     # get current site_securityzone
-    site_securityzone_resp = sdk.get.sitesecurityzones(site_id, site_securityzone_id)
+    site_securityzone_resp = sdk.get.sitesecurityzones(site_id, site_securityzone_id, api_version=version)
     if site_securityzone_resp.cgx_status:
         site_securityzone_config = site_securityzone_resp.cgx_content
     else:
@@ -2693,7 +2813,7 @@ def modify_site_securityzone(config_site_securityzone, site_securityzone_id, wan
                                                                    site_securityzone_config)))
 
     # Update Site_securityzone.
-    site_securityzone_resp2 = sdk.put.sitesecurityzones(site_id, site_securityzone_id, site_securityzone_config)
+    site_securityzone_resp2 = sdk.put.sitesecurityzones(site_id, site_securityzone_id, site_securityzone_config, api_version=version)
 
     if not site_securityzone_resp2.cgx_status:
         throw_error("Site Securityzone update failed: ", site_securityzone_resp2)
@@ -2745,7 +2865,7 @@ def delete_site_securityzones(leftover_site_securityzones, site_id, id2n=None):
     return
 
 
-def create_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefixes_prefixid2id, site_id):
+def create_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefixes_prefixid2id, site_id, version=None):
     """
     Create a Site NAT Local Prefix mapping
     :param config_site_nat_localprefix: Site nat localprefix config dict
@@ -2764,7 +2884,7 @@ def create_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefi
     local_debug("SITE_NAT_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_nat_localprefix_template, indent=4)))
 
     # create site_nat_localprefix
-    site_nat_localprefix_resp = sdk.post.site_natlocalprefixes(site_id, site_nat_localprefix_template)
+    site_nat_localprefix_resp = sdk.post.site_natlocalprefixes(site_id, site_nat_localprefix_template, api_version=version)
 
     if not site_nat_localprefix_resp.cgx_status:
         throw_error("Site NAT Localprefix creation failed: ", site_nat_localprefix_resp)
@@ -2785,7 +2905,7 @@ def create_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefi
 
 
 def modify_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefix_id,
-                                site_nat_localprefixes_prefixid2id, site_id):
+                                site_nat_localprefixes_prefixid2id, site_id, version=None):
     """
     Modify Existing Site NAT Local Prefix mapping
     :param config_site_nat_localprefix: Site nat localprefix config dict
@@ -2806,7 +2926,7 @@ def modify_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefi
     local_debug("SITE_NAT_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_nat_localprefix_template, indent=4)))
 
     # get current site_nat_localprefix
-    site_nat_localprefix_resp = sdk.get.site_natlocalprefixes(site_id, site_nat_localprefix_id)
+    site_nat_localprefix_resp = sdk.get.site_natlocalprefixes(site_id, site_nat_localprefix_id, api_version=version)
     if site_nat_localprefix_resp.cgx_status:
         site_nat_localprefix_config = site_nat_localprefix_resp.cgx_content
     else:
@@ -2833,7 +2953,7 @@ def modify_site_nat_localprefix(config_site_nat_localprefix, site_nat_localprefi
 
     # Update Site_nat_localprefix.
     site_nat_localprefix_resp2 = sdk.put.site_natlocalprefixes(site_id, site_nat_localprefix_id,
-                                                               site_nat_localprefix_config)
+                                                               site_nat_localprefix_config, api_version=version)
 
     if not site_nat_localprefix_resp2.cgx_status:
         throw_error("Site NAT Localprefix update failed: ", site_nat_localprefix_resp2)
@@ -2886,7 +3006,7 @@ def delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id, id2n
     return
 
 
-def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id):
+def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, version=None):
     """
     Create a Spoke Cluster
     :param config_spokecluster: Spoke Cluster config dict
@@ -2903,7 +3023,7 @@ def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id):
     local_debug("SPOKECLUSTER TEMPLATE: " + str(json.dumps(spokecluster_template, indent=4)))
 
     # create spokecluster
-    spokecluster_resp = sdk.post.spokeclusters(site_id, spokecluster_template)
+    spokecluster_resp = sdk.post.spokeclusters(site_id, spokecluster_template, api_version=version)
 
     if not spokecluster_resp.cgx_status:
         throw_error("Spoke Cluster creation failed: ", spokecluster_resp)
@@ -2923,7 +3043,7 @@ def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id):
     return spokecluster_id
 
 
-def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id, site_id):
+def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id, site_id, version=None):
     """
     Modify Existing Spoke CLuster
     :param config_spokecluster: Spoke Cluster config dict
@@ -2942,7 +3062,7 @@ def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id
     local_debug("SPOKECLUSTER TEMPLATE: " + str(json.dumps(spokecluster_template, indent=4)))
 
     # get current spokecluster
-    spokecluster_resp = sdk.get.spokeclusters(site_id, spokecluster_id)
+    spokecluster_resp = sdk.get.spokeclusters(site_id, spokecluster_id, api_version=version)
     if spokecluster_resp.cgx_status:
         spokecluster_config = spokecluster_resp.cgx_content
     else:
@@ -2965,7 +3085,7 @@ def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id
         local_debug("SPOKECLUSTER DIFF: {0}".format(find_diff(spokecluster_change_check, spokecluster_config)))
 
     # Update spokecluster.
-    spokecluster_resp2 = sdk.put.spokeclusters(site_id, spokecluster_id, spokecluster_config)
+    spokecluster_resp2 = sdk.put.spokeclusters(site_id, spokecluster_id, spokecluster_config, api_version=version)
 
     if not spokecluster_resp2.cgx_status:
         throw_error("Spoke Cluster update failed: ", spokecluster_resp2)
@@ -3012,7 +3132,7 @@ def delete_spokeclusters(leftover_spokeclusters, site_id, id2n=None):
     return
 
 
-def create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id):
+def create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id, version=None):
     """
     Create a Site ipfix Local Prefix mapping
     :param config_site_ipfix_localprefix: Site ipfix localprefix config dict
@@ -3030,7 +3150,7 @@ def create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id):
     local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_ipfix_localprefix_template, indent=4)))
 
     # create site_ipfix_localprefix
-    site_ipfix_localprefix_resp = sdk.post.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_template)
+    site_ipfix_localprefix_resp = sdk.post.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_template, api_version=version)
 
     if not site_ipfix_localprefix_resp.cgx_status:
         throw_error("Site IPFIX Localprefix creation failed: ", site_ipfix_localprefix_resp)
@@ -3050,7 +3170,7 @@ def create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id):
     return site_ipfix_localprefix_id
 
 
-def modify_site_ipfix_localprefix(config_site_ipfix_localprefix, site_ipfix_localprefix_id, site_id):
+def modify_site_ipfix_localprefix(config_site_ipfix_localprefix, site_ipfix_localprefix_id, site_id, version=None):
     """
     Modify Existing Site ipfix Local Prefix mapping
     :param config_site_ipfix_localprefix: Site ipfix localprefix config dict
@@ -3070,7 +3190,7 @@ def modify_site_ipfix_localprefix(config_site_ipfix_localprefix, site_ipfix_loca
     local_debug("SITE_IPFIX_LOCALPREFIX TEMPLATE: " + str(json.dumps(site_ipfix_localprefix_template, indent=4)))
 
     # get current site_ipfix_localprefix
-    site_ipfix_localprefix_resp = sdk.get.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id)
+    site_ipfix_localprefix_resp = sdk.get.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id, api_version=version)
     if site_ipfix_localprefix_resp.cgx_status:
         site_ipfix_localprefix_config = site_ipfix_localprefix_resp.cgx_content
     else:
@@ -3097,7 +3217,7 @@ def modify_site_ipfix_localprefix(config_site_ipfix_localprefix, site_ipfix_loca
 
     # Update Site_ipfix_localprefix.
     site_ipfix_localprefix_resp2 = sdk.put.site_ipfixlocalprefixes(site_id, site_ipfix_localprefix_id,
-                                                               site_ipfix_localprefix_config)
+                                                               site_ipfix_localprefix_config, api_version=version)
 
     if not site_ipfix_localprefix_resp2.cgx_status:
         throw_error("Site IPFIX Localprefix update failed: ", site_ipfix_localprefix_resp2)
@@ -3150,7 +3270,7 @@ def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, 
 
 
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                     api_interfaces_cache=None, interfaces_funny_n2id=None):
+                     api_interfaces_cache=None, interfaces_funny_n2id=None, version=None):
     """
     Create a new Interface
     :param config_interface: Interface config dict
@@ -3252,7 +3372,12 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 if config_ipsec and isinstance(config_ipsec, dict):
                     # clone dict to modify
                     n2id_ipsec_template = copy.deepcopy(config_ipsec)
-
+                    # Fix for CGCBL-533
+                    if n2id_ipsec_template.get('authentication', {}):
+                        ipsec_secret = n2id_ipsec_template.get('authentication', {}).get('secret')
+                        if ipsec_secret:
+                            base64_ipsec_secret_string = base64.b64encode(ipsec_secret.encode()).decode()
+                            n2id_ipsec_template['authentication']['secret'] = base64_ipsec_secret_string
                     name_lookup_in_template(n2id_ipsec_template, 'ipsec_profile_id', ipsecprofiles_n2id)
 
                     # update nested template
@@ -3309,13 +3434,29 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 interface_template["nat_pools"] = n2id_np_template
             else:
                 interface_template["nat_pools"] = None
-
+        elif key == 'cellular_config':
+            # look for key in config, xlate name to ID.
+            config_cellular = config_interface.get('cellular_config', {})
+            if config_cellular and isinstance(config_cellular, dict):
+                element_cellular_modules_resp = sdk.get.element_cellular_modules(element_id)
+                element_cellular_modules_cache, leftover_element_cellular_modules = extract_items(
+                    element_cellular_modules_resp, 'element_cellular_modules')
+                # build lookup cache.
+                element_cellular_modules_n2id = build_lookup_dict(element_cellular_modules_cache)
+                n2id_cellular_template = copy.deepcopy(config_cellular)
+                name_lookup_in_template(n2id_cellular_template, 'apnprofile_id', apnprofiles_n2id)
+                name_lookup_in_template(n2id_cellular_template, 'parent_module_id', element_cellular_modules_n2id)
+                interface_template['cellular_config'] = n2id_cellular_template
         else:
             # just set the key.
             interface_template[key] = value
 
     # replace flat names
-    name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    if 'bypasspair' in interface_template.get('parent_type', ''):
+        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent')+'_bypasspair', interface_template.get('parent'))
+    else:
+        name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    interface_template.pop('parent_type', None)
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
@@ -3329,6 +3470,10 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         interface_template['name'] = None
 
     local_debug("INTERFACE TEMPLATE: " + str(json.dumps(interface_template, indent=4)))
+
+    args = get_function_default_args(sdk.put.interfaces)
+    # extract API version and use to reset interface to default
+    api_version = args.get('api_version')
 
     # For new bypasspairs, unconfgure parent interfaces.
     if config_interface_type == 'bypasspair':
@@ -3347,10 +3492,10 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         default_template = get_member_default_config()
         output_message("   Setting Bypasspair parents for {0} to default.".format(interface_template_name))
         new_lan_id = modify_interface(default_template, lan_if_id, interfaces_n2id, waninterfaces_n2id,
-                                      lannetworks_n2id, site_id, element_id)
+                                      lannetworks_n2id, site_id, element_id, version=api_version)
 
         new_wan_id = modify_interface(default_template, wan_if_id, interfaces_n2id, waninterfaces_n2id,
-                                      lannetworks_n2id, site_id, element_id)
+                                      lannetworks_n2id, site_id, element_id, version=api_version)
     # For new pppoe, set parent to default.
     elif config_interface_type == 'pppoe':
 
@@ -3362,7 +3507,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         default_template = get_member_default_config()
         output_message("   Setting PPPoE parent for {0} to default.".format(interface_template_name))
         new_parent_id = modify_interface(default_template, parent_if_id, interfaces_n2id, waninterfaces_n2id,
-                                         lannetworks_n2id, site_id, element_id)
+                                         lannetworks_n2id, site_id, element_id, version=api_version)
 
     # For new subinterface, set parent to default if this is the FIRST SUBINTERFACE to use that parent.
     elif config_interface_type == 'subinterface':
@@ -3377,7 +3522,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
             default_template = get_member_default_config()
             output_message("   Setting Subinterface parent for {0} to default.".format(interface_template_name))
             new_parent_id = modify_interface(default_template, parent_if_id, interfaces_n2id, waninterfaces_n2id,
-                                             lannetworks_n2id, site_id, element_id)
+                                             lannetworks_n2id, site_id, element_id, version=api_version)
             if new_parent_id:
                 # if this is the first subif to use a parent if, we need to force update the cache at the end.
                 update_api_interfaces_cache = True
@@ -3409,14 +3554,14 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                     default_template = get_member_default_config()
                     output_message("   Setting member interface {0} to default.".format(bound_iface))
                     new_parent_id = modify_interface(default_template, member_iface_id, interfaces_n2id,
-                                                     waninterfaces_n2id,
-                                                     lannetworks_n2id, site_id, element_id)
+                                                     waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                     element_id, version=api_version)
                 bound_iface_list.append(member_iface_id)
             # Assigning the id to name mapped list back
             interface_template['bound_interfaces'] = bound_iface_list
 
     # create interface
-    interface_resp = sdk.post.interfaces(site_id, element_id, interface_template)
+    interface_resp = sdk.post.interfaces(site_id, element_id, interface_template, api_version=version)
 
     if not interface_resp.cgx_status:
         throw_error("Interface creation failed: ", interface_resp)
@@ -3431,6 +3576,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                                                                                                      interface_id))
 
         output_message("   Created interface {0}({1}).".format(funny_name, interface_name))
+
+        interfaces_funny_n2id[funny_name] = interface_id
     else:
         if not interface_name or not interface_id:
             throw_error("Unable to determine interface attributes (Name: {0}, ID {1})..".format(interface_name,
@@ -3439,7 +3586,11 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         output_message("   Created interface {0}.".format(interface_name))
 
     # update caches
-    interfaces_n2id[interface_name] = interface_id
+    # Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    if config_interface_type == 'bypasspair':
+        interfaces_n2id[str(interface_name)+'_bypasspair'] = interface_id
+    else:
+        interfaces_n2id[interface_name] = interface_id
     if funny_name:
         interfaces_funny_n2id[funny_name] = interface_id
     # if a subif was created for the first time, the parent was defaulted. If parent was defaulted,
@@ -3452,7 +3603,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
         # kick off a subsequent modify to update the interface we just created.
         modify_interface_id = modify_interface(create_modify_config, interface_id, interfaces_n2id,
                                                waninterfaces_n2id, lannetworks_n2id,
-                                               site_id, element_id, interfaces_funny_n2id=interfaces_funny_n2id)
+                                               site_id, element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                               version=version)
 
         # shouldnt modify interface ID, but just in case..
         return modify_interface_id
@@ -3461,7 +3613,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
 
 def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id,
-                     site_id, element_id, interfaces_funny_n2id=None):
+                     site_id, element_id, interfaces_funny_n2id=None, version=None):
     """
     Modify an existing interface
     :param config_interface: Interface config dict
@@ -3548,6 +3700,12 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                 if config_ipsec and isinstance(config_ipsec, dict):
                     # clone dict to modify
                     n2id_ipsec_template = copy.deepcopy(config_ipsec)
+                    # Fix for CGCBL-533
+                    if n2id_ipsec_template.get('authentication', {}):
+                        ipsec_secret = n2id_ipsec_template.get('authentication', {}).get('secret')
+                        if ipsec_secret:
+                            base64_ipsec_secret_string = base64.b64encode(ipsec_secret.encode()).decode()
+                            n2id_ipsec_template['authentication']['secret'] = base64_ipsec_secret_string
 
                     name_lookup_in_template(n2id_ipsec_template, 'ipsec_profile_id', ipsecprofiles_n2id)
 
@@ -3609,12 +3767,29 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                 for bound_iface in bound_ifaces:
                     bound_iface_list.append(interfaces_n2id.get(bound_iface))
                 interface_template['bound_interfaces'] = bound_iface_list
+        elif key == 'cellular_config':
+            # look for key in config, xlate name to ID.
+            config_cellular = config_interface.get('cellular_config', {})
+            if config_cellular and isinstance(config_cellular, dict):
+                element_cellular_modules_resp = sdk.get.element_cellular_modules(element_id)
+                element_cellular_modules_cache, leftover_element_cellular_modules = extract_items(
+                    element_cellular_modules_resp, 'element_cellular_modules')
+                # build lookup cache.
+                element_cellular_modules_n2id = build_lookup_dict(element_cellular_modules_cache)
+                n2id_cellular_template = copy.deepcopy(config_cellular)
+                name_lookup_in_template(n2id_cellular_template, 'apnprofile_id', apnprofiles_n2id)
+                name_lookup_in_template(n2id_cellular_template, 'parent_module_id', element_cellular_modules_n2id)
+                interface_template['cellular_config'] = n2id_cellular_template
         else:
             # just set the key.
             interface_template[key] = value
 
     # replace flat names
-    name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    if 'bypasspair' in interface_template.get('parent_type', ''):
+        interface_template['parent'] = interfaces_n2id.get(interface_template.get('parent') + '_bypasspair', interface_template.get('parent'))
+    else:
+        name_lookup_in_template(interface_template, 'parent', interfaces_n2id)
+    interface_template.pop('parent_type', None)
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
@@ -3652,7 +3827,10 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
             interfaces_funny_n2id[funny_name] = interface_id
             output_message("   No Change for Interface {0}({1}).".format(funny_name, interface_name))
         else:
-            interfaces_n2id[interface_name] = interface_id
+            if config_interface_type == 'bypasspair':
+                interfaces_n2id[str(interface_name) + '_bypasspair'] = interface_id
+            else:
+                interfaces_n2id[interface_name] = interface_id
             output_message("   No Change for Interface {0}.".format(interface_name))
         return interface_id
 
@@ -3660,13 +3838,14 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         local_debug("INTERFACE DIFF: {0}".format(find_diff(interface_change_check, interface_config)))
 
     # Update Interface.
-    interface_resp2 = sdk.put.interfaces(site_id, element_id, interface_id, interface_config)
+    interface_resp2 = sdk.put.interfaces(site_id, element_id, interface_id, interface_config, api_version=version)
 
     if not interface_resp2.cgx_status:
         throw_error("Interface update failed: ", interface_resp2)
 
     interface_name = interface_resp2.cgx_content.get('name')
     interface_id = interface_resp2.cgx_content.get('id')
+    interface_type = interface_resp2.cgx_content.get('type')
 
     # extract current_revision
     current_revision = interface_resp2.cgx_content.get("_etag")
@@ -3688,7 +3867,11 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                                                                             current_revision))
 
     # update caches
-    interfaces_n2id[interface_name] = interface_id
+    # Below check is for 9k. Bypasspairs are saved with an '_bypasspair' in n2id dict for easy identification
+    if interface_type == 'bypasspair':
+        interfaces_n2id[str(interface_name) + '_bypasspair'] = interface_id
+    else:
+        interfaces_n2id[interface_name] = interface_id
     if funny_name:
         interfaces_funny_n2id[funny_name] = interface_id
 
@@ -3875,8 +4058,12 @@ def get_pppoe_id(config_pppoe_interface, interfaces_cache, interfaces_n2id, conf
     :return: Matching PPPoE Interface ID
     """
     return_if_id = None
-    parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""))
     parent_if_name = config_pppoe_interface.get('parent', "")
+    # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
+    if 'bypasspair' in config_pppoe_interface.get('parent_type', ''):
+        parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', "") + '_bypasspair', parent_if_name)
+    else:
+        parent_if_id = interfaces_n2id.get(config_pppoe_interface.get('parent', ""), parent_if_name)
     # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
     # This is because in the create section, the interface will be created
     # Changes for CON-95
@@ -3901,8 +4088,13 @@ def get_subif_id(config_subif_interface, interfaces_cache, interfaces_n2id, conf
     :return: Matching SubInterface ID
     """
     return_if_id = None
-    parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""))
     parent_if_name = config_subif_interface.get('parent', "")
+    # Below check is for 9k. Bypasspairs are saved with an '_' for easy identification
+    if 'bypasspair' in config_subif_interface.get('parent_type', ''):
+        parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', "") + '_bypasspair', parent_if_name)
+    else:
+        parent_if_id = interfaces_n2id.get(config_subif_interface.get('parent', ""), parent_if_name)
+
     # If parent interface is not yet created, check if the parent configuration is present in the yml. If yes, proceed. Else error out
     # This is because in the create section, the interface will be created
     # Changes for CON-95
@@ -3987,7 +4179,8 @@ def get_parent_child_dict(config_interfaces, id2n=None):
                             config_interfaces_value)
 
             parent_if_name = id2n.get(parent_if, parent_if)
-
+            if 'bypasspair' in config_interfaces_value.get('parent_type', ''):
+                parent_if_name = parent_if_name + '_bypasspair'
             # subinterfaces can handle many children, one parent
             existing_children = parent_if_map.get(config_interfaces_name)
             if existing_children is None:
@@ -4007,7 +4200,8 @@ def get_parent_child_dict(config_interfaces, id2n=None):
                             config_interfaces_value)
 
             parent_if_name = id2n.get(parent_if, parent_if)
-
+            if 'bypasspair' in config_interfaces_value.get('parent_type', ''):
+                parent_if_name = parent_if_name + '_bypasspair'
             if parent_if_name in used_parent_name_list:
                 # used multiple times.
                 throw_error("PPPoE interface {0} is using a port that is a parent of another interface:"
@@ -4059,8 +4253,8 @@ def get_bypass_id_from_name(bypass_name, interfaces_n2id, funny_n2id=None):
     # apply interfaces 2nd as it should trump funny names.
     comprehensive_bypasspair_names.extend(interfaces_n2id.keys())
 
+    return_id = interfaces_n2id.get(bypass_name + '_bypasspair')
 
-    return_id = interfaces_n2id.get(bypass_name)
     if return_id is None and funny_n2id is not None:
         # check funny name cache
         return_id = funny_n2id.get(bypass_name)
@@ -4150,7 +4344,7 @@ def check_api_subifs_for_parent(interface_id, interfaces_cache):
     return active_subifs
 
 
-def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id):
+def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id, version=None):
     """
     Create a new Static Route
     :param config_staticroute: Static Route config dict
@@ -4176,8 +4370,11 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
 
                     nhr_name = nh_dict.get('nexthop_interface_id')
                     if nhr_name:
-                        nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
-
+                        if 'bypasspair' in nh_dict_template.get('parent_type', ''):
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name + '_bypasspair', nhr_name)
+                        else:
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
+                    nh_dict_template.pop('parent_type', None)
                     n2id_ifs.append(nh_dict_template)
 
                 # update template
@@ -4195,7 +4392,7 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
     # create staticroute
-    staticroute_resp = sdk.post.staticroutes(site_id, element_id, staticroute_template)
+    staticroute_resp = sdk.post.staticroutes(site_id, element_id, staticroute_template, api_version=version)
 
     if not staticroute_resp.cgx_status:
         throw_error("Staticroute creation failed: ", staticroute_resp)
@@ -4212,7 +4409,7 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id)
 
 
 def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
-                       site_id, element_id):
+                       site_id, element_id, version=None):
     """
     Modify an existing Static route
     :param config_staticroute: Static Route config dict
@@ -4240,8 +4437,11 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
 
                     nhr_name = nh_dict.get('nexthop_interface_id')
                     if nhr_name:
-                        nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
-
+                        if 'bypasspair' in nh_dict_template.get('parent_type', ''):
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name + '_bypasspair', nhr_name)
+                        else:
+                            nh_dict_template['nexthop_interface_id'] = interfaces_n2id.get(nhr_name, nhr_name)
+                    nh_dict_template.pop('parent_type', None)
                     n2id_ifs.append(nh_dict_template)
 
                 # update template
@@ -4282,7 +4482,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
         local_debug("STATICROUTE DIFF: {0}".format(find_diff(staticroute_change_check, staticroute_config)))
 
     # Update Staticroute.
-    staticroute_resp2 = sdk.put.staticroutes(site_id, element_id, staticroute_id, staticroute_config)
+    staticroute_resp2 = sdk.put.staticroutes(site_id, element_id, staticroute_id, staticroute_config, api_version=version)
 
     if not staticroute_resp2.cgx_status:
         throw_error("Staticroute update failed: ", staticroute_resp2)
@@ -4326,7 +4526,7 @@ def delete_staticroutes(leftover_staticroutes, site_id, element_id, id2n=None):
     return
 
 
-def create_aspath_access_list(config_aspath_access_list, aspath_access_list_n2id, site_id, element_id):
+def create_aspath_access_list(config_aspath_access_list, aspath_access_list_n2id, site_id, element_id, version=None):
     """
     Create a new Routing AS-Path Access List
     :param config_aspath_access_list: AS-Path Access list config
@@ -4341,7 +4541,7 @@ def create_aspath_access_list(config_aspath_access_list, aspath_access_list_n2id
     local_debug("aspath_access_list TEMPLATE: " + str(json.dumps(aspath_access_list_template, indent=4)))
 
     # create aspath_access_list
-    aspath_access_list_resp = sdk.post.routing_aspathaccesslists(site_id, element_id, aspath_access_list_template)
+    aspath_access_list_resp = sdk.post.routing_aspathaccesslists(site_id, element_id, aspath_access_list_template, api_version=version)
 
     if not aspath_access_list_resp.cgx_status:
         throw_error("AS-PATH Access List creation failed: ", aspath_access_list_resp)
@@ -4362,7 +4562,7 @@ def create_aspath_access_list(config_aspath_access_list, aspath_access_list_n2id
 
 
 def modify_aspath_access_list(config_aspath_access_list, aspath_access_list_id, aspath_access_list_n2id,
-                              site_id, element_id):
+                              site_id, element_id, version=None):
     """
     Modify an existing Routing AS-Path Access List
     :param config_aspath_access_list: AS-Path Access list config
@@ -4403,8 +4603,8 @@ def modify_aspath_access_list(config_aspath_access_list, aspath_access_list_id, 
                                                                     aspath_access_list_config)))
 
     # Update aspath_access_list.
-    aspath_access_list_resp2 = sdk.put.aspath_access_lists(site_id, element_id, aspath_access_list_id,
-                                                           aspath_access_list_config)
+    aspath_access_list_resp2 = sdk.put.routing_aspathaccesslists(site_id, element_id, aspath_access_list_id,
+                                                           aspath_access_list_config, api_version=version)
 
     if not aspath_access_list_resp2.cgx_status:
         throw_error("AS-PATH Access List failed: ", aspath_access_list_resp2)
@@ -4455,7 +4655,7 @@ def delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id
     return
 
 
-def create_ip_community_list(config_ip_community_list, ip_community_list_n2id, site_id, element_id):
+def create_ip_community_list(config_ip_community_list, ip_community_list_n2id, site_id, element_id, version=None):
 
     """
     Create an IP Community List
@@ -4471,7 +4671,7 @@ def create_ip_community_list(config_ip_community_list, ip_community_list_n2id, s
     local_debug("ip_community_list TEMPLATE: " + str(json.dumps(ip_community_list_template, indent=4)))
 
     # create ip_community_list
-    ip_community_list_resp = sdk.post.routing_ipcommunitylists(site_id, element_id, ip_community_list_template)
+    ip_community_list_resp = sdk.post.routing_ipcommunitylists(site_id, element_id, ip_community_list_template, api_version=version)
 
     if not ip_community_list_resp.cgx_status:
         throw_error("IP Community List creation failed: ", ip_community_list_resp)
@@ -4492,7 +4692,7 @@ def create_ip_community_list(config_ip_community_list, ip_community_list_n2id, s
 
 
 def modify_ip_community_list(config_ip_community_list, ip_community_list_id, ip_community_list_n2id,
-                             site_id, element_id):
+                             site_id, element_id, version=None):
     """
     Modify an existing IP Community List
     :param config_ip_community_list: IP Community list config dict
@@ -4533,8 +4733,8 @@ def modify_ip_community_list(config_ip_community_list, ip_community_list_id, ip_
                                                                    ip_community_list_config)))
 
     # Update ip_community_list.
-    ip_community_list_resp2 = sdk.put.ip_community_lists(site_id, element_id, ip_community_list_id,
-                                                         ip_community_list_config)
+    ip_community_list_resp2 = sdk.put.routing_ipcommunitylists(site_id, element_id, ip_community_list_id,
+                                                         ip_community_list_config, api_version=version)
 
     if not ip_community_list_resp2.cgx_status:
         throw_error("IP Community List failed: ", ip_community_list_resp2)
@@ -4585,7 +4785,7 @@ def delete_ip_community_lists(leftover_ip_community_lists, site_id, element_id, 
     return
 
 
-def create_prefixlist(config_prefixlist, prefixlist_n2id, site_id, element_id):
+def create_prefixlist(config_prefixlist, prefixlist_n2id, site_id, element_id, version=None):
     """
     Create Routing Prefix List
     :param config_prefixlist: Routing Prefix List config dict
@@ -4600,7 +4800,7 @@ def create_prefixlist(config_prefixlist, prefixlist_n2id, site_id, element_id):
     local_debug("prefixlist TEMPLATE: " + str(json.dumps(prefixlist_template, indent=4)))
 
     # create prefixlist
-    prefixlist_resp = sdk.post.routing_prefixlists(site_id, element_id, prefixlist_template)
+    prefixlist_resp = sdk.post.routing_prefixlists(site_id, element_id, prefixlist_template, api_version=version)
 
     if not prefixlist_resp.cgx_status:
         throw_error("Routing Prefixlist creation failed: ", prefixlist_resp)
@@ -4619,7 +4819,7 @@ def create_prefixlist(config_prefixlist, prefixlist_n2id, site_id, element_id):
     return prefixlist_id
 
 
-def modify_prefixlist(config_prefixlist, prefixlist_id, prefixlist_n2id, site_id, element_id):
+def modify_prefixlist(config_prefixlist, prefixlist_id, prefixlist_n2id, site_id, element_id, version=None):
     """
     Modify Existing Routing Prefix List
     :param config_prefixlist: Routing Prefix List config dict
@@ -4659,7 +4859,7 @@ def modify_prefixlist(config_prefixlist, prefixlist_id, prefixlist_n2id, site_id
         local_debug("prefixlist DIFF: {0}".format(find_diff(prefixlist_change_check, prefixlist_config)))
 
     # Update prefixlist.
-    prefixlist_resp2 = sdk.put.routing_prefixlists(site_id, element_id, prefixlist_id, prefixlist_config)
+    prefixlist_resp2 = sdk.put.routing_prefixlists(site_id, element_id, prefixlist_id, prefixlist_config, api_version=version)
 
     if not prefixlist_resp2.cgx_status:
         throw_error("Routing Prefixlist failed: ", prefixlist_resp2)
@@ -4711,7 +4911,7 @@ def delete_prefixlists(leftover_prefixlists, site_id, element_id, id2n=None):
 
 
 def create_routemap(config_routemap, routemap_n2id, aspath_access_lists_n2id, ip_community_lists_n2id,
-                    prefixlists_n2id, site_id, element_id):
+                    prefixlists_n2id, site_id, element_id, version=None):
     """
     Create a new RouteMap
     :param config_routemap: RouteMap config dict
@@ -4760,7 +4960,7 @@ def create_routemap(config_routemap, routemap_n2id, aspath_access_lists_n2id, ip
     local_debug("routemap TEMPLATE: " + str(json.dumps(routemap_template, indent=4)))
 
     # create routemap
-    routemap_resp = sdk.post.routing_routemaps(site_id, element_id, routemap_template)
+    routemap_resp = sdk.post.routing_routemaps(site_id, element_id, routemap_template, api_version=version)
 
     if not routemap_resp.cgx_status:
         throw_error("Route Map creation failed: ", routemap_resp)
@@ -4780,7 +4980,7 @@ def create_routemap(config_routemap, routemap_n2id, aspath_access_lists_n2id, ip
 
 
 def modify_routemap(config_routemap, routemap_id, routemap_n2id, aspath_access_lists_n2id, ip_community_lists_n2id,
-                    prefixlists_n2id, site_id, element_id):
+                    prefixlists_n2id, site_id, element_id, version=None):
     """
     Modify an existing RouteMap
     :param config_routemap: RouteMap configuration dict
@@ -4854,7 +5054,7 @@ def modify_routemap(config_routemap, routemap_id, routemap_n2id, aspath_access_l
         local_debug("routemap DIFF: {0}".format(find_diff(routemap_change_check, routemap_config)))
 
     # Update routemap.
-    routemap_resp2 = sdk.put.routing_routemaps(site_id, element_id, routemap_id, routemap_config)
+    routemap_resp2 = sdk.put.routing_routemaps(site_id, element_id, routemap_id, routemap_config, api_version=version)
 
     if not routemap_resp2.cgx_status:
         throw_error("Route Map failed: ", routemap_resp2)
@@ -4902,7 +5102,7 @@ def delete_routemaps(leftover_routemaps, site_id, element_id, id2n=None):
     return
 
 
-def modify_bgp_global(config_routing_bgp_global, site_id, element_id):
+def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=None):
     """
     Modify BGP Global config - no create or destroy for bgpconfigs
     :param config_routing_bgp_global: BGP Global Config dict
@@ -4948,7 +5148,7 @@ def modify_bgp_global(config_routing_bgp_global, site_id, element_id):
         local_debug("bgp_global DIFF: {0}".format(find_diff(bgp_global_change_check, bgp_global_config)))
 
     # Update bgp_global.
-    bgp_global_resp2 = sdk.put.bgpconfigs(site_id, element_id, bgp_global_id, bgp_global_config)
+    bgp_global_resp2 = sdk.put.bgpconfigs(site_id, element_id, bgp_global_id, bgp_global_config, api_version=version)
 
     if not bgp_global_resp2.cgx_status:
         throw_error("bgp_global update failed: ", bgp_global_resp2)
@@ -4967,7 +5167,7 @@ def modify_bgp_global(config_routing_bgp_global, site_id, element_id):
     return bgp_global_id
 
 
-def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, element_id):
+def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, element_id, version=None):
     """
     Create a BGP Peer
     :param config_bgp_peer: BGP Peer config dict
@@ -4997,7 +5197,7 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
     local_debug("bgp_peer TEMPLATE: " + str(json.dumps(bgp_peer_template, indent=4)))
 
     # create bgp_peer
-    bgp_peer_resp = sdk.post.bgppeers(site_id, element_id, bgp_peer_template)
+    bgp_peer_resp = sdk.post.bgppeers(site_id, element_id, bgp_peer_template, api_version=version)
 
     if not bgp_peer_resp.cgx_status:
         throw_error("BGP Peer creation failed: ", bgp_peer_resp)
@@ -5016,7 +5216,7 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
     return bgp_peer_id
 
 
-def modify_bgp_peer(config_bgp_peer, bgp_peer_id, bgp_peer_n2id, routemaps_n2id, site_id, element_id):
+def modify_bgp_peer(config_bgp_peer, bgp_peer_id, bgp_peer_n2id, routemaps_n2id, site_id, element_id, version=None):
     """
     Modify Existing BGP Peer
     :param config_bgp_peer: BGP Peer config dict
@@ -5061,7 +5261,7 @@ def modify_bgp_peer(config_bgp_peer, bgp_peer_id, bgp_peer_n2id, routemaps_n2id,
         local_debug("bgp_peer DIFF: {0}".format(find_diff(bgp_peer_change_check, bgp_peer_config)))
 
     # Update bgp_peer.
-    bgp_peer_resp2 = sdk.put.bgppeers(site_id, element_id, bgp_peer_id, bgp_peer_config)
+    bgp_peer_resp2 = sdk.put.bgppeers(site_id, element_id, bgp_peer_id, bgp_peer_config, api_version=version)
 
     if not bgp_peer_resp2.cgx_status:
         throw_error("BGP Peer failed: ", bgp_peer_resp2)
@@ -5109,7 +5309,7 @@ def delete_bgp_peers(leftover_bgp_peers, site_id, element_id, id2n=None):
     return
 
 
-def modify_toolkit(config_toolkit, site_id, element_id):
+def modify_toolkit(config_toolkit, site_id, element_id, version=None):
     """
     Modify Device Toolkit (elementaccessconfigs). No Create or delete needed, always exists.
     :param config_toolkit: Toolkit Config dict
@@ -5148,7 +5348,7 @@ def modify_toolkit(config_toolkit, site_id, element_id):
         local_debug("TOOLKIT DIFF: {0}".format(find_diff(toolkit_change_check, toolkit_config)))
 
     # Update Toolkit.
-    toolkit_resp2 = sdk.put.elementaccessconfigs(element_id, toolkit_id, toolkit_config)
+    toolkit_resp2 = sdk.put.elementaccessconfigs(element_id, toolkit_id, toolkit_config, api_version=version)
 
     if not toolkit_resp2.cgx_status:
         throw_error("Toolkit update failed: ", toolkit_resp2)
@@ -5166,8 +5366,171 @@ def modify_toolkit(config_toolkit, site_id, element_id):
 
     return toolkit_id
 
+def create_multicastrps(config_multicastrps, site_id, element_id, version=None):
+    """
+    Create a new multicastrps
+    :param config_multicastrps: multicastrps config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Created multicastrps ID
+    """
+    # make a copy of multicastrps to modify
+    multicastrps_template = copy.deepcopy(config_multicastrps)
 
-def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
+    # create multicastrps
+    multicastrps_resp = sdk.post.multicastrps(site_id, element_id, multicastrps_template, api_version=version)
+
+    if not multicastrps_resp.cgx_status:
+        throw_error("Multicast RP creation failed: ", multicastrps_resp)
+
+    multicastrps_id = multicastrps_resp.cgx_content.get('id')
+    multicastrps_name = multicastrps_resp.cgx_content.get('name', multicastrps_id)
+
+    if not multicastrps_id:
+        throw_error("Unable to determine Multicast RP attributes (ID {0})..".format(multicastrps_id))
+
+    output_message("   Created Multicast RP {0}.".format(multicastrps_name))
+
+    return multicastrps_id
+
+def modify_multicastrps(config_multicastrps, multicastrps_id, site_id, element_id, version=None):
+    """
+    Modify a multicastrps
+    :param config_multicastrps: multicastrps config dict
+    :param multicastrps_id: multicastrps ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified multicastrps ID
+    """
+    multicastrps_config = {}
+    # make a copy of multicastrps to modify
+    multicastrps_template = copy.deepcopy(config_multicastrps)
+
+    # get current multicastrps
+    multicastrps_resp = sdk.get.multicastrps(site_id, element_id, multicastrps_id)
+    if multicastrps_resp.cgx_status:
+        multicastrps_config = multicastrps_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Multicast RP: ", multicastrps_resp)
+
+    # extract prev_revision
+    prev_revision = multicastrps_config.get("_etag")
+
+    # Check for changes:
+    multicastrps_change_check = copy.deepcopy(multicastrps_config)
+    multicastrps_config.update(multicastrps_template)
+    if not force_update and multicastrps_config == multicastrps_change_check:
+        # no change in config, pass.
+        multicastrps_id = multicastrps_change_check.get('id')
+        multicastrps_name = multicastrps_change_check.get('name')
+        output_message("   No Change for Multicast RP {0}.".format(multicastrps_name))
+        return multicastrps_id
+
+    if debuglevel >= 3:
+        local_debug("Multicastrps DIFF: {0}".format(find_diff(multicastrps_change_check, multicastrps_config)))
+
+    # Update multicastrps.
+    multicastrps_resp2 = sdk.put.multicastrps(site_id, element_id, multicastrps_id, multicastrps_config, api_version=version)
+
+    if not multicastrps_resp2.cgx_status:
+        throw_error("Multicast RP update failed: ", multicastrps_resp2)
+
+    multicastrps_id = multicastrps_resp.cgx_content.get('id')
+    multicastrps_name = multicastrps_resp.cgx_content.get('name', multicastrps_id)
+
+    # extract current_revision
+    current_revision = multicastrps_resp2.cgx_content.get("_etag")
+
+    if not multicastrps_id:
+        throw_error("Unable to determine Multicast RP attributes (ID {0})..".format(multicastrps_id))
+
+    output_message("   Updated Multicast RP {0} (Etag {1} -> {2}).".format(multicastrps_name, prev_revision,
+                                                                           current_revision))
+
+    return multicastrps_id
+
+def delete_multicastrps(leftover_multicastrps, site_id, element_id, id2n=None):
+    """
+    Delete a multicastrps
+    :param leftover_multicastrps: multicastrps config dict
+    :param multicastrps_id: multicastrps ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified multicastrps ID
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for multicastrps_id in leftover_multicastrps:
+        # delete all leftover multicastrps.
+
+        output_message("   Deleting Unconfigured Multicast RP {0}.".format(id2n.get(multicastrps_id, multicastrps_id)))
+        multicastrps_del_resp = sdk.delete.multicastrps(site_id, element_id, multicastrps_id)
+        if not multicastrps_del_resp.cgx_status:
+            throw_error("Could not delete Multicast RP {0}: ".format(id2n.get(multicastrps_id, multicastrps_id)),
+                        multicastrps_del_resp)
+    return
+
+def modify_multicastglobalconfigs(config_multicastglobalconfigs, multicastglobalconfig_id, site_id, element_id, version=None):
+    """
+    Modify a multicastglobalconfig
+    :param config_multicastglobalconfigs: multicastglobalconfig config dict
+    :param multicastglobalconfig_id: multicastglobalconfig ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified multicastglobalconfig ID
+    """
+    multicastglobalconfig_config = {}
+    # make a copy of multicastglobalconfig to modify
+    multicastglobalconfig_template = copy.deepcopy(config_multicastglobalconfigs)
+
+    # get current multicastglobalconfig
+    multicastglobalconfig_resp = sdk.get.multicastglobalconfigs(site_id, element_id, multicastglobalconfig_id)
+    if multicastglobalconfig_resp.cgx_status:
+        multicastglobalconfig_config = multicastglobalconfig_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Multicast Global Config: ", multicastglobalconfig_resp)
+
+    # extract prev_revision
+    prev_revision = multicastglobalconfig_config.get("_etag")
+
+    # Check for changes:
+    multicastglobalconfig_change_check = copy.deepcopy(multicastglobalconfig_config)
+    multicastglobalconfig_config.update(multicastglobalconfig_template)
+    if not force_update and multicastglobalconfig_config == multicastglobalconfig_change_check:
+        # no change in config, pass.
+        multicastglobalconfig_id = multicastglobalconfig_change_check.get('id')
+        multicastglobalconfig_name = multicastglobalconfig_change_check.get('name')
+        output_message("   No Change for Multicast Global Config {0}.".format(multicastglobalconfig_name))
+        return multicastglobalconfig_id
+
+    if debuglevel >= 3:
+        local_debug("Multicast Global Config DIFF: {0}".format(
+            find_diff(multicastglobalconfig_change_check, multicastglobalconfig_config)))
+
+    # Update multicastglobalconfig.
+    multicastglobalconfig_resp2 = sdk.put.multicastglobalconfigs(site_id, element_id, multicastglobalconfig_id,
+                                                                multicastglobalconfig_config, api_version=version)
+
+    if not multicastglobalconfig_resp2.cgx_status:
+        throw_error("Multicast Global Config update failed: ", multicastglobalconfig_resp2)
+
+    multicastglobalconfig_id = multicastglobalconfig_resp.cgx_content.get('id')
+    multicastglobalconfig_name = multicastglobalconfig_resp.cgx_content.get('name', multicastglobalconfig_id)
+
+    # extract current_revision
+    current_revision = multicastglobalconfig_resp2.cgx_content.get("_etag")
+
+    if not multicastglobalconfig_id:
+        throw_error("Unable to determine Multicast Global Config attributes (ID {0})..".format(multicastglobalconfig_id))
+
+    output_message("   Updated Multicast Global Config {0} (Etag {1} -> {2}).".format(multicastglobalconfig_name, prev_revision,
+                                                                           current_revision))
+
+    return multicastglobalconfig_id
+
+def create_syslog(config_syslog, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id, version=None):
     """
     Create a new Syslog
     :param config_syslog: Syslog config dict
@@ -5180,12 +5543,16 @@ def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
     syslog_template = copy.deepcopy(config_syslog)
 
     # replace flat names
-    name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
-
+    if 'bypasspair' in syslog_template.get('parent_type', ''):
+        syslog_template['source_interface'] = interfaces_n2id.get(config_syslog['source_interface'] + '_bypasspair', config_syslog['source_interface'])
+    else:
+        name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
+    syslog_template.pop('parent_type', None)
+    name_lookup_in_template(syslog_template, 'syslog_profile_id', syslogserverprofiles_n2id)
     local_debug("SYSLOG TEMPLATE: " + str(json.dumps(syslog_template, indent=4)))
 
     # create syslog
-    syslog_resp = sdk.post.syslogservers(site_id, element_id, syslog_template)
+    syslog_resp = sdk.post.syslogservers(site_id, element_id, syslog_template, api_version=version)
 
     if not syslog_resp.cgx_status:
         throw_error("Syslog creation failed: ", syslog_resp)
@@ -5201,8 +5568,7 @@ def create_syslog(config_syslog, interfaces_n2id, site_id, element_id):
     return syslog_id
 
 
-def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
-                  site_id, element_id):
+def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id, version=None):
     """
     Modify an existing Syslog
     :param config_syslog: Syslog config dict
@@ -5217,8 +5583,12 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
     syslog_template = copy.deepcopy(config_syslog)
 
     # replace flat names
-    name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
-
+    if 'bypasspair' in syslog_template.get('parent_type', ''):
+        syslog_template['source_interface'] = interfaces_n2id.get(config_syslog['source_interface'] + '_bypasspair', config_syslog['source_interface'])
+    else:
+        name_lookup_in_template(syslog_template, 'source_interface', interfaces_n2id)
+    syslog_template.pop('parent_type', None)
+    name_lookup_in_template(syslog_template, 'syslog_profile_id', syslogserverprofiles_n2id)
     local_debug("SYSLOG TEMPLATE: " + str(json.dumps(syslog_template, indent=4)))
 
     # get current syslog
@@ -5245,7 +5615,7 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id,
         local_debug("SYSLOG DIFF: {0}".format(find_diff(syslog_change_check, syslog_config)))
 
     # Update Syslog.
-    syslog_resp2 = sdk.put.syslogservers(site_id, element_id, syslog_id, syslog_config)
+    syslog_resp2 = sdk.put.syslogservers(site_id, element_id, syslog_id, syslog_config, api_version=version)
 
     if not syslog_resp2.cgx_status:
         throw_error("Syslog update failed: ", syslog_resp2)
@@ -5289,7 +5659,7 @@ def delete_syslogs(leftover_syslogs, site_id, element_id, id2n=None):
     return
 
 
-def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
+def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0, version=None):
     """
     Modify Device NTP. No Create or delete needed, always exists.
     For UI flow, templates are copied from ntp_templates. This utility just takes them in from the config file.
@@ -5319,12 +5689,19 @@ def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
 
     # replace flat names
     if ntp_template.get('source_interface_ids'):
-        source_ids = []
+        source_ids, bp_interfaces = [], ''
+        if 'bypasspair' in ntp_template.get('parent_type', ''):
+            member_interfaces = ntp_template.get('parent_type').split('_')
+            if member_interfaces:
+                bp_interfaces = member_interfaces[1:]
         for iface in ntp_template.get('source_interface_ids', []):
-            source_ids.append(interfaces_n2id.get(iface, iface))
+            if iface in bp_interfaces:
+                source_ids.append(interfaces_n2id.get(iface + '_bypasspair', iface))
+            else:
+                source_ids.append(interfaces_n2id.get(iface, iface))
         if source_ids:
             ntp_template['source_interface_ids'] = source_ids
-
+    ntp_template.pop('parent_type', None)
     local_debug("NTP TEMPLATE: " + str(json.dumps(ntp_template, indent=4)))
 
     # get current ntp
@@ -5367,7 +5744,7 @@ def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
         local_debug("NTP DIFF: {0}".format(find_diff(ntp_change_check, ntp_config)))
 
     # Update Ntp.
-    ntp_resp2 = sdk.put.ntp(element_id, ntp_id, ntp_config)
+    ntp_resp2 = sdk.put.ntp(element_id, ntp_id, ntp_config, api_version=version)
 
     if not ntp_resp2.cgx_status:
         throw_error("NTP update failed: ", ntp_resp2)
@@ -5386,7 +5763,7 @@ def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0):
     return ntp_id
 
 
-def create_snmp_agent(config_snmp_agent, interfaces_n2id, site_id, element_id):
+def create_snmp_agent(config_snmp_agent, interfaces_n2id, site_id, element_id, version=None):
     """
     Create SNMP Agent configs
     :param config_snmp_agent: SNMP Agent config dict
@@ -5401,7 +5778,7 @@ def create_snmp_agent(config_snmp_agent, interfaces_n2id, site_id, element_id):
     local_debug("SNMP_AGENT TEMPLATE: " + str(json.dumps(snmp_agent_template, indent=4)))
 
     # create snmp_agent
-    snmp_agent_resp = sdk.post.snmpagents(site_id, element_id, snmp_agent_template)
+    snmp_agent_resp = sdk.post.snmpagents(site_id, element_id, snmp_agent_template, api_version=version)
 
     if not snmp_agent_resp.cgx_status:
         throw_error("Snmp_agent creation failed: ", snmp_agent_resp)
@@ -5417,7 +5794,7 @@ def create_snmp_agent(config_snmp_agent, interfaces_n2id, site_id, element_id):
 
 
 def modify_snmp_agent(config_snmp_agent, snmp_agent_id, interfaces_n2id,
-                      site_id, element_id):
+                      site_id, element_id, version=None):
     """
     Modify Existing SNMP Agent config
     :param config_snmp_agent: SNMP Agent config dict
@@ -5456,7 +5833,7 @@ def modify_snmp_agent(config_snmp_agent, snmp_agent_id, interfaces_n2id,
         local_debug("SNMP_AGENT DIFF: {0}".format(find_diff(snmp_agent_change_check, snmp_agent_config)))
 
     # Update Snmp_agent.
-    snmp_agent_resp2 = sdk.put.snmpagents(site_id, element_id, snmp_agent_id, snmp_agent_config)
+    snmp_agent_resp2 = sdk.put.snmpagents(site_id, element_id, snmp_agent_id, snmp_agent_config, api_version=version)
 
     if not snmp_agent_resp2.cgx_status:
         throw_error("Snmp_agent update failed: ", snmp_agent_resp2)
@@ -5499,7 +5876,7 @@ def delete_snmp_agents(leftover_snmp_agents, site_id, element_id, id2n=None):
     return
 
 
-def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id):
+def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id, version=None):
     """
     Create SNMP Trap
     :param config_snmp_trap: SNMP Trap config dict
@@ -5512,12 +5889,16 @@ def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id):
     snmp_trap_template = copy.deepcopy(config_snmp_trap)
 
     # replace flat names
-    name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    if 'bypasspair' in snmp_trap_template.get('parent_type', ''):
+        snmp_trap_template['source_interface'] = interfaces_n2id.get(config_snmp_trap['source_interface'] + '_bypasspair', config_snmp_trap['source_interface'])
+    else:
+        name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    snmp_trap_template.pop('parent_type', None)
 
     local_debug("SNMP_TRAP TEMPLATE: " + str(json.dumps(snmp_trap_template, indent=4)))
 
     # create snmp_trap
-    snmp_trap_resp = sdk.post.snmptraps(site_id, element_id, snmp_trap_template)
+    snmp_trap_resp = sdk.post.snmptraps(site_id, element_id, snmp_trap_template, api_version=version)
 
     if not snmp_trap_resp.cgx_status:
         throw_error("Snmp_trap creation failed: ", snmp_trap_resp)
@@ -5533,7 +5914,7 @@ def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id):
 
 
 def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
-                     site_id, element_id):
+                     site_id, element_id, version=None):
     """
     Modify Existing SNMP Trap
     :param config_snmp_trap: SNMP Trap config dict
@@ -5548,7 +5929,11 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     snmp_trap_template = copy.deepcopy(config_snmp_trap)
 
     # replace flat names
-    name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    if 'bypasspair' in snmp_trap_template.get('parent_type', ''):
+        snmp_trap_template['source_interface'] = interfaces_n2id.get(config_snmp_trap['source_interface'] + '_bypasspair', config_snmp_trap['source_interface'])
+    else:
+        name_lookup_in_template(snmp_trap_template, 'source_interface', interfaces_n2id)
+    snmp_trap_template.pop('parent_type', None)
 
     local_debug("SNMP_TRAP TEMPLATE: " + str(json.dumps(snmp_trap_template, indent=4)))
 
@@ -5575,7 +5960,7 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
         local_debug("SNMP_TRAP DIFF: {0}".format(find_diff(snmp_trap_change_check, snmp_trap_config)))
 
     # Update Snmp_trap.
-    snmp_trap_resp2 = sdk.put.snmptraps(site_id, element_id, snmp_trap_id, snmp_trap_config)
+    snmp_trap_resp2 = sdk.put.snmptraps(site_id, element_id, snmp_trap_id, snmp_trap_config, api_version=version)
 
     if not snmp_trap_resp2.cgx_status:
         throw_error("Snmp_trap update failed: ", snmp_trap_resp2)
@@ -5619,7 +6004,7 @@ def delete_snmp_traps(leftover_snmp_traps, site_id, element_id, id2n=None):
 
 
 def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, dnsserviceprofiles_n2id,
-                       dnsserviceroles_n2id, interfaces_n2id):
+                       dnsserviceroles_n2id, interfaces_n2id, version=None):
     """
     Create a new dnsservices
     :param config_dnsservices: dnsservices config dict
@@ -5638,13 +6023,23 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
             name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
             if role.get('interfaces', ''):
                 for iface in role.get('interfaces'):
-                    name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    if 'bypasspair' in iface.get('parent_type', ''):
+                        interface_name = iface.get('interface_id', '')
+                        iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+                    else:
+                        name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    iface.pop('parent_type', None)
     if dnsservices_template.get('domains_to_interfaces', ''):
         for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-            name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            if 'bypasspair' in dom_iface.get('parent_type', ''):
+                interface_name = dom_iface.get('interface_id', '')
+                dom_iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+            else:
+                name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            dom_iface.pop('parent_type', None)
     name_lookup_in_template(dnsservices_template, 'element_id', elements_n2id)
     # create dnsservices
-    dnsservices_resp = sdk.post.dnsservices(site_id, element_id, dnsservices_template)
+    dnsservices_resp = sdk.post.dnsservices(site_id, element_id, dnsservices_template, api_version=version)
 
     if not dnsservices_resp.cgx_status:
         throw_error("dnsservices creation failed: ", dnsservices_resp)
@@ -5661,7 +6056,7 @@ def create_dnsservices(config_dnsservices, site_id, element_id, elements_n2id, d
 
 
 def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, elements_n2id, dnsserviceprofiles_n2id,
-                       dnsserviceroles_n2id, interfaces_n2id, check_modified = 0):
+                       dnsserviceroles_n2id, interfaces_n2id, check_modified = 0, version=None):
     """
     Modify an existing dnsservices
     :param config_dnsservices: dnsservices config dict
@@ -5683,10 +6078,20 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
             name_lookup_in_template(role, 'dnsservicerole_id', dnsserviceroles_n2id)
             if role.get('interfaces', ''):
                 for iface in role.get('interfaces'):
-                    name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    if 'bypasspair' in iface.get('parent_type', ''):
+                        interface_name = iface.get('interface_id', '')
+                        iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+                    else:
+                        name_lookup_in_template(iface, 'interface_id', interfaces_n2id)
+                    iface.pop('parent_type', None)
     if dnsservices_template.get('domains_to_interfaces', ''):
         for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-            name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            if 'bypasspair' in dom_iface.get('parent_type', ''):
+                interface_name = dom_iface.get('interface_id', '')
+                dom_iface['interface_id'] = interfaces_n2id.get(interface_name + '_bypasspair', interface_name)
+            else:
+                name_lookup_in_template(dom_iface, 'interface_id', interfaces_n2id)
+            dom_iface.pop('parent_type', None)
     name_lookup_in_template(dnsservices_template, 'element_id', elements_n2id)
 
     # get current dnsservices
@@ -5719,7 +6124,7 @@ def modify_dnsservices(config_dnsservices, dnsservices_id, site_id, element_id, 
         local_debug("dnsservices DIFF: {0}".format(find_diff(dnsservices_change_check, dnsservices_config)))
 
     # Update dnsservices.
-    dnsservices_resp2 = sdk.put.dnsservices(site_id, element_id, dnsservices_id, dnsservices_config)
+    dnsservices_resp2 = sdk.put.dnsservices(site_id, element_id, dnsservices_id, dnsservices_config, api_version=version)
 
     if not dnsservices_resp2.cgx_status:
         throw_error("dnsservices update failed: ", dnsservices_resp2)
@@ -5764,7 +6169,7 @@ def delete_dnsservices(leftover_dnsservices, site_id, element_id, id2n=None):
 
 
 def create_element_extension(config_element_extension, element_extensions_n2id, waninterfaces_n2id, lannetworks_n2id,
-                             interfaces_n2id, site_id, element_id):
+                             interfaces_n2id, site_id, element_id, version=None):
     """
     Create a new Element Extension
     :param config_element_extension: Element Extension config dict
@@ -5782,7 +6187,10 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
     # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
     element_extension_namespace = config_element_extension.get('namespace')
     if element_extension_namespace not in ["dnsmasq/prod"]:
-        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        if 'bypasspair' in element_extension_template.get('parent_type', ''):
+            element_extension_template['entity_id'] = interfaces_n2id.get(config_element_extension['entity_id'] + '_bypasspair', config_element_extension['entity_id'])
+        else:
+            name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
         # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
@@ -5791,7 +6199,7 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
     local_debug("ELEMENT_EXTENSION TEMPLATE: " + str(json.dumps(element_extension_template, indent=4)))
 
     # create element_extension
-    element_extension_resp = sdk.post.element_extensions(site_id, element_id, element_extension_template)
+    element_extension_resp = sdk.post.element_extensions(site_id, element_id, element_extension_template, api_version=version)
 
     if not element_extension_resp.cgx_status:
         throw_error("Element_extension creation failed: ", element_extension_resp)
@@ -5812,7 +6220,7 @@ def create_element_extension(config_element_extension, element_extensions_n2id, 
 
 
 def modify_element_extension(config_element_extension, element_extension_id, element_extensions_n2id,
-                             waninterfaces_n2id, lannetworks_n2id, interfaces_n2id, site_id, element_id):
+                             waninterfaces_n2id, lannetworks_n2id, interfaces_n2id, site_id, element_id, version=None):
     """
     Modify existing Element Extension
     :param config_element_extension: Element Extension config dict
@@ -5832,7 +6240,12 @@ def modify_element_extension(config_element_extension, element_extension_id, ele
     # Entity ID can be a multitude of things. Try them all. Unless in a specific list.
     element_extension_namespace = config_element_extension.get('namespace')
     if element_extension_namespace not in ["dnsmasq/prod"]:
-        name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
+        if 'bypasspair' in element_extension_template.get('parent_type', ''):
+            element_extension_template['entity_id'] = interfaces_n2id.get(
+                config_element_extension['entity_id'] + '_bypasspair',
+                config_element_extension['entity_id'])
+        else:
+            name_lookup_in_template(element_extension_template, 'entity_id', interfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', waninterfaces_n2id)
         name_lookup_in_template(element_extension_template, 'entity_id', lannetworks_n2id)
         # look up appdefs last, as appdef id 0 = unknown, and may match other 0's
@@ -5866,7 +6279,7 @@ def modify_element_extension(config_element_extension, element_extension_id, ele
 
     # Update Element_extension.
     element_extension_resp2 = sdk.put.element_extensions(site_id, element_id, element_extension_id,
-                                                         element_extension_config)
+                                                         element_extension_config, api_version=version)
 
     if not element_extension_resp2.cgx_status:
         throw_error("Element_extension update failed: ", element_extension_resp2)
@@ -5917,7 +6330,7 @@ def delete_element_extensions(leftover_element_extensions, site_id, element_id, 
 
 
 def create_element_securityzone(config_element_securityzone, waninterface_n2id, lannetworks_n2id, interfaces_n2id,
-                                site_id, element_id):
+                                site_id, element_id, version=None):
     """
     Create a element Security Zone Mapping
     :param config_element_securityzone: element Securityzone config dict
@@ -5935,13 +6348,22 @@ def create_element_securityzone(config_element_securityzone, waninterface_n2id, 
     # perform name -> ID lookups
     name_lookup_in_template(element_securityzone_template, 'zone_id', securityzones_n2id)
 
+    bp_interfaces = ''
+
     # replace complex names
     esz_entry_interface_ids = config_element_securityzone.get('interface_ids')
     if esz_entry_interface_ids and isinstance(esz_entry_interface_ids, list):
         esz_entry_interface_ids_template = []
+        if 'bypasspair' in config_element_securityzone.get('parent_type', ''):
+            member_interfaces = config_element_securityzone.get('parent_type').split('_')
+            if member_interfaces:
+                bp_interfaces = member_interfaces[1:]
         for esz_entry_interface_id in esz_entry_interface_ids:
-            esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id,
-                                                                        esz_entry_interface_id))
+            if esz_entry_interface_id in bp_interfaces:
+                esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id + '_bypasspair', esz_entry_interface_id))
+            else:
+                esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id, esz_entry_interface_id))
+        element_securityzone_template.pop('parent_type', None)
         element_securityzone_template['interface_ids'] = esz_entry_interface_ids_template
 
     esz_entry_lannetwork_ids = config_element_securityzone.get('lannetwork_ids')
@@ -5971,7 +6393,7 @@ def create_element_securityzone(config_element_securityzone, waninterface_n2id, 
     local_debug("ELEMENT_SECURITYZONE TEMPLATE: " + str(json.dumps(element_securityzone_template, indent=4)))
 
     # create element_securityzone
-    element_securityzone_resp = sdk.post.elementsecurityzones(site_id, element_id, element_securityzone_template)
+    element_securityzone_resp = sdk.post.elementsecurityzones(site_id, element_id, element_securityzone_template, api_version=version)
 
     if not element_securityzone_resp.cgx_status:
         throw_error("Element Securityzone creation failed: ", element_securityzone_resp)
@@ -5992,7 +6414,7 @@ def create_element_securityzone(config_element_securityzone, waninterface_n2id, 
 
 
 def modify_element_securityzone(config_element_securityzone, element_securityzone_id, waninterface_n2id,
-                                lannetworks_n2id, interfaces_n2id, site_id, element_id, check_modified=0):
+                                lannetworks_n2id, interfaces_n2id, site_id, element_id, check_modified=0, version=None):
     """
     Modify Existing element Security Zone Mapping
     :param config_element_securityzone: element Securityzone config dict
@@ -6012,13 +6434,23 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
     # perform name -> ID lookups
     name_lookup_in_template(element_securityzone_template, 'zone_id', securityzones_n2id)
 
+    bp_interfaces = ''
+
     # replace complex names
     esz_entry_interface_ids = config_element_securityzone.get('interface_ids')
     if esz_entry_interface_ids and isinstance(esz_entry_interface_ids, list):
         esz_entry_interface_ids_template = []
+        if 'bypasspair' in config_element_securityzone.get('parent_type', ''):
+            member_interfaces = config_element_securityzone.get('parent_type').split('_')
+            if member_interfaces:
+                bp_interfaces = member_interfaces[1:]
         for esz_entry_interface_id in esz_entry_interface_ids:
-            esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id,
-                                                                        esz_entry_interface_id))
+            if esz_entry_interface_id in bp_interfaces:
+                esz_entry_interface_ids_template.append(interfaces_n2id.get(esz_entry_interface_id + '_bypasspair', esz_entry_interface_id))
+            else:
+                esz_entry_interface_ids_template.append(
+                    interfaces_n2id.get(esz_entry_interface_id, esz_entry_interface_id))
+        element_securityzone_template.pop('parent_type', None)
         element_securityzone_template['interface_ids'] = esz_entry_interface_ids_template
 
     esz_entry_lannetwork_ids = config_element_securityzone.get('lannetwork_ids')
@@ -6081,7 +6513,7 @@ def modify_element_securityzone(config_element_securityzone, element_securityzon
 
     # Update element_securityzone.
     element_securityzone_resp2 = sdk.put.elementsecurityzones(site_id, element_id, element_securityzone_id,
-                                                              element_securityzone_config)
+                                                              element_securityzone_config, api_version=version)
 
     if not element_securityzone_resp2.cgx_status:
         throw_error("Element Securityzone update failed: ", element_securityzone_resp2)
@@ -6135,7 +6567,7 @@ def delete_element_securityzones(leftover_element_securityzones, site_id, elemen
     return
 
 
-def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=0):
+def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=0, version=None):
     """
     Modify Existing Application Probe
     :param config_app_probe: App probe config dict
@@ -6150,8 +6582,11 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     app_probe_template = copy.deepcopy(config_app_probe)
 
     # replace flat names
-    name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
-
+    if 'bypasspair' in app_probe_template.get('parent_type', ''):
+        app_probe_template['source_interface_id'] = interfaces_n2id.get(app_probe_template.get('source_interface_id')+'_bypasspair')
+    else:
+        name_lookup_in_template(app_probe_template, 'source_interface_id', interfaces_n2id)
+    app_probe_template.pop('parent_type', None)
     # get current app probe
     app_probe_resp = sdk.get.application_probe(site_id, element_id)
     if app_probe_resp.cgx_status:
@@ -6188,7 +6623,7 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
         local_debug("application_probe DIFF: {0}".format(find_diff(app_probe_change_check, app_probe_config)))
 
     # Update app probe.
-    app_probe_resp2 = sdk.put.application_probe(site_id, element_id, app_probe_config)
+    app_probe_resp2 = sdk.put.application_probe(site_id, element_id, app_probe_config, api_version=version)
 
     if not app_probe_resp2.cgx_status:
         throw_error("Application Probe Update failed: ", app_probe_resp2)
@@ -6212,7 +6647,7 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
 
 def create_ipfix(config_ipfix, site_id, element_id, ipfixprofile_n2id, ipfixcollectorcontext_n2id,
                                                 ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
-                                                ipfixglobalprefix_n2id, appdefs_n2id):
+                                                ipfixglobalprefix_n2id, appdefs_n2id, version=None):
     """
     Create a new ipfix
     :param config_ipfix: ipfix config dict
@@ -6249,7 +6684,7 @@ def create_ipfix(config_ipfix, site_id, element_id, ipfixprofile_n2id, ipfixcoll
             if app_def_id_list:
                 filter_context['app_def_ids'] = app_def_id_list
     # create ipfix
-    ipfix_resp = sdk.post.ipfix(site_id, element_id, ipfix_template)
+    ipfix_resp = sdk.post.ipfix(site_id, element_id, ipfix_template, api_version=version)
 
     if not ipfix_resp.cgx_status:
         throw_error("IPFIX creation failed: ", ipfix_resp)
@@ -6267,7 +6702,7 @@ def create_ipfix(config_ipfix, site_id, element_id, ipfixprofile_n2id, ipfixcoll
 
 def modify_ipfix(config_ipfix, ipfix_id, site_id, element_id, ipfixprofile_n2id, ipfixcollectorcontext_n2id,
                                                 ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
-                                                ipfixglobalprefix_n2id, appdefs_n2id, check_modified = 0):
+                                                ipfixglobalprefix_n2id, appdefs_n2id, check_modified = 0, version=None):
     """
     Modify an existing ipfix
     :param config_ipfix: ipfix config dict
@@ -6337,7 +6772,7 @@ def modify_ipfix(config_ipfix, ipfix_id, site_id, element_id, ipfixprofile_n2id,
         local_debug("IPFIX DIFF: {0}".format(find_diff(ipfix_change_check, ipfix_config)))
 
     # Update ipfix.
-    ipfix_resp2 = sdk.put.ipfix(site_id, element_id, ipfix_id, ipfix_config)
+    ipfix_resp2 = sdk.put.ipfix(site_id, element_id, ipfix_id, ipfix_config, api_version=version)
 
     if not ipfix_resp2.cgx_status:
         throw_error("IPFIX update failed: ", ipfix_resp2)
@@ -6381,9 +6816,135 @@ def delete_ipfix(leftover_ipfix, site_id, element_id, id2n=None):
     return
 
 
+def modify_cellular_module_sim_security(config_cellular_modules_sim_security, cellular_module_sim_security_id, element_id, element_cellular_module_id, version=None):
+    """
+        Modify an existing ipfix
+        :param config_cellular_modules_sim_security: config dict
+        :param cellular_module_sim_security_id: Existing ID
+        :param element_id: Element ID to use
+        :param element_cellular_module_id: Cellular Module ID
+        :return: Returned ID or 0
+        """
+    cellular_modules_sim_security_config = {}
+    # make a copy to modify
+    config_cellular_modules_sim_security_template = copy.deepcopy(config_cellular_modules_sim_security)
+
+    local_debug("TEMPLATE: " + str(json.dumps(config_cellular_modules_sim_security_template, indent=4)))
+    # get current sim security
+    cellular_modules_sim_security_resp = sdk.get.cellular_modules_sim_security(element_id, element_cellular_module_id, cellular_module_sim_security_id)
+    if cellular_modules_sim_security_resp.cgx_status:
+        cellular_modules_sim_security_config = cellular_modules_sim_security_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Cellular Module Sim Security: ", cellular_modules_sim_security_resp)
+
+    # extract prev_revision
+    prev_revision = cellular_modules_sim_security_config.get("_etag")
+
+    # Check for changes:
+    cellular_modules_sim_security_change_check = copy.deepcopy(cellular_modules_sim_security_config)
+    cellular_modules_sim_security_config.update(config_cellular_modules_sim_security_template)
+
+    if not force_update and cellular_modules_sim_security_config == cellular_modules_sim_security_change_check:
+        # no change in config, pass.
+        cellular_modules_sim_security_id = cellular_modules_sim_security_change_check.get('id')
+        cellular_modules_sim_security_name = cellular_modules_sim_security_change_check.get('name')
+        output_message("   No Change for Cellular Module Sim Security {0}.".format(cellular_modules_sim_security_name))
+        return cellular_modules_sim_security_id
+
+    if debuglevel >= 3:
+        local_debug("Cellular Module Sim Security DIFF: {0}".format(find_diff(cellular_modules_sim_security_change_check, cellular_modules_sim_security_config)))
+
+    if cellular_modules_sim_security_config.get('pin'):
+        base64_pin_string = base64.b64encode(str(cellular_modules_sim_security_config.get('pin')).encode()).decode()
+        cellular_modules_sim_security_config['pin'] = base64_pin_string
+
+    # Update cellular_modules_sim_security.
+    cellular_module_sim_security_resp2 = sdk.put.cellular_modules_sim_security(element_id, element_cellular_module_id, cellular_module_sim_security_id, cellular_modules_sim_security_config, api_version=version)
+
+    if not cellular_module_sim_security_resp2.cgx_status:
+        throw_error("Cellular Module Sim Security update failed: ", cellular_module_sim_security_resp2)
+
+    cellular_modules_sim_security_id = cellular_modules_sim_security_resp.cgx_content.get('id')
+    cellular_modules_sim_security_name = cellular_modules_sim_security_resp.cgx_content.get('name', cellular_modules_sim_security_id)
+
+    # extract current_revision
+    current_revision = cellular_module_sim_security_resp2.cgx_content.get("_etag")
+
+    if not cellular_modules_sim_security_id:
+        throw_error("Unable to determine Cellular Module Sim Security attributes (ID {0})..".format(cellular_modules_sim_security_id))
+
+    output_message("   Updated Cellular Module Sim Security {0} (Etag {1} -> {2}).".format(cellular_modules_sim_security_name, prev_revision,
+                                                                    current_revision))
+
+    return cellular_modules_sim_security_id
+
+
+def modify_element_cellular_module(config_element_cellular_module, element_cellular_module_id, element_id, version=None):
+    """
+            Modify an existing ipfix
+            :param config_element_cellular_module: config dict
+            :param element_cellular_module_id: Existing ID
+            :param element_id: Element ID to use
+            :return: Returned ID or 0
+            """
+    cellular_modules_config = {}
+    # make a copy to modify
+    config_cellular_modules_template = copy.deepcopy(config_element_cellular_module)
+
+    local_debug("TEMPLATE: " + str(json.dumps(config_cellular_modules_template, indent=4)))
+
+    # get current cellular module
+    cellular_modules_resp = sdk.get.element_cellular_modules(element_id, element_cellular_module_id)
+    if cellular_modules_resp.cgx_status:
+        cellular_modules_config = cellular_modules_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Cellular Module: ", cellular_modules_resp)
+
+    # extract prev_revision
+    prev_revision = cellular_modules_config.get("_etag")
+
+    # Check for changes:
+    cellular_modules_change_check = copy.deepcopy(cellular_modules_config)
+    cellular_modules_config.update(config_cellular_modules_template)
+
+    if not force_update and cellular_modules_config == cellular_modules_change_check:
+        # no change in config, pass.
+        cellular_modules_id = cellular_modules_change_check.get('id')
+        cellular_modules_name = cellular_modules_change_check.get('name')
+        output_message("   No Change for Cellular Module {0}.".format(cellular_modules_name))
+        return cellular_modules_id
+
+    if debuglevel >= 3:
+        local_debug("Cellular Module DIFF: {0}".format(
+            find_diff(cellular_modules_change_check, cellular_modules_config)))
+
+    # Update Cellular Module.
+    cellular_module_resp2 = sdk.put.element_cellular_modules(element_id, element_cellular_module_id, cellular_modules_config, api_version=version)
+
+    if not cellular_module_resp2.cgx_status:
+        throw_error("Cellular Module update failed: ", cellular_module_resp2)
+
+    cellular_modules_id = cellular_modules_resp.cgx_content.get('id')
+    cellular_modules_name = cellular_modules_resp.cgx_content.get('name', cellular_modules_id)
+
+    # extract current_revision
+    current_revision = cellular_module_resp2.cgx_content.get("_etag")
+
+    if not cellular_modules_id:
+        throw_error("Unable to determine Cellular Module attributes (ID {0})..".format(
+            cellular_modules_id))
+
+    output_message(
+        "   Updated Cellular Module {0} (Etag {1} -> {2}).".format(cellular_modules_name,
+                                                                                prev_revision,
+                                                                                current_revision))
+
+    return cellular_modules_id
+
+
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
-            passed_interval_timeout=None, passed_force_update=None, wait_element_config=None):
+            passed_interval_timeout=None, passed_force_update=None, wait_element_config=None, passed_apiversion='sdk'):
     """
     Main Site config/deploy worker function.
     :param loaded_config: Loaded config in Python Dict format
@@ -6410,6 +6971,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
     global timeout_state
     global interval_timeout
     global force_update
+    global apiversion
 
     # read passed items.
     if not isinstance(destroy, bool):
@@ -6431,7 +6993,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
         interval_timeout = passed_interval_timeout
     if passed_force_update is not None:
         force_update = passed_force_update
-
+    if passed_apiversion is not None:
+        apiversion = passed_apiversion
     # load the root config
     config_sites = parse_root_config(loaded_config)
 
@@ -6448,6 +7011,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
     # update global var cache.
     update_global_cache()
 
+    # Getting sites_version for input apiversion
+    sites_version = use_sdk_yaml_version(loaded_config, 'sites', sdk.put.sites, default={}, sdk_or_yaml=apiversion)
+
     # handle create
     if not destroy:
 
@@ -6458,9 +7024,27 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes \
+                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
                 = parse_site_config(config_site)
 
+            # Getting version for site resourcesinput apiversion
+            waninterfaces_version = use_sdk_yaml_version(config_site, 'waninterfaces', sdk.put.waninterfaces,
+                                                               default={}, sdk_or_yaml=apiversion)
+            lannetworks_version = use_sdk_yaml_version(config_site, 'lannetworks', sdk.put.lannetworks,
+                                                             default={}, sdk_or_yaml=apiversion)
+            elements_version = use_sdk_yaml_version(config_site, 'elements', sdk.put.elements, default={}, sdk_or_yaml=apiversion)
+            dhcpservers_version = use_sdk_yaml_version(config_site, 'dhcpservers', sdk.put.dhcpservers,
+                                                             default=[], sdk_or_yaml=apiversion)
+            site_extensions_version = use_sdk_yaml_version(config_site, 'site_extensions', sdk.put.site_extensions,
+                                                           default={}, sdk_or_yaml=apiversion)
+            site_security_zones_version = use_sdk_yaml_version(config_site, 'site_security_zones',
+                                                                     sdk.put.sitesecurityzones, default=[], sdk_or_yaml=apiversion)
+            spokeclusters_version = use_sdk_yaml_version(config_site, 'spokeclusters', sdk.put.spokeclusters,
+                                                               default={}, sdk_or_yaml=apiversion)
+            site_nat_localprefixes_version = use_sdk_yaml_version(config_site, 'site_nat_localprefixes',
+                                                                        sdk.put.site_natlocalprefixes, default=[], sdk_or_yaml=apiversion)
+            site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
+                                                                          sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')
@@ -6480,11 +7064,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # Create or modify site.
             if site_id is not None:
                 # Site exists, modify.
-                site_id = modify_site(config_site, site_id)
+                site_id = modify_site(config_site, site_id, version=sites_version)
 
             else:
                 # Site does not exist, create.
-                site_id = create_site(config_site)
+                site_id = create_site(config_site, version=sites_version)
             # -- End Sites
 
             # -- Start WAN Interfaces
@@ -6531,11 +7115,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if waninterface_id is not None:
                     # Waninterface exists, modify.
                     waninterface_id = modify_waninterface(config_waninterface, waninterface_id, waninterfaces_n2id,
-                                                          site_id)
+                                                          site_id, version=waninterfaces_version)
 
                 else:
                     # Waninterface does not exist, create.
-                    waninterface_id = create_waninterface(config_waninterface, waninterfaces_n2id, site_id)
+                    waninterface_id = create_waninterface(config_waninterface, waninterfaces_n2id, site_id, version=waninterfaces_version)
 
                 # remove from delete queue
                 leftover_waninterfaces = [entry for entry in leftover_waninterfaces if entry != waninterface_id]
@@ -6584,11 +7168,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if lannetwork_id is not None:
                     # Lannetwork exists, modify.
                     lannetwork_id = modify_lannetwork(config_lannetwork, lannetwork_id, lannetworks_n2id,
-                                                      site_id)
+                                                      site_id, version=lannetworks_version)
 
                 else:
                     # Lannetwork does not exist, create.
-                    lannetwork_id = create_lannetwork(config_lannetwork, lannetworks_n2id, site_id)
+                    lannetwork_id = create_lannetwork(config_lannetwork, lannetworks_n2id, site_id, version=lannetworks_version)
 
                 # remove from delete queue
                 leftover_lannetworks = [entry for entry in leftover_lannetworks if entry != lannetwork_id]
@@ -6629,11 +7213,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Create or modify dhcpserver.
                 if dhcpserver_id is not None:
                     # Dhcpserver exists, modify.
-                    dhcpserver_id = modify_dhcpserver(config_dhcpserver_record, dhcpserver_id, site_id)
+                    dhcpserver_id = modify_dhcpserver(config_dhcpserver_record, dhcpserver_id, site_id, version=dhcpservers_version)
 
                 else:
                     # Dhcpserver does not exist, create.
-                    dhcpserver_id = create_dhcpserver(config_dhcpserver_record, site_id)
+                    dhcpserver_id = create_dhcpserver(config_dhcpserver_record, site_id, version=dhcpservers_version)
 
                 # remove from delete queue
                 leftover_dhcpservers = [entry for entry in leftover_dhcpservers if entry != dhcpserver_id]
@@ -6676,14 +7260,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     site_extension_id = modify_site_extension(config_site_extension, site_extension_id,
                                                               site_extensions_n2id,
                                                               waninterfaces_n2id,
-                                                              lannetworks_n2id, site_id)
+                                                              lannetworks_n2id, site_id, version=site_extensions_version)
 
                 else:
                     # Site_extension does not exist, create.
                     site_extension_id = create_site_extension(config_site_extension,
                                                               site_extensions_n2id,
                                                               waninterfaces_n2id,
-                                                              lannetworks_n2id, site_id)
+                                                              lannetworks_n2id, site_id, version=site_extensions_version)
 
                 # remove from delete queue
                 leftover_site_extensions = [entry for entry in leftover_site_extensions
@@ -6732,12 +7316,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if site_securityzone_id is not None:
                     # Site_securityzone exists, modify.
                     site_securityzone_id = modify_site_securityzone(config_site_securityzone, site_securityzone_id,
-                                                                    waninterfaces_n2id, lannetworks_n2id, site_id)
+                                                                    waninterfaces_n2id, lannetworks_n2id, site_id, version=site_security_zones_version)
 
                 else:
                     # Site_securityzone does not exist, create.
                     site_securityzone_id = create_site_securityzone(config_site_securityzone, waninterfaces_n2id,
-                                                                    lannetworks_n2id, site_id)
+                                                                    lannetworks_n2id, site_id, version=site_security_zones_version)
 
                 # remove from delete queue
                 leftover_site_securityzones = [entry for entry in leftover_site_securityzones
@@ -6777,11 +7361,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if spokecluster_id is not None:
                     # Spokecluster exists, modify.
                     spokecluster_id = modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id,
-                                                          site_id)
+                                                          site_id, version=spokeclusters_version)
 
                 else:
                     # Spokecluster does not exist, create.
-                    spokecluster_id = create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id)
+                    spokecluster_id = create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, version=spokeclusters_version)
 
                 # remove from delete queue
                 leftover_spokeclusters = [entry for entry in leftover_spokeclusters if entry != spokecluster_id]
@@ -6847,12 +7431,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Site_securityzone exists, modify.
                     site_nat_localprefix_id = modify_site_nat_localprefix(config_site_nat_localprefix,
                                                                           site_nat_localprefix_id,
-                                                                          site_nat_localprefixes_prefixid2id, site_id)
+                                                                          site_nat_localprefixes_prefixid2id, site_id,
+                                                                          version=site_nat_localprefixes_version)
 
                 else:
                     # Site_securityzone does not exist, create.
                     site_nat_localprefix_id = create_site_nat_localprefix(config_site_nat_localprefix,
-                                                                          site_nat_localprefixes_prefixid2id, site_id)
+                                                                          site_nat_localprefixes_prefixid2id, site_id,
+                                                                          version=site_nat_localprefixes_version)
 
                 # remove from delete queue
                 leftover_site_nat_localprefixes = [entry for entry in leftover_site_nat_localprefixes
@@ -6900,11 +7486,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if site_ipfix_localprefix_id is not None:
                     # Site_ipfixlocalprefix exists, modify.
                     site_ipfix_localprefix_id = modify_site_ipfix_localprefix(config_site_ipfix_localprefix,
-                                                                              site_ipfix_localprefix_id, site_id)
+                                                                              site_ipfix_localprefix_id, site_id,
+                                                                              version=site_ipfix_localprefixes_version)
 
                 else:
                     # Site_ipfixlocalprefix does not exist, create.
-                    site_ipfix_localprefix_id = create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id)
+                    site_ipfix_localprefix_id = create_site_ipfix_localprefix(config_site_ipfix_localprefix, site_id,
+                                                                              version=site_ipfix_localprefixes_version)
 
                 # remove from delete queue
                 leftover_site_ipfix_localprefixes = [entry for entry in leftover_site_ipfix_localprefixes
@@ -6922,8 +7510,44 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # parse element config
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
-                    config_toolkit, config_element_extensions, config_element_security_zones, \
-                    config_dnsservices, config_app_probe, config_ipfix = parse_element_config(config_element)
+                config_toolkit, config_element_extensions, config_element_security_zones, \
+                config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
+                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security \
+                    = parse_element_config(config_element)
+
+                interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
+                                                                default={}, sdk_or_yaml=apiversion)
+                syslog_version = use_sdk_yaml_version(config_element, 'syslog', sdk.put.syslogservers, default=[], sdk_or_yaml=apiversion)
+                ntp_version = use_sdk_yaml_version(config_element, 'ntp', sdk.put.ntp, default=[], sdk_or_yaml=apiversion)
+                toolkit_version = use_sdk_yaml_version(config_element, 'toolkit', sdk.put.elementaccessconfigs,
+                                                             default={}, sdk_or_yaml=apiversion)
+                element_extensions_version = use_sdk_yaml_version(config_element, 'element_extensions', sdk.put.element_extensions,
+                                                                    default={}, sdk_or_yaml=apiversion)
+                element_security_zones_version = use_sdk_yaml_version(config_element, 'element_security_zones', sdk.put.elementsecurityzones,
+                                                                        default=[], sdk_or_yaml=apiversion)
+                dnsservices_version = use_sdk_yaml_version(config_element, 'dnsservices', sdk.put.dnsservices,
+                                                                 default=[], sdk_or_yaml=apiversion)
+                app_probe_version = use_sdk_yaml_version(config_element, 'application_probe', sdk.put.application_probe,
+                                                               default={}, sdk_or_yaml=apiversion)
+                ipfix_version = use_sdk_yaml_version(config_element, 'ipfix', sdk.put.ipfix, default=[], sdk_or_yaml=apiversion)
+                multicastglobalconfigs_version = use_sdk_yaml_version(config_element, 'multicastglobalconfigs', sdk.put.multicastglobalconfigs,
+                                                                        default=[], sdk_or_yaml=apiversion)
+                multicastrps_version = use_sdk_yaml_version(config_element, 'multicastrps', sdk.put.multicastrps,
+                                                                  default=[], sdk_or_yaml=apiversion)
+                routing_aspathaccesslists_version = use_sdk_yaml_version(config_routing, 'as_path_access_lists', sdk.put.routing_aspathaccesslists,
+                                                                               default={}, sdk_or_yaml=apiversion)
+                routing_ipcommunitylists_version = use_sdk_yaml_version(config_routing, 'ip_community_lists', sdk.put.routing_ipcommunitylists,
+                                                                              default={}, sdk_or_yaml=apiversion)
+                routing_prefixlists_version = use_sdk_yaml_version(config_routing, 'prefix_lists', sdk.put.routing_prefixlists,
+                                                                     default={}, sdk_or_yaml=apiversion)
+                routing_routemaps_version = use_sdk_yaml_version(config_routing, 'route_maps', sdk.put.routing_routemaps,
+                                                                   default={}, sdk_or_yaml=apiversion)
+                routing_static_version = use_sdk_yaml_version(config_routing, 'static', sdk.put.staticroutes,
+                                                                    default={}, sdk_or_yaml=apiversion)
+                snmp_traps_version = use_sdk_yaml_version(config_snmp, 'traps', sdk.put.snmptraps, default=[], sdk_or_yaml=apiversion)
+                snmp_agent_version = use_sdk_yaml_version(config_snmp, 'agent', sdk.put.snmpagents, default=[], sdk_or_yaml=apiversion)
+                element_cellular_modules_version = use_sdk_yaml_version(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default=[], sdk_or_yaml=apiversion)
+                cellular_modules_sim_security_version = use_sdk_yaml_version(config_element, 'cellular_modules_sim_security', sdk.put.cellular_modules_sim_security, default=[], sdk_or_yaml=apiversion)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -6982,7 +7606,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if matching_element["site_id"] in ["1", 1]:
                     assign_element_flag = True
 
-                assign_modify_element(matching_element, site_id, config_element)
+                assign_modify_element(matching_element, site_id, config_element, version=elements_version)
 
                 # wait for element assignment. Update element record in case etag changes.
                 matching_element = wait_for_element_state(matching_element, ['bound'],
@@ -7043,7 +7667,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                  name_key='name')
 
                     added_loopback = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
-                                                      lannetworks_n2id, site_id, element_id)
+                                                      lannetworks_n2id, site_id, element_id, version=interfaces_version)
 
                     # save the loopback IFs added, so later we can just modify non-added loopbacks.
                     added_loopback_list.append(added_loopback)
@@ -7067,7 +7691,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # refresh interfaces as ones were added.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache, model_name=element_model)
                 interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
                 # extend interfaces_n2id with the loopback funny_name cache, Make sure API interfaces trump funny names
@@ -7212,7 +7836,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         element_securityzone_modified = modify_element_securityzone(config_element_securityzone,
                                                                           element_securityzone_id,
                                                                           waninterfaces_n2id, lannetworks_n2id,
-                                                                          interfaces_n2id, site_id, element_id, check_modified=1)
+                                                                          interfaces_n2id, site_id, element_id, check_modified=1,
+                                                                          version=element_security_zones_version)
                         if element_securityzone_modified:
                             modified_element_securityzones.append(element_securityzone_id)
 
@@ -7281,6 +7906,43 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END STATIC ROUTING
 
+                # -- Start Multicastrps config
+                multicastrps_resp = sdk.get.multicastrps(site_id, element_id)
+                multicastrps_cache, leftover_multicastrps = extract_items(multicastrps_resp, 'multicastrps')
+                # build lookup cache based on prefix.
+                multicastrps_n2id = build_lookup_dict(multicastrps_cache)
+
+                # iterate configs (list)
+                for config_multicastrps_entry in config_multicastrps:
+
+                    # deepcopy to modify.
+                    config_multicastrps_record = copy.deepcopy(config_multicastrps_entry)
+
+                    # no need to get multicastrps config, no child config objects.
+
+                    # Determine multicastrps ID.
+                    # look for implicit ID in object.
+                    implicit_multicastrps_id = config_multicastrps_entry.get('id')
+                    config_multicastrps_name = config_multicastrps_entry.get('name')
+                    name_multicastrps_id = multicastrps_n2id.get(config_multicastrps_name)
+
+                    if implicit_multicastrps_id is not None:
+                        multicastrps_id = implicit_multicastrps_id
+
+                    elif name_multicastrps_id is not None:
+                        # look up ID by name on existing interfaces.
+                        multicastrps_id = name_multicastrps_id
+
+                    else:
+                        # no multicastrps object.
+                        multicastrps_id = None
+
+                    # remove from delete queue
+                    leftover_multicastrps = [entry for entry in leftover_multicastrps if entry != multicastrps_id]
+
+                delete_multicastrps(leftover_multicastrps, site_id, element_id)
+                # -- End Multicastrps config
+
                 # -- Start DNSSERVICES config
                 dnsservices_resp = sdk.get.dnsservices(site_id, element_id)
                 dnsservices_cache, leftover_dnsservices = extract_items(dnsservices_resp, 'dnsservices')
@@ -7320,7 +7982,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if dnsservices_id is not None:
                         dns_modified = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
                                                             element_id, elements_n2id, dnsserviceprofiles_n2id,
-                                                            dnsserviceroles_n2id, interfaces_n2id, check_modified=1)
+                                                            dnsserviceroles_n2id, interfaces_n2id, check_modified=1,
+                                                            version=dnsservices_version)
                         if dns_modified:
                             leftover_dnsservices = [dnsservices_id]
                         else:
@@ -7371,10 +8034,53 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # -- End SYSLOG config
 
+                # -- Start SNMP
+                # parse SNMP config.
+                config_snmp_agent, config_snmp_traps = parse_snmp_config(config_snmp)
+
+                # SNMP TRAPS
+                snmp_traps_resp = sdk.get.snmptraps(site_id, element_id)
+                snmp_traps_cache, leftover_snmp_traps = extract_items(snmp_traps_resp, 'snmp_traps')
+                # build lookup cache based on server + version. Have to do manually.
+                snmp_traps_n2id = build_lookup_dict_snmp_trap(snmp_traps_cache)
+
+                # iterate configs (list)
+                for config_snmp_trap_entry in config_snmp_traps:
+
+                    # deepcopy to modify.
+                    config_snmp_trap = copy.deepcopy(config_snmp_trap_entry)
+
+                    # no need to get snmp_trap config, no child config objects.
+
+                    # Determine snmp_trap ID.
+                    # look for implicit ID in object.
+                    implicit_snmp_trap_id = config_snmp_trap.get('id')
+                    config_server_ip = config_snmp_trap.get('server_ip')
+                    config_version = config_snmp_trap.get('version')
+                    server_version_snmp_trap_id = snmp_traps_n2id.get("{0}+{1}".format(config_server_ip,
+                                                                                       config_version))
+
+                    if implicit_snmp_trap_id is not None:
+                        snmp_trap_id = implicit_snmp_trap_id
+
+                    elif server_version_snmp_trap_id is not None:
+                        # look up ID on existing agent.
+                        snmp_trap_id = server_version_snmp_trap_id
+
+                    else:
+                        # no snmp_trap object.
+                        snmp_trap_id = None
+
+                    # remove from delete queue
+                    leftover_snmp_traps = [entry for entry in leftover_snmp_traps if entry != snmp_trap_id]
+
+                # delete remaining snmp agent configs
+                delete_snmp_traps(leftover_snmp_traps, site_id, element_id)
+
                 # -- Start NTP config
                 # We cannot delete ntp. So checking if ntp is modified in config
                 # If modified, we will reset the source interface ids and later update it again
-                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=1)
+                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=1, version=ntp_version)
 
                 # -- End NTP config
 
@@ -7382,7 +8088,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # We cannot delete application probe. So checking if app probe is modified in config
                 # If modified, we will reset the source interface id and later update it again
                 if config_app_probe:
-                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1)
+                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1, version=app_probe_version)
 
                 # END Aplication Probe
 
@@ -7430,6 +8136,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END SERVICELINK
 
+                args = get_function_default_args(sdk.put.interfaces)
+                # extract API version and use to reset interface to default
+                api_version = args.get('api_version')
+
                 # START SUBINTERFACE
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -7475,7 +8185,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     output_message("   Setting Subinterface {0} to default.".format(interfaces_id2n.get(subif)))
                     new_parent_id = modify_interface(default_template, subif, interfaces_n2id,
                                                      waninterfaces_n2id,
-                                                     lannetworks_n2id, site_id, element_id)
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
                 # cleanup - delete unused subinterfaces
                 delete_interfaces(leftover_subinterfaces, site_id, element_id, id2n=interfaces_id2n)
 
@@ -7535,7 +8245,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     output_message("   Setting PPPoE {0} to default.".format(interfaces_id2n.get(pppoe)))
                     new_parent_id = modify_interface(default_template, pppoe, interfaces_n2id,
                                                      waninterfaces_n2id,
-                                                     lannetworks_n2id, site_id, element_id)
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
 
                 # cleanup - delete unused pppoe
                 delete_interfaces(leftover_pppoe, site_id, element_id, id2n=interfaces_id2n)
@@ -7546,15 +8256,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Get a list of all currently configured bypasspairs.
                 interfaces_bypasspairs_cache = get_api_interfaces_by_type(interfaces_cache, 'bypasspair')
                 leftover_bypasspairs = [entry['id'] for entry in interfaces_bypasspairs_cache if entry.get('id')]
-
+                leftover_bypasspairs_members = {entry['id']: [entry.get('bypass_pair').get('wan'), entry.get('bypass_pair').get('lan')] for entry in interfaces_bypasspairs_cache if entry.get('id')}
                 # Remove configured interfaces's parents from delete queue.
                 # because if it is a parent, we don't want to try to delete it.
                 # Exception is currently service link, as parent for service link can be changed.
                 config_parent_interfaces = config_parent2child.keys()
+
+                bypasspair_members = []  # Bypass member list to be ignored during do()
                 for config_parent_interface in config_parent_interfaces:
                     # try to get bypass if ID from the list of parent IF names, if the BP is a parent.
-                    config_parent_interface_id = get_bypass_id_from_name(config_parent_interface, interfaces_n2id,
+                    if 'bypasspair' in config_parent_interface:
+                        config_parent_interface_id = get_bypass_id_from_name(config_parent_interface.split('_bypasspair')[0], interfaces_n2id,
                                                                          funny_n2id=interfaces_funny_n2id)
+                        members = leftover_bypasspairs_members.get(config_parent_interface_id)
+                        if members:
+                            bypasspair_members.extend(members)
+                    else:
+                        config_parent_interface_id = None
                     if config_parent_interface_id:
                         # if we find one, make sure it isn't in delete queue
                         local_debug("PARENT BYPASS ID, REMOVING FROM DELETE QUEUE: ", config_parent_interface_id)
@@ -7589,6 +8307,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                     # remove from delete queue
                     leftover_bypasspairs = [entry for entry in leftover_bypasspairs if entry != interface_id]
+
+                # Reset the configuration before delete. Else api will throw error
+                for bp in leftover_bypasspairs:
+                    default_template = get_member_default_config()
+                    output_message("   Setting Bypasspair {0} to default.".format(interfaces_id2n.get(bp)))
+                    new_parent_id = modify_interface(default_template, bp, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
 
                 # DELETE unused bypasspairs at this point.
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
@@ -7638,10 +8364,46 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END VIRTUAL INTERFACE
 
+                config_cellular_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'cellular')
+                leftover_cellular_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'cellular', key_name='id')
+
+                for config_interface_name, config_interface_value in config_cellular_interfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue before configuring cellular
+                    leftover_cellular_interfaces = [entry for entry in leftover_cellular_interfaces if
+                                                   entry != interface_id]
+
+                # cleanup - delete unused cellular interfaces, modified cellular and child interfaces
+                delete_interfaces(leftover_cellular_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END CELLULAR
+
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache, model_name=element_model)
                 interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -7649,6 +8411,68 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id.update(interfaces_n2id_api)
 
                 # Now we will create/modify all the interfaces as per the yml configuration
+
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_cellular_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'cellular')
+
+                for config_interface_name, config_interface_value in config_cellular_interfaces.items():
+
+                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
+                    # look for unconfigurable interfaces.
+                    if config_interface_name in skip_interface_list:
+                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
+                        # dont configure this interface, break out of loop.
+                        continue
+                    # look for parent interface
+                    elif config_interface_name in config_parent2child.keys():
+                        throw_warning("Cannot configure interface {0}, it is set as a parent for {1}."
+                                      "".format(config_interface_name,
+                                                ", ".join(config_parent2child.get(config_interface_name))))
+                        # skip this interface
+                        continue
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
+
+                    else:
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
+
+                    # no need for delete queue, as already deleted.
+
+                # END Cellular Interface
 
                 # START Virtual Interface
 
@@ -7737,13 +8561,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     else:
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # no need for delete queue, as already deleted.
 
@@ -7752,6 +8576,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Start Bypasspair
 
                 # Go back through config, and now create/modify existing bypasspairs.
+                config_bypasspairs = get_config_interfaces_by_type(config_interfaces_defaults, 'bypasspair')
                 for config_interface_name, config_interface_value in config_bypasspairs.items():
                     local_debug("DO BYPASSPAIR: {0}".format(config_interface_name), config_interface_value)
                     # recombine object
@@ -7784,13 +8609,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     else:
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # no need for delete queue, as already deleted.
 
@@ -7847,15 +8672,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id,
-                                                        element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
 
                     else:
                         # no loopbacks should ever get added here, but keep code just in case something falls through.
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # delete queue was already determined in the loopback order pre-add function above.
 
@@ -7912,13 +8737,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     else:
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # no need for delete queue, as already deleted.
 
@@ -7977,14 +8802,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     else:
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
                                                         api_interfaces_cache=interfaces_cache,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # no need for delete queue, as already deleted.
 
@@ -8036,18 +8861,21 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    if interface_id in bypasspair_members:
+                        continue
+
                     # Create or modify interface.
                     if interface_id is not None:
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     else:
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # no delete queue for 'port' class ports.
 
@@ -8103,13 +8931,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # Interface exists, modify.
                         interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     else:
                         # Interface does not exist, create.
                         interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
                                                         lannetworks_n2id, site_id, element_id,
-                                                        interfaces_funny_n2id=interfaces_funny_n2id)
+                                                        interfaces_funny_n2id=interfaces_funny_n2id, version=interfaces_version)
 
                     # no need for delete queue, as already deleted.
 
@@ -8124,7 +8952,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
-                interfaces_n2id_api = build_lookup_dict(interfaces_cache)
+                interfaces_n2id_api = build_lookup_dict(interfaces_cache, model_name=element_model)
                 interfaces_id2n = build_lookup_dict(interfaces_cache, key_val='id', value_val='name')
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -8132,13 +8960,96 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
 
+                # START Cellular Modules
+
+                element_cellular_modules_resp = sdk.get.element_cellular_modules(element_id)
+                element_cellular_modules_cache, leftover_element_cellular_modules = extract_items(element_cellular_modules_resp, 'element_cellular_modules')
+                # build lookup cache.
+                element_cellular_modules_n2id = build_lookup_dict(element_cellular_modules_cache)
+
+                # iterate configs (dict)
+                for config_element_cellular_modules_name, config_element_cellular_modules_value in \
+                        config_element_cellular_modules.items():
+
+                    # recombine object
+                    config_element_cellular_modules_entry = recombine_named_key_value(config_element_cellular_modules_name,
+                                                                         config_element_cellular_modules_value,
+                                                                         name_key='name')
+
+                    # deepcopy to modify.
+                    config_element_cellular_module = copy.deepcopy(config_element_cellular_modules_entry)
+
+                    # Determine ID.
+                    # look for implicit ID in object.
+                    implicit_element_cellular_module_id = config_element_cellular_module.get('id')
+                    name_element_cellular_module_id = element_cellular_modules_n2id.get(config_element_cellular_module.get('name'))
+
+                    if implicit_element_cellular_module_id is not None:
+                        element_cellular_module_id = implicit_element_cellular_module_id
+
+                    elif name_element_cellular_module_id is not None:
+                        # look up ID by name on existing sites.
+                        element_cellular_module_id = name_element_cellular_module_id
+
+                    else:
+                        # no object.
+                        element_cellular_module_id = None
+
+                    # Create or modify.
+                    if element_cellular_module_id is not None:
+                        # modify.
+                        modify_element_cellular_module(config_element_cellular_module, element_cellular_module_id, element_id,
+                                                                                    version=element_cellular_modules_version)
+
+                    # START Cellular Modules SIM Security
+                    cellular_modules_sim_security_resp = sdk.get.cellular_modules_sim_security(element_id, element_cellular_module_id)
+                    cellular_modules_sim_security_cache, leftover_element_cellular_modules = extract_items(
+                        cellular_modules_sim_security_resp, 'element_cellular_modules')
+                    # build lookup cache.
+                    cellular_modules_sim_security_n2id = build_lookup_dict(cellular_modules_sim_security_cache)
+
+                    # iterate configs (dict)
+                    for config_cellular_modules_sim_security_name, config_cellular_modules_sim_security_value in \
+                            config_cellular_modules_sim_security.items():
+
+                        # recombine object
+                        config_cellular_modules_sim_security_entry = recombine_named_key_value(
+                            config_cellular_modules_sim_security_name,
+                            config_cellular_modules_sim_security_value,
+                            name_key='name')
+
+                        # deepcopy to modify.
+                        config_cellular_modules_sim_security = copy.deepcopy(config_cellular_modules_sim_security_entry)
+                        # Determine ID.
+                        # look for implicit ID in object.
+                        implicit_cellular_modules_sim_security_id = config_cellular_modules_sim_security.get('id')
+                        name_cellular_modules_sim_security_id = cellular_modules_sim_security_n2id.get(
+                            config_cellular_modules_sim_security.get('name'))
+
+                        if implicit_cellular_modules_sim_security_id is not None:
+                            cellular_module_sim_security_id = implicit_cellular_modules_sim_security_id
+                        elif name_cellular_modules_sim_security_id is not None:
+                            cellular_module_sim_security_id = name_cellular_modules_sim_security_id
+                        else:
+                            # no object.
+                            cellular_module_sim_security_id = None
+
+                        # Create or modify.
+                        if cellular_module_sim_security_id is not None:
+                            # modify.
+                            cellular_module_sim_security_id = modify_cellular_module_sim_security(config_cellular_modules_sim_security, cellular_module_sim_security_id,
+                                                                                                    element_id, element_cellular_module_id, version=cellular_modules_sim_security_version)
+
+                        # END Cellular Modules SIM Security
+                # END Cellular Modules
+
                 # -- Start Element Spoke HA config
                 # Since for some reason, Spoke HA config is tied into element object, we can't configure it
                 # at the same time as the element configuration operation is performed. This requires us to do
                 # a second element operation AFTER the interfaces are enumerated and at the correct state (here).
 
                 # assign and configure element
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id)
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, version=elements_version)
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
@@ -8156,6 +9067,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     config_routing_routemaps, config_routing_static, \
                     config_routing_bgp = parse_routing_config(config_routing)
 
+                routing_bgp_global_version = use_sdk_yaml_version(config_routing_bgp, 'global_config', sdk.put.bgpconfigs,
+                                                                default={}, sdk_or_yaml=apiversion)
+                routing_bgp_peers_version = use_sdk_yaml_version(config_routing_bgp, 'peers', sdk.put.bgppeers,
+                                                               default={}, sdk_or_yaml=apiversion)
                 # parse BGP config
                 config_routing_bgp_global, config_routing_bgp_peers = parse_bgp_config(config_routing_bgp)
 
@@ -8209,14 +9124,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Create or modify aspath_access_list.
                     if aspath_access_list_id is not None:
                         # aspath_access_list exists, modify.
-                        aspath_access_list_id = modify_aspath_access_list(config_aspath_access_list,
-                                                                          aspath_access_list_id,
-                                                                          aspath_access_lists_n2id, site_id, element_id)
+                        aspath_access_list_id = modify_aspath_access_list(config_aspath_access_list, aspath_access_list_id,
+                                                                          aspath_access_lists_n2id, site_id, element_id,
+                                                                          version=routing_aspathaccesslists_version)
 
                     else:
                         # aspath_access_list does not exist, create.
-                        aspath_access_list_id = create_aspath_access_list(config_aspath_access_list,
-                                                                          aspath_access_lists_n2id, site_id, element_id)
+                        aspath_access_list_id = create_aspath_access_list(config_aspath_access_list, aspath_access_lists_n2id,
+                                                                          site_id, element_id, version=routing_aspathaccesslists_version)
 
                     # remove from delete queue
                     leftover_aspath_access_lists = [entry for entry in leftover_aspath_access_lists
@@ -8274,14 +9189,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Create or modify ip_community_list.
                     if ip_community_list_id is not None:
                         # ip_community_list exists, modify.
-                        ip_community_list_id = modify_ip_community_list(config_ip_community_list,
-                                                                        ip_community_list_id,
-                                                                        ip_community_lists_n2id, site_id, element_id)
+                        ip_community_list_id = modify_ip_community_list(config_ip_community_list, ip_community_list_id,
+                                                                        ip_community_lists_n2id, site_id, element_id,
+                                                                        version=routing_ipcommunitylists_version)
 
                     else:
                         # ip_community_list does not exist, create.
-                        ip_community_list_id = create_ip_community_list(config_ip_community_list,
-                                                                        ip_community_lists_n2id, site_id, element_id)
+                        ip_community_list_id = create_ip_community_list(config_ip_community_list, ip_community_lists_n2id,
+                                                                        site_id, element_id, version=routing_ipcommunitylists_version)
 
                     # remove from delete queue
                     leftover_ip_community_lists = [entry for entry in leftover_ip_community_lists
@@ -8338,14 +9253,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Create or modify prefixlist.
                     if prefixlist_id is not None:
                         # prefixlist exists, modify.
-                        prefixlist_id = modify_prefixlist(config_prefixlist,
-                                                          prefixlist_id,
-                                                          prefixlists_n2id, site_id, element_id)
+                        prefixlist_id = modify_prefixlist(config_prefixlist, prefixlist_id, prefixlists_n2id, site_id, element_id,
+                                                          version=routing_prefixlists_version)
 
                     else:
                         # prefixlist does not exist, create.
-                        prefixlist_id = create_prefixlist(config_prefixlist,
-                                                          prefixlists_n2id, site_id, element_id)
+                        prefixlist_id = create_prefixlist(config_prefixlist, prefixlists_n2id, site_id, element_id,
+                                                          version=routing_prefixlists_version)
 
                     # remove from delete queue
                     leftover_prefixlists = [entry for entry in leftover_prefixlists
@@ -8404,13 +9318,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # routemap exists, modify.
                         routemap_id = modify_routemap(config_routemap, routemap_id, routemaps_n2id,
                                                       aspath_access_lists_n2id, ip_community_lists_n2id,
-                                                      prefixlists_n2id, site_id, element_id)
+                                                      prefixlists_n2id, site_id, element_id, version=routing_routemaps_version)
 
                     else:
                         # routemap does not exist, create.
-                        routemap_id = create_routemap(config_routemap,
-                                                      routemaps_n2id, aspath_access_lists_n2id, ip_community_lists_n2id,
-                                                      prefixlists_n2id, site_id, element_id)
+                        routemap_id = create_routemap(config_routemap, routemaps_n2id, aspath_access_lists_n2id, ip_community_lists_n2id,
+                                                      prefixlists_n2id, site_id, element_id, version=routing_routemaps_version)
 
                     # remove from delete queue
                     leftover_routemaps = [entry for entry in leftover_routemaps
@@ -8423,7 +9336,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # No need to determine BGP Global (bgpconfigs), one object per element.
 
-                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id)
+                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=routing_bgp_global_version)
 
                 # END BGP GLOBAL
 
@@ -8472,12 +9385,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if bgp_peer_id is not None:
                         # bgp_peer exists, modify.
                         bgp_peer_id = modify_bgp_peer(config_bgp_peer, bgp_peer_id, bgp_peers_n2id,
-                                                      routemaps_n2id, site_id, element_id)
+                                                      routemaps_n2id, site_id, element_id, version=routing_bgp_peers_version)
 
                     else:
                         # bgp_peer does not exist, create.
                         bgp_peer_id = create_bgp_peer(config_bgp_peer, bgp_peers_n2id, routemaps_n2id,
-                                                      site_id, element_id)
+                                                      site_id, element_id, version=routing_bgp_peers_version)
 
                     # remove from delete queue
                     leftover_bgp_peers = [entry for entry in leftover_bgp_peers
@@ -8531,12 +9444,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if staticroute_id is not None:
                         # Staticroute exists, modify.
                         staticroute_id = modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
-                                                            site_id, element_id)
+                                                            site_id, element_id, version=routing_static_version)
 
                     else:
                         # Staticroute does not exist, create.
                         staticroute_id = create_staticroute(config_staticroute, interfaces_n2id,
-                                                            site_id, element_id)
+                                                            site_id, element_id, version=routing_static_version)
 
                     # remove from delete queue
                     leftover_staticroutes = [entry for entry in leftover_staticroutes if entry != staticroute_id]
@@ -8544,6 +9457,91 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # END STATIC ROUTING
 
                 # -- End Routing
+
+                # -- Start Multicast Global Configs
+                multicastglobalconfigs_resp = sdk.get.multicastglobalconfigs(site_id, element_id)
+                multicastglobalconfigs_cache, leftover_multicastglobalconfigs = extract_items(
+                    multicastglobalconfigs_resp, 'multicastglobalconfigs')
+                # build lookup cache based on prefix.
+                multicastglobalconfigs_n2id = build_lookup_dict(multicastglobalconfigs_cache)
+
+                # iterate configs (list)
+                for config_multicastglobalconfigs_entry in config_multicastglobalconfigs:
+
+                    # deepcopy to modify.
+                    config_multicastglobalconfigs_record = copy.deepcopy(config_multicastglobalconfigs_entry)
+
+                    # no need to get multicastglobalconfigs config, no child config objects.
+
+                    # Determine multicastglobalconfigs ID.
+                    # look for implicit ID in object.
+                    implicit_multicastglobalconfigs_id = config_multicastglobalconfigs_entry.get('id')
+                    config_multicastglobalconfigs_name = config_multicastglobalconfigs_entry.get('name')
+                    name_multicastglobalconfigs_id = multicastglobalconfigs_n2id.get(config_multicastglobalconfigs_name)
+
+                    if implicit_multicastglobalconfigs_id is not None:
+                        multicastglobalconfigs_id = implicit_multicastglobalconfigs_id
+
+                    elif name_multicastglobalconfigs_id is not None:
+                        # look up ID by name on existing interfaces.
+                        multicastglobalconfigs_id = name_multicastglobalconfigs_id
+
+                    else:
+                        # no multicastglobalconfigs object.
+                        multicastglobalconfigs_id = None
+
+                    # Create or modify multicastglobalconfigs.
+                    if multicastglobalconfigs_id is not None:
+                        # multicastglobalconfigs exists, modify.
+                        multicastglobalconfigs_id = modify_multicastglobalconfigs(config_multicastglobalconfigs_record,
+                                                                                  multicastglobalconfigs_id, site_id, element_id,
+                                                                                  version=multicastglobalconfigs_version)
+                # END Multicast Global Configs
+
+                # -- Start Multicastrps config
+                multicastrps_resp = sdk.get.multicastrps(site_id, element_id)
+                multicastrps_cache, leftover_multicastrps = extract_items(multicastrps_resp, 'multicastrps')
+                # build lookup cache based on prefix.
+                multicastrps_n2id = build_lookup_dict(multicastrps_cache)
+
+                # iterate configs (list)
+                for config_multicastrps_entry in config_multicastrps:
+
+                    # deepcopy to modify.
+                    config_multicastrps_record = copy.deepcopy(config_multicastrps_entry)
+
+                    # no need to get multicastrps config, no child config objects.
+
+                    # Determine multicastrps ID.
+                    # look for implicit ID in object.
+                    implicit_multicastrps_id = config_multicastrps_entry.get('id')
+                    config_multicastrps_name = config_multicastrps_entry.get('name')
+                    name_multicastrps_id = multicastrps_n2id.get(config_multicastrps_name)
+
+                    if implicit_multicastrps_id is not None:
+                        multicastrps_id = implicit_multicastrps_id
+
+                    elif name_multicastrps_id is not None:
+                        # look up ID by name on existing interfaces.
+                        multicastrps_id = name_multicastrps_id
+
+                    else:
+                        # no multicastrps object.
+                        multicastrps_id = None
+
+                    # Create or modify multicastrps.
+                    if multicastrps_id is not None:
+                        # multicastrps exists, modify.
+                        multicastrps_id = modify_multicastrps(config_multicastrps_record, multicastrps_id, site_id,
+                                                              element_id, version=multicastrps_version)
+
+                    else:
+                        # multicastrps does not exist, create.
+                        multicastrps_id = create_multicastrps(config_multicastrps_record, site_id, element_id, version=multicastrps_version)
+
+                    # remove from delete queue
+                    leftover_multicastrps = [entry for entry in leftover_multicastrps if entry != multicastrps_id]
+                # -- End Multicastrps config
 
                 # -- Start SNMP
                 # parse SNMP config.
@@ -8586,12 +9584,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if snmp_agent_id is not None:
                         # Snmp_agent exists, modify.
                         snmp_agent_id = modify_snmp_agent(config_snmp_agent, snmp_agent_id, interfaces_n2id,
-                                                          site_id, element_id)
+                                                          site_id, element_id, version=snmp_agent_version)
 
                     else:
                         # Snmp_agent does not exist, create.
                         snmp_agent_id = create_snmp_agent(config_snmp_agent, interfaces_n2id,
-                                                          site_id, element_id)
+                                                          site_id, element_id, version=snmp_agent_version)
 
                     # remove from delete queue
                     leftover_snmp_agents = [entry for entry in leftover_snmp_agents if entry != snmp_agent_id]
@@ -8633,12 +9631,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if snmp_trap_id is not None:
                         # Snmp_trap exists, modify.
                         snmp_trap_id = modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
-                                                        site_id, element_id)
+                                                        site_id, element_id, version=snmp_traps_version)
 
                     else:
                         # Snmp_trap does not exist, create.
-                        snmp_trap_id = create_snmp_trap(config_snmp_trap, interfaces_n2id,
-                                                        site_id, element_id)
+                        snmp_trap_id = create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id,
+                                                        element_id, version=snmp_traps_version)
 
                     # remove from delete queue
                     leftover_snmp_traps = [entry for entry in leftover_snmp_traps if entry != snmp_trap_id]
@@ -8658,7 +9656,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     config_syslog_record = copy.deepcopy(config_syslog_entry)
 
                     # no need to get syslog config, no child config objects.
-
+                    # Fix for CGCBL-516
+                    if config_syslog_record.get('syslog_profile_id'):
+                        config_syslog_record['server_port'] = None
                     # Determine syslog ID.
                     # look for implicit ID in object.
                     implicit_syslog_id = config_syslog_entry.get('id')
@@ -8679,11 +9679,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Create or modify syslog.
                     if syslog_id is not None:
                         # Syslog exists, modify.
-                        syslog_id = modify_syslog(config_syslog_record, syslog_id, interfaces_n2id, site_id, element_id)
+                        syslog_id = modify_syslog(config_syslog_record, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id,
+                                                  element_id, version=syslog_version)
 
                     else:
                         # Syslog does not exist, create.
-                        syslog_id = create_syslog(config_syslog_record, interfaces_n2id, site_id, element_id)
+                        syslog_id = create_syslog(config_syslog_record, interfaces_n2id, syslogserverprofiles_n2id, site_id,
+                                                  element_id, version=syslog_version)
 
                     # remove from delete queue
                     leftover_syslogs = [entry for entry in leftover_syslogs if entry != syslog_id]
@@ -8693,7 +9695,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # no need to get NTP config, no child config objects.
                 # No need to determine NTP ID, one object per element.
 
-                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id)
+                ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, version=ntp_version)
 
                 # -- End NTP config
 
@@ -8736,13 +9738,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # dnsservice exists, modify.
                         dnsservices_id = modify_dnsservices(config_dnsservices_record, dnsservices_id, site_id,
                                                             element_id, elements_n2id, dnsserviceprofiles_n2id,
-                                                            dnsserviceroles_n2id, interfaces_n2id)
+                                                            dnsserviceroles_n2id, interfaces_n2id, version=dnsservices_version)
 
                     else:
                         # dnsservice does not exist, create.
                         dnsservices_id = create_dnsservices(config_dnsservices_record, site_id, element_id,
                                                             elements_n2id, dnsserviceprofiles_n2id,
-                                                            dnsserviceroles_n2id, interfaces_n2id)
+                                                            dnsserviceroles_n2id, interfaces_n2id, version=dnsservices_version)
 
                     # remove from delete queue
                     leftover_dnsservices = [entry for entry in leftover_dnsservices if entry != dnsservices_id]
@@ -8784,14 +9786,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         ipfix_id = modify_ipfix(config_ipfix_record, ipfix_id, site_id,
                                                 element_id, ipfixprofile_n2id, ipfixcollectorcontext_n2id,
                                                 ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
-                                                ipfixglobalprefix_n2id, appdefs_n2id)
+                                                ipfixglobalprefix_n2id, appdefs_n2id, version=ipfix_version)
 
                     else:
                         # dnsservice does not exist, create.
                         ipfix_id = create_ipfix(config_ipfix_record, site_id, element_id,
                                                 ipfixprofile_n2id, ipfixcollectorcontext_n2id,
                                                 ipfixfiltercontext_n2id, ipfixtemplate_n2id, ipfixlocalprefix_n2id,
-                                                ipfixglobalprefix_n2id, appdefs_n2id)
+                                                ipfixglobalprefix_n2id, appdefs_n2id, version=ipfix_version)
 
                     # remove from delete queue
                     leftover_ipfix = [entry for entry in leftover_ipfix if entry != ipfix_id]
@@ -8833,18 +9835,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if element_extension_id is not None:
                         # Element_extension exists, modify.
                         element_extension_id = modify_element_extension(config_element_extension, element_extension_id,
-                                                                        element_extensions_n2id,
-                                                                        waninterfaces_n2id,
-                                                                        lannetworks_n2id,
-                                                                        interfaces_n2id, site_id, element_id)
+                                                                        element_extensions_n2id, waninterfaces_n2id,
+                                                                        lannetworks_n2id, interfaces_n2id,
+                                                                        site_id, element_id, version=element_extensions_version)
 
                     else:
                         # Element_extension does not exist, create.
-                        element_extension_id = create_element_extension(config_element_extension,
-                                                                        element_extensions_n2id,
-                                                                        waninterfaces_n2id,
-                                                                        lannetworks_n2id,
-                                                                        interfaces_n2id, site_id, element_id)
+                        element_extension_id = create_element_extension(config_element_extension, element_extensions_n2id,
+                                                                        waninterfaces_n2id, lannetworks_n2id, interfaces_n2id,
+                                                                        site_id, element_id, version=element_extensions_version)
 
                     # remove from delete queue
                     leftover_element_extensions = [entry for entry in leftover_element_extensions
@@ -8893,17 +9892,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # Create or modify element_securityzone.
                     if element_securityzone_id is not None:
                         # element_securityzone exists, modify.
-                        element_securityzone_id = modify_element_securityzone(config_element_securityzone,
-                                                                              element_securityzone_id,
-                                                                              waninterfaces_n2id, lannetworks_n2id,
-                                                                              interfaces_n2id, site_id, element_id)
+                        element_securityzone_id = modify_element_securityzone(config_element_securityzone,element_securityzone_id,
+                                                                              waninterfaces_n2id, lannetworks_n2id, interfaces_n2id,
+                                                                              site_id, element_id, version=element_security_zones_version)
 
                     else:
                         # element_securityzone does not exist, create.
-                        element_securityzone_id = create_element_securityzone(config_element_securityzone,
-                                                                              waninterfaces_n2id,
-                                                                              lannetworks_n2id, interfaces_n2id,
-                                                                              site_id, element_id)
+                        element_securityzone_id = create_element_securityzone(config_element_securityzone, waninterfaces_n2id,
+                                                                              lannetworks_n2id, interfaces_n2id, site_id,
+                                                                              element_id, version=element_security_zones_version)
 
                     # remove from delete queue
                     leftover_element_securityzones = [entry for entry in leftover_element_securityzones
@@ -8916,12 +9913,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # No need to determine elementaccess ID, one object per element.
 
-                toolkit_id = modify_toolkit(config_toolkit, site_id, element_id)
+                toolkit_id = modify_toolkit(config_toolkit, site_id, element_id, version=toolkit_version)
 
                 # -- End Toolkit
                 # START Aplication Probe
                 if config_app_probe:
-                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id)
+                    application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, version=app_probe_version)
 
                 # END Aplication Probe
 
@@ -8958,6 +9955,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # delete remaining snmp agent configs
                 delete_snmp_agents(leftover_snmp_agents, site_id, element_id)
 
+                # delete remaining multicastrps configs
+                multicastrps_id2n = build_lookup_dict(multicastrps_cache, key_val='id', value_val='name')
+                delete_multicastrps(leftover_multicastrps, site_id, element_id, id2n=multicastrps_id2n)
+
                 # delete remaining staticroutes
                 delete_staticroutes(leftover_staticroutes, site_id, element_id)
 
@@ -8992,7 +9993,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # BEGIN SITE CLEANUP.
 
             # unbind any remaining elements.
-            unbind_elements(leftover_elements, site_id, declaim=declaim)
+            unbind_elements(leftover_elements, site_id, declaim=declaim, version=elements_version)
 
             # delete remaining spokecluster configs
             # build a spokecluster_id to name mapping.
@@ -9035,7 +10036,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             delete_waninterfaces(leftover_waninterfaces, site_id, id2n=waninterfaces_id2n)
 
             # set site state
-            set_site_state(config_site, site_id)
+            set_site_state(config_site, site_id, version=sites_version)
 
     else:
         # Destroy!
@@ -9063,7 +10064,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             else:
                 # no site object.
                 del_site_id = None
-                throw_warning("Could not find site {0} ({1}). Continuing: ".format(config_site_name, del_site_id))
+                # Fix for CGCBL-508
+                throw_error("Could not find site {0} ({1}). Exiting: ".format(config_site_name, del_site_id))
 
             del_site_name = sites_id2n.get(del_site_id, del_site_id)
 
@@ -9075,9 +10077,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # -- Start Elements
             # Get all elements assigned to this site from the global element cache.
             site_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == del_site_id]
-
+            elements_version = use_sdk_yaml_version(config_site, 'elements', sdk.put.elements, default={}, sdk_or_yaml=apiversion)
             # unbind the elements
-            unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim)
+            unbound_elements = unbind_elements(site_elements, del_site_id, declaim=declaim, version=elements_version)
             # -- End Elements
 
             # Fix for issue #48
@@ -9163,10 +10165,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End WAN Interfaces
 
+            # Fix for CGCBL-336
+            serviceendpoints_resp = sdk.get.serviceendpoints()
+            if not serviceendpoints_resp.cgx_status:
+                throw_warning("Could not query serviceendpoints")
+
+            # Get the list of serviceendpoints
+            serviceendpoints = serviceendpoints_resp.cgx_content.get('items', [])
+            for service_ep in serviceendpoints:
+                if service_ep.get("site_id") == del_site_id:
+                    output_message(f"Deleting serviceendpoints associated with site {del_site_name}")
+                    service_ep_id = service_ep.get("id")
+                    sdk.delete.serviceendpoints(service_ep_id)
+
             # disable site.
             output_message("Disabling site..")
             config_site['admin_state'] = 'disabled'
-            set_site_state(config_site, del_site_id)
+            set_site_state(config_site, del_site_id, version=sites_version)
 
             # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:
@@ -9202,6 +10217,7 @@ def go():
     global force_update
     global site_safety_factor
     global wait_element_config
+    global apiversion
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Create or Destroy site from YAML config file.")
@@ -9240,6 +10256,9 @@ def go():
     config_group.add_argument("--destroy", help="DESTROY site and all connected items (WAN Interfaces, LAN Networks).",
                               default=False, action="store_true")
 
+    config_group.add_argument("--apiversion", help="Allowed values: SDK, YAML. This is REQUIRED if do() operation should use the yaml version"
+                                                         " instead of the default version in sdk for all resources",
+                              default='SDK')
     # Allow Controller modification and debug level sets.
     controller_group = parser.add_argument_group('API', 'These options change how this program connects to the API.')
     controller_group.add_argument("--controller", "-C",
@@ -9272,7 +10291,9 @@ def go():
     destroy = args['destroy']
     declaim = args['declaim']
     config_file = args['Config File'][0]
-
+    apiversion = str(args['apiversion']).lower()
+    if not apiversion in ('sdk', 'yaml', 'yml'):
+        throw_error("Incorrect apiversion value. Allowed values are 'SDK, YAML, YML'")
     # load config file
     with open(config_file, 'r') as datafile:
         loaded_config = yaml.safe_load(datafile)
@@ -9373,7 +10394,7 @@ def go():
                 user_password = None
     # Do the real work
     try:
-        do_site(loaded_config, destroy, declaim=declaim, wait_element_config=wait_element_config)
+        do_site(loaded_config, destroy, declaim=declaim, wait_element_config=wait_element_config, passed_apiversion=apiversion)
     except CloudGenixConfigError:
         # Exit silently if error hit.
         sys.exit(1)
