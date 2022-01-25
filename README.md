@@ -30,9 +30,13 @@ configuration is designed to be run on file change, to maintain configuration st
 MIT
 
 #### Installation:
- - Option 1 (recommended): **PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
+ - **Option 1 (recommended) PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
  Scripts directory. 
- - Option 2: **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
+ - **Option 2 **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
+
+#### Token
+- In order to use Tokens in "cloudgenix_settings.py", you have to make sure that in CGX portal "IP SESSION LOCK" is either disabled or the IP is specified. Otherwise, it will fail to authenticate.  
+
 
 #### Examples of usage:
  1. Configure a Site, Element, and related objects using the UI. Record the Site name (example, MySite)
