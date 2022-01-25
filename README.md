@@ -34,8 +34,9 @@ MIT
  Scripts directory. 
  - **Option 2 Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
 
-#### Token
+#### Token:
 - In order to use Tokens in "cloudgenix_settings.py", you have to make sure that in CGX portal "IP SESSION LOCK" is either disabled or the IP is specified. Otherwise, it will fail to authenticate.  
+- To generate your Token for a given Tenant, you need to go to System Administration > Auth Tokens > Create Auth Token. 
 
 
 #### Examples of usage:
