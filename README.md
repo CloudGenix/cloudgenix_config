@@ -30,9 +30,9 @@ configuration is designed to be run on file change, to maintain configuration st
 MIT
 
 #### Installation:
- - **PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
+ - Option 1 (recommended): **PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
  Scripts directory. 
- - **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
+ - Option 2: **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
 
 #### Examples of usage:
  1. Configure a Site, Element, and related objects using the UI. Record the Site name (example, MySite)
