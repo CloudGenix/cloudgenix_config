@@ -1342,6 +1342,8 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     images_dict = {}
     image_id = None
     for image in software_versions_resp.cgx_content.get('items', []):
+        if image.get('state') == "no-support":
+            continue
         image_version = image.get("version")
         image_lookup_id = image.get('id')
         # build id2n lookup
