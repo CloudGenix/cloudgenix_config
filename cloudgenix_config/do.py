@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.6.0b1
+**Version:** 1.6.0b2
 
 **Author:** CloudGenix
 
@@ -137,7 +137,7 @@ __license__ = """
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b1'
+CONFIG_VERSION_REQUIRED = '1.6.0b2'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
@@ -1342,6 +1342,8 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     images_dict = {}
     image_id = None
     for image in software_versions_resp.cgx_content.get('items', []):
+        if image.get('state') == "no-support":
+            continue
         image_version = image.get("version")
         image_lookup_id = image.get('id')
         # build id2n lookup
