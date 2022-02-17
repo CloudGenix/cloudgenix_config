@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.6.0b3
 
 **Author:** CloudGenix
 
@@ -137,7 +137,7 @@ __license__ = """
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b2'
+CONFIG_VERSION_REQUIRED = '1.6.0b3'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
@@ -1327,6 +1327,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     element_id = element.get('id')
     element_name = element.get('name')
     element_serial = element.get('serial_number')
+    element_version = element.get('software_version')
     element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
         if element_serial else "ID: {0}".format(element_id)
 
@@ -1368,33 +1369,34 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     backup_active_name = None
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
-    if active_image_id is None:
-        # attempt to pull active_image_id from status array for newer api.
-        prev_image_operations = software_state_resp.cgx_content.get('items')
-        if prev_image_operations and isinstance(prev_image_operations, list):
-            for prev_image_operation in prev_image_operations:
-                operation_active_id = prev_image_operation.get('active_image_id')
-                operation_active_name = prev_image_operation.get('active_version')
+    # if active_image_id is None:
+    #     # attempt to pull active_image_id from status array for newer api.
+    #     prev_image_operations = software_state_resp.cgx_content.get('items')
+    #     if prev_image_operations and isinstance(prev_image_operations, list):
+    #         for prev_image_operation in prev_image_operations:
+    #             operation_active_id = prev_image_operation.get('active_image_id')
+    #             operation_active_name = prev_image_operation.get('active_version')
+    #
+    #             if operation_active_name:
+    #                 backup_active_name = operation_active_name
+    #
+    #             if operation_active_id:
+    #                 active_image_id = operation_active_id
+    #                 # exit out of for loop
+    #                 break
+    #
+    # # final check
+    # if active_image_id is None:
+    #     # fail
+    #     active_image_id = ''
+    #     throw_warning("Unable to get active image id. Continuing.. ", software_state_resp)
+    #
+    # local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
+    # local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
+    # local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
+    #
+    active_image_name = str(images_id2n.get(active_image_id, element_version))
 
-                if operation_active_name:
-                    backup_active_name = operation_active_name
-
-                if operation_active_id:
-                    active_image_id = operation_active_id
-                    # exit out of for loop
-                    break
-
-    # final check
-    if active_image_id is None:
-        # fail
-        active_image_id = ''
-        throw_error("Unable to get active image id ", software_state_resp)
-
-    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
-    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
-    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
-
-    active_image_name = str(images_id2n.get(active_image_id, backup_active_name))
     new_version, new_image_id = '', ''
 
     if active_image_id == str(image_id):
@@ -7588,7 +7590,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                           wait_interval=interval_timeout)
 
                 # at this point element will be claimed.
-
                 # Check elements and upgrade or downgrade if necessary
                 staged_upgrade_downgrade_element(matching_element, config_element, wait_upgrade_timeout=timeout_upgrade,
                                 pause_for_upgrade=wait_upgrade,
