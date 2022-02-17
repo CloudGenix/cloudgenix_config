@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.6.0b3
 
 **Author:** CloudGenix
 
@@ -209,7 +209,7 @@ dup_name_dict_sites = {}
 FROM_CLOUDBLADE = 0
 # Fix for CGCBL-565
 SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b2'
+CONFIG_VERSION_REQUIRED = '1.6.0b3'
 # Define constructor globally for now.
 sdk = cloudgenix.API()
 jd = cloudgenix.jd

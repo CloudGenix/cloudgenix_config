@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.6.0b3
 
 **Author:** CloudGenix
 
@@ -137,7 +137,7 @@ __license__ = """
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b2'
+CONFIG_VERSION_REQUIRED = '1.6.0b3'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
