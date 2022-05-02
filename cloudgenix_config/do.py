@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.5.0b1
+**Version:** 1.5.0b3
 
 **Author:** CloudGenix
 
@@ -201,14 +201,35 @@ bypasspair_child_names = [
 # Dictionary to store TAC recommended upgrade and downgrade paths
 # Needs to be updated for every new element version without fail
 
+# upgrade_path_regex = {
+#     "4\.5\..*" : "4.7.1", ### 4.5.xyz -> 4.7.1
+#     "4\.7\..*" : "5.0.3", ### 4.7.xyz -> 5.0.3
+#     "5\.0\..*" : "5.2.7", ### 5.0.xyz -> 5.2.7
+#     "5\.1\..*" : "5.2.7", ### 5.1.xyz -> 5.2.7
+#     "5\.2\..*" : "5.4.3", ### 5.2.xyz -> 5.4.3
+#     "5\.3\..*" : "5.5.1", ### 5.3.xyz -> 5.4.3
+#     "5\.4\..*" : "5.5.1", ### 5.4.xyz -> 5.5.1
+# }
+#
+# downgrade_path_regex = {
+#     "4\.7\..*" : "4.5.3", ### 4.7.xyz -> 4.5.3
+#     "5\.0\..*" : "4.7.1", ### 5.0 to 4.7.1
+#     "5\.1\..*" : "4.7.1", ### 5.1 to 4.7.1
+#     "5\.2\..*" : "5.0.3", ### 5.2 to 5.0.3
+#     "5\.3\..*" : "5.2.7", ### 5.3 to 5.2.7
+#     "5\.4\..*" : "5.2.7", ### 5.4 to 5.2.7
+#     "5\.5\..*" : "5.4.3", ### 5.5 to 5.4.3
+# }
+
 upgrade_path_regex = {
     "4\.5\..*" : "4.7.1", ### 4.5.xyz -> 4.7.1
     "4\.7\..*" : "5.0.3", ### 4.7.xyz -> 5.0.3
     "5\.0\..*" : "5.2.7", ### 5.0.xyz -> 5.2.7
     "5\.1\..*" : "5.2.7", ### 5.1.xyz -> 5.2.7
-    "5\.2\..*" : "5.4.3", ### 5.2.xyz -> 5.4.3
-    "5\.3\..*" : "5.5.1", ### 5.3.xyz -> 5.4.3
-    "5\.4\..*" : "5.5.1", ### 5.4.xyz -> 5.5.1
+    "5\.2\..*" : ["5.5..*", "5.4..*", "5.3..*"], ### 5.2.xyz -> 5.5.3 # Fix for CGCBL-566
+    "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
+    "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
+    "5\.5\..*" : "5.6.1", ### 5.5.xyz -> 5.6.1
 }
 
 downgrade_path_regex = {
@@ -217,8 +238,9 @@ downgrade_path_regex = {
     "5\.1\..*" : "4.7.1", ### 5.1 to 4.7.1
     "5\.2\..*" : "5.0.3", ### 5.2 to 5.0.3
     "5\.3\..*" : "5.2.7", ### 5.3 to 5.2.7
-    "5\.4\..*" : "5.2.7", ### 5.4 to 5.2.7
-    "5\.5\..*" : "5.4.3", ### 5.5 to 5.4.3
+    "5\.4\..*" : ["5.2..*", "5.3..*"], ### 5.4 to 5.2.7 # Fix for CGCBL-566
+    "5\.5\..*" : ["5.2..*", "5.3..*", "5.4..*"], ### 5.5 to 5.2.7
+    "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
 }
 
 # Global Config Cache holders
@@ -1245,6 +1267,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     element_id = element.get('id')
     element_name = element.get('name')
     element_serial = element.get('serial_number')
+    element_version = element.get('software_version')
     element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
         if element_serial else "ID: {0}".format(element_id)
 
@@ -1260,6 +1283,8 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     images_dict = {}
     image_id = None
     for image in software_versions_resp.cgx_content.get('items', []):
+        if image.get('state') == "no-support":
+            continue
         image_version = image.get("version")
         image_lookup_id = image.get('id')
         # build id2n lookup
@@ -1284,33 +1309,33 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     backup_active_name = None
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
-    if active_image_id is None:
-        # attempt to pull active_image_id from status array for newer api.
-        prev_image_operations = software_state_resp.cgx_content.get('items')
-        if prev_image_operations and isinstance(prev_image_operations, list):
-            for prev_image_operation in prev_image_operations:
-                operation_active_id = prev_image_operation.get('active_image_id')
-                operation_active_name = prev_image_operation.get('active_version')
+    # if active_image_id is None:
+    #     # attempt to pull active_image_id from status array for newer api.
+    #     prev_image_operations = software_state_resp.cgx_content.get('items')
+    #     if prev_image_operations and isinstance(prev_image_operations, list):
+    #         for prev_image_operation in prev_image_operations:
+    #             operation_active_id = prev_image_operation.get('active_image_id')
+    #             operation_active_name = prev_image_operation.get('active_version')
+    #
+    #             if operation_active_name:
+    #                 backup_active_name = operation_active_name
+    #
+    #             if operation_active_id:
+    #                 active_image_id = operation_active_id
+    #                 # exit out of for loop
+    #                 break
+    #
+    # # final check
+    # if active_image_id is None:
+    #     # fail
+    #     active_image_id = ''
+    #     throw_error("Unable to get active image id ", software_state_resp)
+    #
+    # local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
+    # local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
+    # local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
 
-                if operation_active_name:
-                    backup_active_name = operation_active_name
-
-                if operation_active_id:
-                    active_image_id = operation_active_id
-                    # exit out of for loop
-                    break
-
-    # final check
-    if active_image_id is None:
-        # fail
-        active_image_id = ''
-        throw_error("Unable to get active image id ", software_state_resp)
-
-    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
-    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
-    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
-
-    active_image_name = str(images_id2n.get(active_image_id, backup_active_name))
+    active_image_name = str(images_id2n.get(active_image_id, element_version))
     new_version, new_image_id = '', ''
 
     if active_image_id == str(image_id):

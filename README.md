@@ -107,7 +107,9 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.5.0** | **b1** | Removed mandatory 480 seconds delay (workaround for CGSDW-799) after claiming ION|
+| **1.5.0** | **b3** | Back ported fix for CGCBL-842 and step upgrade |
+|           | **b2** | Back ported fix for CGCBL-847 - updated used_for (private_wan to private) in default_interfaces  |
+|           | **b1** | Removed mandatory 480 seconds delay (workaround for CGSDW-799) after claiming ION|
 | **1.4.0** | **b5** | Default 480 second delay after claiming ION. Workaround for CGSDW-799|
 |           | **b4** | Added wait-element-config parameter to introduce a delay before element configuration|
 |           | **b3** | Minor bug fixes |
