@@ -261,6 +261,7 @@ ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
 apnprofiles_cache = []
+multicastpeergroups_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -295,6 +296,8 @@ ipfixtemplate_n2id = {}
 ipfixlocalprefix_n2id = {}
 ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
+multicastpeergroups_n2id = {}
+
 
 # Machines/elements need serial to ID mappings
 elements_byserial = {}
@@ -467,6 +470,7 @@ def update_global_cache():
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
     global apnprofiles_cache
+    global multicastpeergroups_cache
 
     global sites_n2id
     global elements_n2id
@@ -500,6 +504,7 @@ def update_global_cache():
     global ipfixlocalprefix_n2id
     global ipfixglobalprefix_n2id
     global apnprofiles_n2id
+    global multicastpeergroups_n2id
 
     global elements_byserial
     global machines_byserial
@@ -636,6 +641,10 @@ def update_global_cache():
     apnprofiles_resp = sdk.get.apnprofiles()
     apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
 
+    # multicastpeergroups
+    multicastpeergroups_resp = sdk.get.multicastpeergroups()
+    multicastpeergroups_cache, _ = extract_items(multicastpeergroups_resp, 'multicastpeergroups')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -731,6 +740,9 @@ def update_global_cache():
 
     # apnprofiles name
     apnprofiles_n2id = build_lookup_dict(apnprofiles_cache)
+
+    # multicastpeergroups name
+    multicastpeergroups_n2id = build_lookup_dict(multicastpeergroups_cache)
 
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
@@ -7047,6 +7059,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                         sdk.put.site_natlocalprefixes, default=[], sdk_or_yaml=apiversion)
             site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
+
+            if "multicast_peer_group_id" in config_site:
+                config_site["multicast_peer_group_id"] = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
+
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')

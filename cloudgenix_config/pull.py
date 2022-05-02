@@ -165,6 +165,7 @@ MULTICASTRPS_STR = "multicastrps"
 CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
 ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
 ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
+# MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 
 # Global Config Cache holders
 sites_cache = []
@@ -199,6 +200,7 @@ ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
 apnprofiles_cache = []
+multicastpeergroups_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -307,6 +309,7 @@ def update_global_cache():
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
     global apnprofiles_cache
+    global multicastpeergroups_cache
 
     global id_name_cache
     global wannetworks_id2type
@@ -440,6 +443,10 @@ def update_global_cache():
     apnprofiles_resp = sdk.get.apnprofiles()
     apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
 
+    # multicastpeergroups
+    multicastpeergroups_resp = sdk.get.multicastpeergroups()
+    multicastpeergroups_cache, _ = extract_items(multicastpeergroups_resp, 'multicastpeergroups')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -534,6 +541,9 @@ def update_global_cache():
 
     # apnprofiles name
     id_name_cache.update(build_lookup_dict(apnprofiles_cache, key_val='id', value_val='name'))
+
+    # multicastpeergroups name
+    id_name_cache.update(build_lookup_dict(multicastpeergroups_cache, key_val='id', value_val='name'))
 
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
@@ -704,7 +714,9 @@ def _pull_config_for_single_site(site_name_id):
     # Get site name from object for error messages. This may differ from what is put into yml
     # if this site name is a duplicate with another site.
     error_site_name = site['name']
-
+    print(site["multicast_peer_group_id"])
+    if "multicast_peer_group_id" in site:
+        site["multicast_peer_group_id"] = id_name_cache.get(site["multicast_peer_group_id"])
     # Get WAN interfaces
     dup_name_dict = {}
     site[WANINTERFACES_STR] = {}
@@ -982,7 +994,7 @@ def _pull_config_for_single_site(site_name_id):
 
         # create a parent list
         parent_id_list = []
-        # bp_parent_id_list = []
+        bp_parent_id_list = []
         if_name_dict = {}
         for interface in interfaces:
             if interface.get('name') in if_name_dict:
@@ -1012,12 +1024,12 @@ def _pull_config_for_single_site(site_name_id):
                     # add to parent list
                     # print("Adding WAN {0} to parent_id_list".format(wan_id))
                     parent_id_list.append(wan_id)
-                    # bp_parent_id_list.append(wan_id)
+                    bp_parent_id_list.append(wan_id)
                 if lan_id is not None and if_id2type.get(lan_id) in ['port']:
                     # add to parent list
                     # print("Adding LAN {0} to parent_id_list".format(lan_id))
                     parent_id_list.append(lan_id)
-                    # bp_parent_id_list.append(lan_id)
+                    bp_parent_id_list.append(lan_id)
 
         for interface in interfaces:
             interface_id = interface.get('id')
@@ -1030,8 +1042,8 @@ def _pull_config_for_single_site(site_name_id):
                     if if_name_dict[interface.get('name')] > 1:
                         if if_type != 'bypasspair':
                             continue
-                    # elif interface_id in bp_parent_id_list:
-                    #     continue
+                    elif interface_id in bp_parent_id_list:
+                        continue
                     elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
                         continue
                 elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
