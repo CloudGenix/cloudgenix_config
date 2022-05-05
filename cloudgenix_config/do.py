@@ -1309,33 +1309,31 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     backup_active_name = None
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
-    # if active_image_id is None:
-    #     # attempt to pull active_image_id from status array for newer api.
-    #     prev_image_operations = software_state_resp.cgx_content.get('items')
-    #     if prev_image_operations and isinstance(prev_image_operations, list):
-    #         for prev_image_operation in prev_image_operations:
-    #             operation_active_id = prev_image_operation.get('active_image_id')
-    #             operation_active_name = prev_image_operation.get('active_version')
-    #
-    #             if operation_active_name:
-    #                 backup_active_name = operation_active_name
-    #
-    #             if operation_active_id:
-    #                 active_image_id = operation_active_id
-    #                 # exit out of for loop
-    #                 break
-    #
-    # # final check
-    # if active_image_id is None:
-    #     # fail
-    #     active_image_id = ''
-    #     throw_error("Unable to get active image id ", software_state_resp)
-    #
-    # local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
-    # local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
-    # local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
+    if active_image_id is None:
+        # attempt to pull active_image_id from status array for newer api.
+        prev_image_operations = software_state_resp.cgx_content.get('items')
+        if prev_image_operations and isinstance(prev_image_operations, list):
+            for prev_image_operation in prev_image_operations:
+                operation_active_id = prev_image_operation.get('active_image_id')
+                operation_active_name = prev_image_operation.get('active_version')
 
-    active_image_name = str(images_id2n.get(active_image_id, element_version))
+                if operation_active_name:
+                    backup_active_name = operation_active_name
+
+                if operation_active_id:
+                    active_image_id = operation_active_id
+                    # exit out of for loop
+                    break
+
+    # final check
+    if active_image_id is None:
+        # IF active image was not found, derive from elements object,
+        active_image_name = str(images_id2n.get(active_image_id, element_version))
+
+    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
+    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
+    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
+
     new_version, new_image_id = '', ''
 
     if active_image_id == str(image_id):
