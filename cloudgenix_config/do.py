@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.7.0b1
 
 **Author:** CloudGenix
 
@@ -137,7 +137,7 @@ __license__ = """
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b2'
+CONFIG_VERSION_REQUIRED = '1.7.0b1'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
@@ -1339,6 +1339,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     element_id = element.get('id')
     element_name = element.get('name')
     element_serial = element.get('serial_number')
+    element_version = element.get('software_version')
     element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
         if element_serial else "ID: {0}".format(element_id)
 
@@ -1398,9 +1399,12 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
 
     # final check
     if active_image_id is None:
-        # fail
-        active_image_id = ''
-        throw_error("Unable to get active image id ", software_state_resp)
+        # IF active image was not found, derive from elements object,
+        active_image_name = str(images_id2n.get(active_image_id, element_version))
+
+    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
+    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
+    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
 
     local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
     local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
