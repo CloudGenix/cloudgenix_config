@@ -214,7 +214,8 @@ upgrade_path_regex = {
     "5\.2\..*" : ["5.5..*", "5.4..*", "5.3..*"], ### 5.2.xyz -> 5.5.3 # Fix for CGCBL-566
     "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
     "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
-    "5\.5\..*" : "5.6.1", ### 5.5.xyz -> 5.6.1
+    "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
+    "5\.6\..*" : ["6.0..*"]
 }
 
 downgrade_path_regex = {
@@ -226,6 +227,7 @@ downgrade_path_regex = {
     "5\.4\..*" : ["5.2..*", "5.3..*"], ### 5.4 to 5.2.7 # Fix for CGCBL-566
     "5\.5\..*" : ["5.2..*", "5.3..*", "5.4..*"], ### 5.5 to 5.2.7
     "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
+    "6\.0\..*" : ["5.5..*", "5.6..*"]
 }
 
 # Global Config Cache holders
@@ -1430,7 +1432,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
                     for upgrade_version in upgrade_path_regex[path]:
                         if major_minor(elem_config_version) > major_minor(upgrade_version):
                             new_version = get_exact_version(upgrade_version, images_dict)
-                            if not new_version:
+                            if not new_version and not len(upgrade_path_regex[path]) == 1:
                                 continue
                             new_image_id = images_dict[new_version]['id'] if new_version else None
                             break

@@ -714,7 +714,7 @@ def _pull_config_for_single_site(site_name_id):
     # Get site name from object for error messages. This may differ from what is put into yml
     # if this site name is a duplicate with another site.
     error_site_name = site['name']
-    print(site["multicast_peer_group_id"])
+
     if "multicast_peer_group_id" in site:
         site["multicast_peer_group_id"] = id_name_cache.get(site["multicast_peer_group_id"])
     # Get WAN interfaces
