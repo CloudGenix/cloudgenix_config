@@ -1046,6 +1046,8 @@ def _pull_config_for_single_site(site_name_id):
                         continue
                     elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
                         continue
+                elif interface_id in bp_parent_id_list:
+                    continue
                 elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
                     continue
             elif FORCE_PARENTS:
