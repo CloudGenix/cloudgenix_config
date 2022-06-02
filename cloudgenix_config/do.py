@@ -2087,9 +2087,10 @@ def set_site_state(config_site, site_id, version=None, reset_mpgid=False):
     if reset_mpgid:
         site_resp.cgx_content['multicast_peer_group_id'] = None
     if not force_update and cur_state is not None and cur_state == site_state:
-        site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content, api_version=version)
-        if not site_modify_resp.cgx_status:
-            throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(site_id), site_modify_resp)
+        if reset_mpgid:
+            site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content, api_version=version)
+            if not site_modify_resp.cgx_status:
+                throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(site_id), site_modify_resp)
         # already this state.
         output_message("No Change for Site {0} state ({1}).".format(site_name, site_state))
         return
