@@ -2063,7 +2063,7 @@ def modify_site(config_site, site_id, version=None):
     return site_id
 
 
-def set_site_state(config_site, site_id, version=None):
+def set_site_state(config_site, site_id, version=None, reset_mpgid=False):
     """
     Modify Site state specifically.
     :param config_site: Site configuration Dict
@@ -2084,7 +2084,12 @@ def set_site_state(config_site, site_id, version=None):
 
     # check state
     cur_state = site_resp.cgx_content.get('admin_state')
+    if reset_mpgid:
+        site_resp.cgx_content['multicast_peer_group_id'] = None
     if not force_update and cur_state is not None and cur_state == site_state:
+        site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content, api_version=version)
+        if not site_modify_resp.cgx_status:
+            throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(site_id), site_modify_resp)
         # already this state.
         output_message("No Change for Site {0} state ({1}).".format(site_name, site_state))
         return
@@ -10097,11 +10102,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                          del_site_id))
 
             # -- End Sites Prep
-            if 'multicast_peer_group_id' in config_site:
-                config_site['multicast_peer_group_id'] = None
-            site_modify_resp = sdk.put.sites(del_site_id, config_site, api_version=sites_version)
-            if not site_modify_resp.cgx_status:
-                throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(del_site_id), site_modify_resp)
 
             # -- Start Elements
             # Get all elements assigned to this site from the global element cache.
@@ -10210,7 +10210,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # disable site.
             output_message("Disabling site..")
             config_site['admin_state'] = 'disabled'
-            set_site_state(config_site, del_site_id, version=sites_version)
+            if 'multicast_peer_group_id' in config_site:
+                reset_mpgid = True
+            else:
+                reset_mpgid = False
+            set_site_state(config_site, del_site_id, version=sites_version, reset_mpgid=reset_mpgid)
 
             # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:
