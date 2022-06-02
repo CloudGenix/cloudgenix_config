@@ -10097,6 +10097,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                          del_site_id))
 
             # -- End Sites Prep
+            if 'multicast_peer_group_id' in config_site:
+                config_site['multicast_peer_group_id'] = None
+            site_modify_resp = sdk.put.sites(del_site_id, config_site, api_version=sites_version)
+            if not site_modify_resp.cgx_status:
+                throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(del_site_id), site_modify_resp)
 
             # -- Start Elements
             # Get all elements assigned to this site from the global element cache.
@@ -10206,12 +10211,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             output_message("Disabling site..")
             config_site['admin_state'] = 'disabled'
             set_site_state(config_site, del_site_id, version=sites_version)
-
-            if 'multicast_peer_group_id' in config_site:
-                config_site['multicast_peer_group_id'] = None
-            site_modify_resp = sdk.put.sites(del_site_id, config_site, api_version=sites_version)
-            if not site_modify_resp.cgx_status:
-                throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(del_site_id), site_modify_resp)
 
             # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:
