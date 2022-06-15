@@ -7072,7 +7072,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
 
-            if "multicast_peer_group_id" in config_site:
+            if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
                 mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
                 if mpg_id:
                     config_site["multicast_peer_group_id"] = mpg_id
