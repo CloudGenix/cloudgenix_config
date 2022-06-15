@@ -77,6 +77,7 @@ member_port = """
             mac_address: null
             mtu: 1500
             multicast_config: null
+            multicast_peer_group_id: null
             nat_address: null
             nat_pools: null
             nat_port: 0

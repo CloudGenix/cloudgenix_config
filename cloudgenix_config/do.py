@@ -3833,7 +3833,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     local_debug("INTERFACE TEMPLATE: " + str(json.dumps(interface_template, indent=4)))
 
     # get current interface
-    interface_resp = sdk.get.interfaces(site_id, element_id, interface_id)
+    interface_resp = sdk.get.interfaces(site_id, element_id, interface_id, api_version=version)
     if interface_resp.cgx_status:
         interface_config = interface_resp.cgx_content
     else:
@@ -7073,7 +7073,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site:
-                config_site["multicast_peer_group_id"] = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
+                mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
+                if mpg_id:
+                    config_site["multicast_peer_group_id"] = mpg_id
+                else:
+                    throw_error(f"Invalid Multicast Peer Group: {config_site['multicast_peer_group_id']}")
 
             # Determine site ID.
             # look for implicit ID in object.
