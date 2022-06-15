@@ -1850,7 +1850,7 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                 if sdk.email:
                     config_yml.write("# by {0}\n".format(sdk.email))
-            config_yml.write("# Note: For ION 9000 interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_<name> where name is the interface name. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
+            config_yml.write("# Note: For interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_<name> where name is the interface name. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
             # Adding FROM_CLOUDBLADE line into pull site yml file
             if FROM_CLOUDBLADE:
                 config_yml.write("# FROM_CLOUDBLADE\n")
@@ -1907,7 +1907,7 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                     if sdk.email:
                         config_yml.write("# by {0}\n".format(sdk.email))
-                config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_IF1_IF2 and so on. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
+                config_yml.write("# Note: For interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_IF1_IF2 and so on. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
@@ -1952,7 +1952,7 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                     if sdk.email:
                         config_yml.write("# by {0}\n".format(sdk.email))
-                config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_IF1_IF2 and so on. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
+                config_yml.write("# Note: For interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_IF1_IF2 and so on. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
