@@ -77,7 +77,6 @@ member_port = """
             mac_address: null
             mtu: 1500
             multicast_config: null
-            multicast_peer_group_id: null
             nat_address: null
             nat_pools: null
             nat_port: 0
@@ -94,6 +93,9 @@ member_port = """
             tags:
             type: port
             used_for: none
+            ipv6_config: null
+            nat_address_v6: null
+            nat_port_v6: 0
 """
 
 default_backwards_bypasspairs = {
