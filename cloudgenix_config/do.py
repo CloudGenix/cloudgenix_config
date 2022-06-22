@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.6.0b3
 
 **Author:** CloudGenix
 
@@ -137,7 +137,7 @@ __license__ = """
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
 SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b2'
+CONFIG_VERSION_REQUIRED = '1.6.0b3'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
@@ -1830,7 +1830,8 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
                                          id2n=element_securityzones_id2zoneid)
 
             # Remove static routes from device.
-            static_routes_resp = sdk.get.staticroutes(site_id, element_item_id)
+            # HotFix for Static Route Issue
+            static_routes_resp = sdk.get.staticroutes(site_id, element_item_id,api_version="v2.2")
 
             if not static_routes_resp.cgx_status:
                 throw_error("Could not get list of element {0} static routes: ".format(element_item_name),
@@ -4394,6 +4395,8 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id,
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
     # create staticroute
+    # HotFix for Static Route Issue
+    version = "v2.2"
     staticroute_resp = sdk.post.staticroutes(site_id, element_id, staticroute_template, api_version=version)
 
     if not staticroute_resp.cgx_status:
@@ -4461,7 +4464,8 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
     # get current staticroute
-    staticroute_resp = sdk.get.staticroutes(site_id, element_id, staticroute_id)
+    # HotFix for Static Route Issue
+    staticroute_resp = sdk.get.staticroutes(site_id, element_id, staticroute_id, api_version="v2.2")
     if staticroute_resp.cgx_status:
         staticroute_config = staticroute_resp.cgx_content
     else:
@@ -4484,6 +4488,13 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
         local_debug("STATICROUTE DIFF: {0}".format(find_diff(staticroute_change_check, staticroute_config)))
 
     # Update Staticroute.
+    # HotFix for Static Route Issue
+    version = "v2.2"
+    if "address_family" in staticroute_config.keys():
+        if staticroute_config["address_family"] is None:
+            staticroute_config["address_family"] = "ipv4"
+    else:
+        staticroute_config["address_family"] = "ipv4"
     staticroute_resp2 = sdk.put.staticroutes(site_id, element_id, staticroute_id, staticroute_config, api_version=version)
 
     if not staticroute_resp2.cgx_status:
@@ -7546,6 +7557,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                    default={}, sdk_or_yaml=apiversion)
                 routing_static_version = use_sdk_yaml_version(config_routing, 'static', sdk.put.staticroutes,
                                                                     default={}, sdk_or_yaml=apiversion)
+                # HotFix for Static Route Issue
+                routing_static_version = "v2.2"
                 snmp_traps_version = use_sdk_yaml_version(config_snmp, 'traps', sdk.put.snmptraps, default=[], sdk_or_yaml=apiversion)
                 snmp_agent_version = use_sdk_yaml_version(config_snmp, 'agent', sdk.put.snmpagents, default=[], sdk_or_yaml=apiversion)
                 element_cellular_modules_version = use_sdk_yaml_version(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default=[], sdk_or_yaml=apiversion)
@@ -7858,7 +7871,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # -- End element_securityzones
 
                 # START STATIC ROUTING
-                staticroutes_resp = sdk.get.staticroutes(site_id, element_id)
+                # HotFix for Static Route Issue
+                staticroutes_resp = sdk.get.staticroutes(site_id, element_id, api_version="v2.2")
                 staticroutes_cache, leftover_staticroutes = extract_items(staticroutes_resp, 'staticroutes')
                 # build lookup cache based on prefix.
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
@@ -9400,7 +9414,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # END BGP PEERS
 
                 # START STATIC ROUTING
-                staticroutes_resp = sdk.get.staticroutes(site_id, element_id)
+                # HotFix for Static Route Issue
+                staticroutes_resp = sdk.get.staticroutes(site_id, element_id, api_version="v2.2")
                 staticroutes_cache, leftover_staticroutes = extract_items(staticroutes_resp, 'staticroutes')
                 # build lookup cache based on prefix.
                 staticroutes_n2id = build_lookup_dict(staticroutes_cache, key_val='destination_prefix')
