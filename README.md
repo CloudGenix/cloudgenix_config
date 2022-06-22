@@ -110,7 +110,8 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.6.0** | **b2** | Minor bug fixes |
+| **1.6.0** | **b3** | Hot fix for CGESC-601. Setting address_family as ipv4 for staticroutes |
+|           | **b2** | Minor bug fixes |
 |           | **b1** | Support for CloudGenix SDK 5.6.1b2, cellular devices, multicast, apiversion flag in cli, bugfixes
 | **1.5.0** | **b2** | Back ported fix for CGCBL-847 - updated used_for (private_wan to private) in default_interfaces|
 |           | **b1** | Removed mandatory 480 seconds delay (workaround for CGSDW-799) after claiming ION|
