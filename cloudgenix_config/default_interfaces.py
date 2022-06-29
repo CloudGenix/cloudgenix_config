@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT default device port configurations
 
-**Version:** 1.6.0b2
+**Version:** 1.5.0b4
 
 **Author:** CloudGenix
 
@@ -65,7 +65,6 @@ member_port = """
             attached_lan_networks: null
             bound_interfaces: null
             bypass_pair: null
-            cellular_config: null
             description: null
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
@@ -76,7 +75,6 @@ member_port = """
             ipv4_config: null
             mac_address: null
             mtu: 1500
-            multicast_config: null
             nat_address: null
             nat_pools: null
             nat_port: 0
@@ -87,8 +85,6 @@ member_port = """
             scope: local
             service_link_config: null
             site_wan_interface_ids: null
-            secondary_ip_configs: null
-            static_arp_configs: null
             sub_interface: null
             tags:
             type: port
@@ -2168,115 +2164,9 @@ ion_9000 = """
             used_for: none
 """
 
-ion_1200 = """    
-        '4':
-          description: null
-          type: port
-          attached_lan_networks: null
-          site_wan_interface_ids: null
-          mac_address: null
-          mtu: 1500
-          ipv4_config: null
-          dhcp_relay: null
-          ethernet_port: 
-            full_duplex: false
-            speed: 0
-          admin_up: false
-          nat_address: null
-          nat_port: 0
-          used_for: none
-          bound_interfaces: null
-          sub_interface: null
-          pppoe_config: null
-          parent: null
-          network_context_id: null
-          bypass_pair: null
-          service_link_config: null
-          scope: local
-          tags: null
-        '3':
-          description: null
-          type: port
-          attached_lan_networks: null
-          site_wan_interface_ids: null
-          mac_address: null
-          mtu: 1500
-          ipv4_config: null
-          dhcp_relay: null
-          ethernet_port: 
-            full_duplex: false
-            speed: 0
-          admin_up: false
-          nat_address: null
-          nat_port: 0
-          used_for: none
-          bound_interfaces: null
-          sub_interface: null
-          pppoe_config: null
-          parent: null
-          network_context_id: null
-          bypass_pair: null
-          service_link_config: null
-          scope: local
-          tags: null
-        '2':
-          description: null
-          type: port
-          attached_lan_networks: null
-          site_wan_interface_ids: null
-          mac_address: null
-          mtu: 1500
-          ipv4_config: null
-          dhcp_relay: null
-          ethernet_port: 
-            full_duplex: false
-            speed: 0
-          admin_up: false
-          nat_address: null
-          nat_port: 0
-          used_for: none
-          bound_interfaces: null
-          sub_interface: null
-          pppoe_config: null
-          parent: null
-          network_context_id: null
-          bypass_pair: null
-          service_link_config: null
-          scope: local
-          tags: null
-        '1':
-          description: null
-          type: port
-          attached_lan_networks: null
-          site_wan_interface_ids: null
-          mac_address: null
-          mtu: 1500
-          ipv4_config: null
-          dhcp_relay: null
-          ethernet_port: 
-            full_duplex: false
-            speed: 0
-          admin_up: false
-          nat_address: null
-          nat_port: 0
-          used_for: none
-          bound_interfaces: null
-          sub_interface: null
-          pppoe_config: null
-          parent: null
-          network_context_id: null
-          bypass_pair: null
-          service_link_config: null
-          scope: local
-          tags: null
-"""
-
 ion_3104v = ion_3102v
 ion_3108v = ion_3102v
 ion_7108v = ion_3102v
 ion_7116v = ion_3102v
 ion_7132v = ion_3102v
-ion_1200_c_row = ion_1200
-ion_1200_c_na = ion_1200
-ion_1200_c5g_ww = ion_1200
 

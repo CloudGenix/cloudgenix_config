@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.6.0b2
+**Version:** 1.5.0b4
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "1.6.0b2"
+__version__ = "1.5.0b4"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
@@ -200,6 +200,7 @@ def compare_versions(config_ver, sdk_ver, query):
         # This function is only run when there is a mismatch. If majors match, then
         # there must be a minor mismatch.
         throw_warning("{0} Config and SDK minor version mismatch: Config: {1}, SDK {2}. "
+                      "Attempting to continue, will use SDK version."
                       "".format(query, config_ver, sdk_ver))
     else:
         # major mismatch, stop.
@@ -300,8 +301,6 @@ def get_default_ifconfig_from_model_string(model_string):
     """
     if model_string == "ion 1000":
         return yaml.safe_load(ion_1000)
-    elif model_string == "ion 1200":
-        return yaml.safe_load(ion_1200)
     elif model_string == "ion 2000":
         return yaml.safe_load(ion_2000)
     elif model_string == "ion 3000":
@@ -322,12 +321,6 @@ def get_default_ifconfig_from_model_string(model_string):
         return yaml.safe_load(ion_7116v)
     elif model_string == "ion 7132v":
         return yaml.safe_load(ion_7132v)
-    elif model_string == "ion 1200-c-row":
-        return yaml.safe_load(ion_1200_c_row)
-    elif model_string == "ion 1200-c-na":
-        return yaml.safe_load(ion_1200_c_na)
-    elif model_string == "ion 1200-c5g-ww":
-        return yaml.safe_load(ion_1200_c5g_ww)
     else:
         # model not found, return empty dict
         return {}
@@ -391,14 +384,13 @@ def extract_items(resp_object, error_label=None, id_key='id'):
             return [], []
 
 
-def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=False, model_name=None):
+def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=False):
     """
     Build key/value lookup dict
     :param list_content: List of dicts to derive lookup structs from
     :param key_val: value to extract from entry to be key
     :param value_val: value to extract from entry to be value
     :param force_nag: Bool, if True will nag even if key in global ALREADY_NAGGED_DUP_KEYS
-    :param model_name: Element model name
     :return: lookup dict
     """
     global ALREADY_NAGGED_DUP_KEYS
@@ -419,7 +411,7 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
                 blacklist_duplicate_entries.append({item_key: duplicate_value})
                 blacklist_duplicate_entries.append({item_key: item_value})
                 # remove from lookup dict to prevent accidental overlap usage
-                #del lookup_dict[str(item_key)]
+                del lookup_dict[str(item_key)]
 
             # check if it was a third+ duplicate key for a previous key
             elif item_key in blacklist_duplicate_keys:
@@ -428,15 +420,7 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
 
             else:
                 # no duplicates, append
-                # Below check to handle lookup in ion 9k
-                # 9k can have same port and bypasspair names
-                # Adding '_bypasspair' for bypasspairs
-                if key_val == 'name' and item.get('type') == 'bypasspair':
-                    lookup_dict[str(item_key) + '_bypasspair'] = item_value
-                # elif value_val == 'name' and item.get('type') == 'bypasspair':
-                #     lookup_dict[item_key] = item_value + '_bypasspair'
-                else:
-                    lookup_dict[str(item_key)] = item_value
+                lookup_dict[str(item_key)] = item_value
 
     for duplicate_key in blacklist_duplicate_keys:
         matching_entries = [entry for entry in blacklist_duplicate_entries if duplicate_key in entry]
@@ -636,103 +620,3 @@ def check_default_ipv4_config(ipv4_config):
         else:
             is_none = 0
     return is_none
-
-
-def use_sdk_yaml_version(tgt_dict, query, sdk_func, default=None, sdk_or_yaml='sdk'):
-    """
-    :param tgt_dict: A dict that may containin key of string and version string, EG "test v1.0"
-    :param query: Text portion of string to query in dict
-    :param sdk_func: CloudGenix SDK function to extract version from
-    :param default: A default response to return if key does not exist
-    :param sdk_or_yaml: Input apiversion. Default is 'sdk'
-    :return: default value if not present or API version string.
-    """
-
-    # format is "query vX.Y" where X is major and Y is minor
-    args = get_function_default_args(sdk_func)
-    # extract API version
-    api_version = args.get('api_version')
-
-    if sdk_or_yaml == 'sdk':
-        # if invalid API version, set to default value
-        if not api_version:
-            api_version = "UNDEFINED"
-            throw_error("{0} API version is undefined in current SDK. Cannot configure.".format(query))
-        else:
-            return api_version
-    elif sdk_or_yaml == 'yaml' or sdk_or_yaml == 'yml':
-        matching_entry_list = []
-        matching_entry_split = []
-        for key, value in tgt_dict.items():
-            # split the config entry key on space, split = None has special value (one or more spaces).
-            splitkey = key.split()
-            # does the first half match the query?
-            if splitkey[0].lower() == query:
-                matching_entry_list.append(key)
-                matching_entry_split.append(splitkey)
-        # check match cases.
-        if len(matching_entry_list) == 0:
-            # no matches.
-            return default, "UNDEFINED"
-        # one or more matches.
-        elif len(matching_entry_list) == 1:
-            # check API ver content
-            for idx, splitkey in enumerate(matching_entry_split):
-                if len(splitkey) <= 1:
-                    # no api version in string.
-                    throw_error("No API version in {0} config.".format(query, api_version))
-                else:
-                    # check if API version string matches the current SDK config.
-                    if splitkey[1] == api_version:
-                        # best case, exact match. go.
-                        retval = tgt_dict.get(matching_entry_list[idx], default)
-                        return default if retval is None else api_version
-                    elif splitkey[1].upper() == "UNDEFINED":
-                        # undefined API version, use latest.
-                        throw_warning("UNDEFINED API version in {0} config. Using latest SDK ({1})".format(query, api_version))
-                        retval = tgt_dict.get(matching_entry_list[idx], default)
-                        return default if retval is None else api_version
-                    else:
-                        # no match, check if minor mismatch.
-                        return_ver = compare_sdk_yaml_versions(splitkey[1], api_version, query, sdk_or_yaml)
-                        # if we get here, minor mismatch only
-                        retval = tgt_dict.get(matching_entry_list[idx], default)
-                        return default if retval is None else splitkey[1]
-        else:
-            # more than 1 config entry. Throw error.
-            throw_error(
-                "Multiple configs found for {0}. Current SDK version is {1}. Please remove one of the configuration"
-                "entries to continue:".format(query, api_version), matching_entry_list)
-
-        # if we got here, something is broken.
-        return default, "UNDEFINED"
-
-
-def compare_sdk_yaml_versions(config_ver, sdk_ver, query, sdk_or_yaml='sdk'):
-    """
-    Compare two version strings, throw error if not major match, in case of minor mismatch throw warning.
-    :param config_ver: Version from config file
-    :param sdk_ver: Version from SDK
-    :param query: Query version came from
-    :param sdk_or_yaml: Input apiversion. Default is 'sdk'
-    :return: SDK version for use by function.
-    """
-    config_dict = VERSION_REGEX.search(config_ver)
-    sdk_dict = VERSION_REGEX.search(sdk_ver)
-    config_major = config_dict.groupdict().get('major')
-    config_minor = config_dict.groupdict().get('minor')
-    sdk_major = sdk_dict.groupdict().get('major')
-    sdk_minor = sdk_dict.groupdict().get('minor')
-    # compare:
-    if config_major == sdk_major:
-        # This function is only run when there is a mismatch. If majors match, then
-        # there must be a minor mismatch.
-        throw_warning("{0} Config and SDK minor version mismatch: Config: {1}, SDK {2}. "
-                      "Attempting to continue, will use {3} version."
-                      "".format(query, config_ver, sdk_ver, sdk_or_yaml.upper()))
-    else:
-        # major mismatch, stop.
-        throw_error("{0} Config and SDK major version mismatch. Config: {1}, SDK {2}. Halting.\n"
-                    "Please update config to latest SDK version".format(query, config_ver, sdk_ver))
-
-    return sdk_ver if sdk_or_yaml == 'sdk' else config_ver

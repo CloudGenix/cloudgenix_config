@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.5.0b4
 
 **Author:** CloudGenix
 
@@ -160,11 +160,6 @@ DNS_SERVICES_STR = "dnsservices"
 APPLICATION_PROBE_STR = "application_probe"
 IPFIX_STR = "ipfix"
 SITE_IPFIXLOCALPREFIXES_STR = "site_ipfix_localprefixes"
-MULTICASTGLOBALCONFIGS_STR = "multicastglobalconfigs"
-MULTICASTRPS_STR = "multicastrps"
-CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
-ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
-ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 
 # Global Config Cache holders
 sites_cache = []
@@ -172,8 +167,6 @@ elements_cache = []
 machines_cache = []
 policysets_cache = []
 security_policysets_cache = []
-ngfw_security_policysetstack_cache = []
-syslogserverprofiles_cache = []
 securityzones_cache = []
 network_policysetstack_cache = []
 priority_policysetstack_cache = []
@@ -198,7 +191,6 @@ ipfixfiltercontext_cache = []
 ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
-apnprofiles_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -207,9 +199,7 @@ dup_name_dict_sites = {}
 
 # Handle cloudblade calls
 FROM_CLOUDBLADE = 0
-# Fix for CGCBL-565
-SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.6.0b2'
+
 # Define constructor globally for now.
 sdk = cloudgenix.API()
 jd = cloudgenix.jd
@@ -280,8 +270,6 @@ def update_global_cache():
     global machines_cache
     global policysets_cache
     global security_policysets_cache
-    global ngfw_security_policysetstack_cache
-    global syslogserverprofiles_cache
     global securityzones_cache
     global network_policysetstack_cache
     global priority_policysetstack_cache
@@ -306,7 +294,6 @@ def update_global_cache():
     global ipfixtemplate_cache
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
-    global apnprofiles_cache
 
     global id_name_cache
     global wannetworks_id2type
@@ -328,17 +315,9 @@ def update_global_cache():
     policysets_resp = sdk.get.policysets()
     policysets_cache, _ = extract_items(policysets_resp, 'policysets')
 
-    # security_policysets
+    # secuirity_policysets
     security_policysets_resp = sdk.get.securitypolicysets()
-    security_policysets_cache, _ = extract_items(security_policysets_resp, 'security_policysets')
-
-    # ngfw_security_policysetstack
-    ngfw_security_policysetstack_resp = sdk.get.ngfwsecuritypolicysetstacks()
-    ngfw_security_policysetstack_cache, _ = extract_items(ngfw_security_policysetstack_resp, 'ngfw_securitypolicysetstack')
-
-    # syslogserverprofiles
-    syslogserverprofiles_resp = sdk.get.syslogserverprofiles()
-    syslogserverprofiles_cache, _ = extract_items(syslogserverprofiles_resp, 'syslogserverprofiles')
+    security_policysets_cache, _ = extract_items(security_policysets_resp, 'secuirity_policysets')
 
     # secuirityzones
     securityzones_resp = sdk.get.securityzones()
@@ -436,10 +415,6 @@ def update_global_cache():
     ipfixglobalprefix_resp = sdk.get.ipfixglobalprefixes()
     ipfixglobalprefix_cache, _ = extract_items(ipfixglobalprefix_resp, 'ipfixglobalprefixes')
 
-    # apnprofiles
-    apnprofiles_resp = sdk.get.apnprofiles()
-    apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
-
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -454,12 +429,6 @@ def update_global_cache():
 
     # security_policysets name
     id_name_cache.update(build_lookup_dict(security_policysets_cache, key_val='id', value_val='name'))
-
-    # ngfw_securitypolicysetstack name
-    id_name_cache.update(build_lookup_dict(ngfw_security_policysetstack_cache, key_val='id', value_val='name'))
-
-    # syslogserverprofiles name
-    id_name_cache.update(build_lookup_dict(syslogserverprofiles_cache, key_val='id', value_val='name'))
 
     # securityzones name
     id_name_cache.update(build_lookup_dict(securityzones_cache, key_val='id', value_val='name'))
@@ -532,9 +501,6 @@ def update_global_cache():
     # ipfixglobalprefix name
     id_name_cache.update(build_lookup_dict(ipfixglobalprefix_cache, key_val='id', value_val='name'))
 
-    # apnprofiles name
-    id_name_cache.update(build_lookup_dict(apnprofiles_cache, key_val='id', value_val='name'))
-
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
     wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
@@ -592,11 +558,6 @@ def build_version_strings():
     global APPLICATION_PROBE_STR
     global IPFIX_STR
     global SITE_IPFIXLOCALPREFIXES_STR
-    global MULTICASTGLOBALCONFIGS_STR
-    global MULTICASTRPS_STR
-    global CELLULAR_MODULES_SIM_SECURITY_STR
-    global ELEMENT_CELLULAR_MODULES_STR
-    global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -631,11 +592,7 @@ def build_version_strings():
         APPLICATION_PROBE_STR = add_version_to_object(sdk.get.application_probe, "application_probe")
         IPFIX_STR = add_version_to_object(sdk.get.ipfix, "ipfix")
         SITE_IPFIXLOCALPREFIXES_STR = add_version_to_object(sdk.get.site_ipfixlocalprefixes, "site_ipfix_localprefixes")
-        MULTICASTGLOBALCONFIGS_STR = add_version_to_object(sdk.get.multicastglobalconfigs, "multicastglobalconfigs")
-        MULTICASTRPS_STR = add_version_to_object(sdk.get.multicastrps, "multicastrps")
-        CELLULAR_MODULES_SIM_SECURITY_STR = add_version_to_object(sdk.get.cellular_modules_sim_security, "cellular_modules_sim_security")
-        ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
-        ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
+
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -933,40 +890,6 @@ def _pull_config_for_single_site(site_name_id):
         if element['site_id'] != site['id']:
             continue
 
-        # Get cellular_modules
-        element[ELEMENT_CELLULAR_MODULES_STR] = {}
-        element[CELLULAR_MODULES_SIM_SECURITY_STR] = {}
-        cellular_modules_resp = sdk.get.element_cellular_modules(element['id'])
-        if not cellular_modules_resp.cgx_status:
-            throw_error("Cellular Modules get failed: ", response)
-
-        cellular_modules_all = cellular_modules_resp.cgx_content['items']
-        id_name_cache.update(build_lookup_dict(cellular_modules_all, key_val='id', value_val='name'))
-        for module in cellular_modules_all:
-            cellular_modules_template = copy.deepcopy(module)
-            cellular_module_name = cellular_modules_template.get('name')
-
-            # Get cellular_modules_sim_security
-            cellular_modules_sim_security_resp = sdk.get.cellular_modules_sim_security(element['id'], module['id'])
-            if not cellular_modules_sim_security_resp.cgx_status:
-                throw_error("Cellular Modules SIM Security get failed: ", response)
-
-            cellular_modules_sim_security_all = cellular_modules_sim_security_resp.cgx_content['items']
-
-            id_name_cache.update(build_lookup_dict(cellular_modules_sim_security_all, key_val='id', value_val='name'))
-            for sim_security in cellular_modules_sim_security_all:
-                cellular_modules_sim_security_template = copy.deepcopy(sim_security)
-                cellular_modules_sim_security_name = cellular_modules_sim_security_template.get('name')
-                strip_meta_attributes(cellular_modules_sim_security_template)
-                # names used, but config doesn't index by name for this value currently.
-                element[CELLULAR_MODULES_SIM_SECURITY_STR][cellular_modules_sim_security_name] =\
-                    cellular_modules_sim_security_template
-            delete_if_empty(element, CELLULAR_MODULES_SIM_SECURITY_STR)
-            strip_meta_attributes(cellular_modules_template)
-            # names used, but config doesn't index by name for this value currently.
-            element[ELEMENT_CELLULAR_MODULES_STR][cellular_module_name] = cellular_modules_template
-        delete_if_empty(element, ELEMENT_CELLULAR_MODULES_STR)
-
         # Get interfaces
         element[INTERFACES_STR] = {}
         dup_name_dict = {}
@@ -982,27 +905,13 @@ def _pull_config_for_single_site(site_name_id):
 
         # create a parent list
         parent_id_list = []
-        # bp_parent_id_list = []
-        if_name_dict = {}
         for interface in interfaces:
-            if interface.get('name') in if_name_dict:
-                if_name_dict[interface.get('name')] += 1
-            else:
-                if_name_dict[interface.get('name')] = 1
             parent_id = interface.get('parent')
             if_type = interface.get('type')
             if parent_id is not None and if_type in ['subinterface', 'pppoe', 'port']:
                 # add to parent list if it is not a service link, as service link if configs can be modified.
                 # print("INTERFACE {0} is PARENT: {1}".format(parent_id, jdout(interface)))
                 parent_id_list.append(parent_id)
-            # Add 'parent_type' field if parent interface type is in ['subinterface', 'pppoe', 'service_link']
-            # And if its bypasspair as it will cause conflict with port type
-            bps = ''
-            if parent_id is not None and if_type in ['subinterface', 'pppoe', 'service_link']:
-                if if_id2type[parent_id] == 'bypasspair':
-                    bps += '_' + id_name_cache.get(parent_id)
-                    interface['parent_type'] = 'bypasspair' + bps
-
             bypasspair_config = interface.get('bypass_pair')
             if bypasspair_config is not None and isinstance(bypasspair_config, dict):
                 # jd(bypasspair_config)
@@ -1012,12 +921,10 @@ def _pull_config_for_single_site(site_name_id):
                     # add to parent list
                     # print("Adding WAN {0} to parent_id_list".format(wan_id))
                     parent_id_list.append(wan_id)
-                    # bp_parent_id_list.append(wan_id)
                 if lan_id is not None and if_id2type.get(lan_id) in ['port']:
                     # add to parent list
                     # print("Adding LAN {0} to parent_id_list".format(lan_id))
                     parent_id_list.append(lan_id)
-                    # bp_parent_id_list.append(lan_id)
 
         for interface in interfaces:
             interface_id = interface.get('id')
@@ -1026,25 +933,8 @@ def _pull_config_for_single_site(site_name_id):
                 # interface is a parent, skip
                 # Pull interface config for bypasspair and virtual interface as it can have subif/pppoe/servicelink configs
                 # And its mandatory that parent gets created first
-                if element.get('model_name') == 'ion 9000':  # Pull only bypasspair config for 9K if there are duplicate names in port
-                    if if_name_dict[interface.get('name')] > 1:
-                        if if_type != 'bypasspair':
-                            continue
-                    # elif interface_id in bp_parent_id_list:
-                    #     continue
-                    elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
-                        continue
-                elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
+                if if_type not in ('virtual_interface', 'bypasspair'):
                     continue
-            elif FORCE_PARENTS:
-                if element.get('model_name') == 'ion 9000':
-                    if if_name_dict[interface.get('name')] > 1:
-                        if if_type != 'bypasspair':
-                            continue
-            elif element.get('model_name') == 'ion 9000':
-                if if_name_dict[interface.get('name')] > 1:
-                    if if_type != 'bypasspair':
-                        continue
             if not FORCE_PARENTS and interface.get('name') in skip_interface_list:
                 # Unconfigurable interface, skip.
                 continue
@@ -1131,7 +1021,6 @@ def _pull_config_for_single_site(site_name_id):
             # replace flat names in interface itself
             name_lookup_in_template(interface_template, 'parent', id_name_cache)
             name_lookup_in_template(interface_template, 'nat_zone_id', id_name_cache)
-            name_lookup_in_template(interface_template, 'network_context_id', id_name_cache)
             # replace ipfix fields
             name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', id_name_cache)
             name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', id_name_cache)
@@ -1143,17 +1032,6 @@ def _pull_config_for_single_site(site_name_id):
                     bound_iface_template.append(id_name_cache.get(bound_iface))
                 interface_template['bound_interfaces'] = bound_iface_template
 
-            cellular_config = interface.get('cellular_config', {})
-            if cellular_config:
-                apnprofile_id = cellular_config.get('apnprofile_id')
-                parent_module_id = cellular_config.get('parent_module_id')
-            else:
-                apnprofile_id = None
-                parent_module_id = None
-            if apnprofile_id:
-                interface_template['cellular_config']['apnprofile_id'] = id_name_cache.get(apnprofile_id, apnprofile_id)
-            if parent_module_id:
-                interface_template['cellular_config']['parent_module_id'] = id_name_cache.get(parent_module_id, parent_module_id)
             # strip metadata/names
             strip_meta_attributes(interface_template)
             # ok. Check for duplicates if it is a namable interface. If a dup is found, rename.
@@ -1180,14 +1058,9 @@ def _pull_config_for_single_site(site_name_id):
             staticroute_template = copy.deepcopy(staticroute)
             nexthops = staticroute.get('nexthops')
             if nexthops and isinstance(nexthops, list):
-                nexthops_template, bps = [], ''
+                nexthops_template = []
                 for nexthop in nexthops:
                     nexthop_template = copy.deepcopy(nexthop)
-                    nexthop_interface_id = nexthop_template.get('nexthop_interface_id')
-                    # Add 'parent_type' field if model is 9k and interface is bypasspair
-                    if if_id2type.get(nexthop_interface_id) == 'bypasspair':
-                        bps += '_' + id_name_cache.get(nexthop_interface_id)
-                        nexthop_template['parent_type'] = 'bypasspair' + bps
                     # replace flat names in dict
                     name_lookup_in_template(nexthop_template, 'nexthop_interface_id', id_name_cache)
                     # add to list
@@ -1365,52 +1238,16 @@ def _pull_config_for_single_site(site_name_id):
         # Check for completely empty routing:
         delete_if_empty(element, 'routing')
 
-        # Get multicastglobalconfigs
-        element[MULTICASTGLOBALCONFIGS_STR] = []
-        response = sdk.get.multicastglobalconfigs(site['id'], element['id'])
-        if not response.cgx_status:
-            throw_error("Multicast Global Configs get failed: ", response)
-        multicastglobalconfigs = response.cgx_content['items']
-        for multicastglobalconfig in multicastglobalconfigs:
-            multicastglobalconfig_template = copy.deepcopy(multicastglobalconfig)
-            strip_meta_attributes(multicastglobalconfig_template, leave_name=True)
-            # names used, but config doesn't index by name for this value currently.
-            element[MULTICASTGLOBALCONFIGS_STR].append(multicastglobalconfig_template)
-        delete_if_empty(element, MULTICASTGLOBALCONFIGS_STR)
-
-        # Get multicastrps
-        element[MULTICASTRPS_STR] = []
-        response = sdk.get.multicastrps(site['id'], element['id'])
-        if not response.cgx_status:
-            throw_error("Multicast Rendezvous Point get failed: ", response)
-        multicastrps = response.cgx_content['items']
-        for multicastrp in multicastrps:
-            multicastrp_template = copy.deepcopy(multicastrp)
-            strip_meta_attributes(multicastrp_template, leave_name=True)
-            # names used, but config doesn't index by name for this value currently.
-            element[MULTICASTRPS_STR].append(multicastrp_template)
-        delete_if_empty(element, MULTICASTRPS_STR)
-
         # Get syslog
         element[SYSLOG_STR] = []
         response = sdk.get.syslogservers(site['id'], element['id'])
         if not response.cgx_status:
             throw_error("Syslog servers get failed: ", response)
         syslogservers = response.cgx_content['items']
-        bps = ''
         for syslogserver in syslogservers:
             syslogserver_template = copy.deepcopy(syslogserver)
-            syslog_source_interface_id = syslogserver_template.get('source_interface')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair
-            if if_id2type.get(syslog_source_interface_id) == 'bypasspair':
-                bps += '_' + id_name_cache.get(syslog_source_interface_id)
-                syslogserver_template['parent_type'] = 'bypasspair' + bps
             # replace flat name
             name_lookup_in_template(syslogserver_template, 'source_interface', id_name_cache)
-            name_lookup_in_template(syslogserver_template, 'syslog_profile_id', id_name_cache)
-            # Fix for CGCBL-516
-            if syslogserver_template.get('syslog_profile_id'):
-                syslogserver_template['server_port'] = None
             strip_meta_attributes(syslogserver_template, leave_name=True)
             # names used, but config doesn't index by name for this value currently.
             element[SYSLOG_STR].append(syslogserver_template)
@@ -1426,15 +1263,9 @@ def _pull_config_for_single_site(site_name_id):
             ntp_template = copy.deepcopy(ntp)
             strip_meta_attributes(ntp_template, leave_name=True)
             if ntp.get('source_interface_ids'):
-                source_ids, bps = [], ''
+                source_ids = []
                 for iface in ntp.get('source_interface_ids', []):
-                    # Add 'parent_type' field if model is 9k and interface is bypasspair
-                    if if_id2type.get(iface) == 'bypasspair':
-                        bps += '_' + id_name_cache.get(iface, iface)
-                        ntp_template['parent_type'] = if_id2type[iface]
                     source_ids.append(id_name_cache.get(iface, iface))
-                if bps:
-                    ntp_template['parent_type'] = 'bypasspair' + bps
                 if source_ids:
                     ntp_template['source_interface_ids'] = source_ids
             # names used, but config doesn't index by name for this value currently.
@@ -1448,14 +1279,8 @@ def _pull_config_for_single_site(site_name_id):
         if not response.cgx_status:
             throw_error("Element Extension config get failed: ", response)
         element_extensions = response.cgx_content['items']
-        bps = ''
         for element_extension in element_extensions:
             element_extension_template = copy.deepcopy(element_extension)
-            element_extension_entity_id = element_extension_template.get('entity_id')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair
-            if if_id2type.get(element_extension_entity_id) == 'bypasspair':
-                bps += '_' + id_name_cache.get(element_extension_entity_id)
-                element_extension_template['parent_type'] = 'bypasspair' + bps
             # replace flat name
             name_lookup_in_template(element_extension_template, 'entity_id', id_name_cache)
             strip_meta_attributes(element_extension_template)
@@ -1489,15 +1314,9 @@ def _pull_config_for_single_site(site_name_id):
 
             esz_interface_ids = element_securityzone.get('interface_ids', None)
             if esz_interface_ids and isinstance(esz_interface_ids, list):
-                esz_interface_ids_template, bps = [], ''
+                esz_interface_ids_template = []
                 for esz_interface_id in esz_interface_ids:
-                    # Add 'parent_type' field if model is 9k and interface is bypasspair
-                    if if_id2type.get(esz_interface_id) == 'bypasspair':
-                        bps += '_' + id_name_cache.get(esz_interface_id)
-                        element_securityzone_template['parent_type'] = if_id2type[esz_interface_id]
                     esz_interface_ids_template.append(id_name_cache.get(esz_interface_id, esz_interface_id))
-                if bps:
-                    element_securityzone_template['parent_type'] = 'bypasspair' + bps
                 element_securityzone_template['interface_ids'] = esz_interface_ids_template
 
             esz_waninterface_ids = element_securityzone.get('waninterface_ids', None)
@@ -1528,14 +1347,8 @@ def _pull_config_for_single_site(site_name_id):
         if not response.cgx_status:
             throw_error("SNMP traps get failed: ", response)
         snmptraps = response.cgx_content['items']
-        bps = ''
         for snmptrap in snmptraps:
             snmptrap_template = copy.deepcopy(snmptrap)
-            snmptrap_source_interface_id = snmptrap_template.get('source_interface')
-            # Add 'parent_type' field if model is 9k and interface is bypasspair
-            if if_id2type.get(snmptrap_source_interface_id) == 'bypasspair':
-                bps += '_' + id_name_cache.get(snmptrap_source_interface_id)
-                snmptrap_template['parent_type'] = 'bypasspair' + bps
             # replace flat name
             name_lookup_in_template(snmptrap_template, 'source_interface', id_name_cache)
             strip_meta_attributes(snmptrap_template)
@@ -1574,21 +1387,10 @@ def _pull_config_for_single_site(site_name_id):
                 for role in dnsservices_template.get('dnsservicerole_bindings'):
                     name_lookup_in_template(role, 'dnsservicerole_id', id_name_cache)
                     if role.get('interfaces', ''):
-                        bps = ''
                         for iface in role.get('interfaces'):
-                            iface_interface_id = iface.get('interface_id')
-                            # Add 'parent_type' field if model is 9k and interface is bypasspair
-                            if if_id2type.get(iface_interface_id) == 'bypasspair':
-                                bps += '_' + id_name_cache.get(iface_interface_id)
-                                iface['parent_type'] = 'bypasspair' + bps
                             name_lookup_in_template(iface, 'interface_id', id_name_cache)
             if dnsservices_template.get('domains_to_interfaces', ''):
-                bps = ''
                 for dom_iface in dnsservices_template.get('domains_to_interfaces'):
-                    dom_iface_interface_id = dom_iface.get('interface_id')
-                    if if_id2type.get(dom_iface_interface_id) == 'bypasspair':
-                        bps += '_' + id_name_cache.get(dom_iface_interface_id)
-                        dom_iface['parent_type'] = 'bypasspair' + bps
                     name_lookup_in_template(dom_iface, 'interface_id', id_name_cache)
             name_lookup_in_template(dnsservices_template, 'element_id', id_name_cache)
             strip_meta_attributes(dnsservices_template, leave_name=True)
@@ -1608,12 +1410,6 @@ def _pull_config_for_single_site(site_name_id):
             app_probe = response.cgx_content
             id_name_cache.update(build_lookup_dict([app_probe], key_val='id', value_val='name'))
             app_probe_template = copy.deepcopy(app_probe)
-            app_probe_source_interface_id = app_probe_template.get('source_interface_id')
-            bps = ''
-            # Add 'parent_type' field if model is 9k and interface is bypasspair
-            if if_id2type.get(app_probe_source_interface_id) == 'bypasspair':
-                bps += '_' + id_name_cache.get(app_probe_source_interface_id)
-                app_probe_template['parent_type'] = 'bypasspair' + bps
             name_lookup_in_template(app_probe_template, 'source_interface_id', id_name_cache)
             strip_meta_attributes(app_probe_template, leave_name=True)
 
@@ -1720,7 +1516,6 @@ def _pull_config_for_single_site(site_name_id):
     # replace flat names
     name_lookup_in_template(site_template, 'policy_set_id', id_name_cache)
     name_lookup_in_template(site_template, 'security_policyset_id', id_name_cache)
-    name_lookup_in_template(site_template, 'security_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'network_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'priority_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'service_binding', id_name_cache)
@@ -1783,13 +1578,6 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     SITES = sites_cache
     CONFIG[SITES_STR] = {}
 
-    sdk_version = cloudgenix.version
-    if 'v' in sdk_version:
-        sdk_version.replace('v', '')
-    config_version = import_cloudgenix_config_version
-    if 'v' in config_version:
-        config_version.replace('v', '')
-
     if sites is None:
         # no site specified.
         throw_error("A 'Site Name', comma-seperated list of sites 'Site A, Site B', or "
@@ -1816,27 +1604,22 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
                             "Exiting.".format(val))
 
         # Got here, we got some site data.
-        # Fix for CGCL-565. Adding sdk_version and config_version keys in yml
+
         # if not set to return_obj, write out YAML file.
         if return_result:
             # add headers to CONFIG.
             CONFIG['type'] = "cloudgenix template"
-            if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
-                CONFIG['sdk_version'] = sdk_version
-                CONFIG['config_version'] = config_version
+            CONFIG['version'] = "1.0"
             return CONFIG
         else:
             config_yml = open(output_filename, "w")
-            config_yml.write("---\ntype: cloudgenix template\n")
-            if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
-                config_yml.write(f"sdk_version: {sdk_version}\n")
-                config_yml.write(f"config_version: {config_version}\n")
+            config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
             # write header by default, but skip if asked.
             if not no_header:
                 config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                 if sdk.email:
                     config_yml.write("# by {0}\n".format(sdk.email))
-            config_yml.write("# Note: For ION 9000 interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_<name> where name is the interface name. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
+
             # Adding FROM_CLOUDBLADE line into pull site yml file
             if FROM_CLOUDBLADE:
                 config_yml.write("# FROM_CLOUDBLADE\n")
@@ -1884,16 +1667,12 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
 
                 # Write out YAML file.
                 config_yml = open(final_dir + final_site_name + ".yml", "w")
-                config_yml.write("---\ntype: cloudgenix template\n")
-                if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
-                    config_yml.write(f"sdk_version: {sdk_version}\n")
-                    config_yml.write(f"config_version: {config_version}\n")
+                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                     if sdk.email:
                         config_yml.write("# by {0}\n".format(sdk.email))
-                config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_IF1_IF2 and so on. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 
@@ -1929,16 +1708,12 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
 
                 # Write out YAML file.
                 config_yml = open(final_dir + final_site_name + ".yml", "w")
-                config_yml.write("---\ntype: cloudgenix template\n")
-                if sdk_version >= SDK_VERSION_REQUIRED and config_version >= CONFIG_VERSION_REQUIRED:
-                    config_yml.write(f"sdk_version: {sdk_version}\n")
-                    config_yml.write(f"config_version: {config_version}\n")
+                config_yml.write("---\ntype: cloudgenix template\nversion: 1.0\n")
                 # write header by default, but skip if asked.
                 if not no_header:
                     config_yml.write("# Created at {0}\n".format(datetime.datetime.utcnow().isoformat()+"Z"))
                     if sdk.email:
                         config_yml.write("# by {0}\n".format(sdk.email))
-                config_yml.write("# Note: For ION 9Ks interface configuration, if the source_interface or parent_interface is a bypasspair port, add the attribute 'parent_type': bypasspair_IF1_IF2 and so on. \n# If this field is not specified, the cloudgenix_config utility will assume the parent interface is of type 'port'.\n")
                 yaml.safe_dump(CONFIG, config_yml, default_flow_style=False)
                 config_yml.close()
 

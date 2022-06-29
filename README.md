@@ -24,7 +24,7 @@ configuration is designed to be run on file change, to maintain configuration st
 * Active CloudGenix Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.6.1b2 - <https://github.com/CloudGenix/sdk-python>
+    * CloudGenix Python SDK >= 5.5.3b1 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
@@ -90,7 +90,7 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
 
 #### Caveats and known issues:
  - This is a PREVIEW release, hiccups to be expected. Please file issues on Github for any problems.
- - Requires 5.6.1b2 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
+ - Requires 5.5.3b1 cloudgenix SDK. Future minor SDK revisions (5.6.x, etc.) will likely require a matching `cloudgenix_config` update.
  - While this script can EXTRACT a single file with ALL sites, running do_sites.py on that file is NOT RECOMMENDED.
    - Best practice to do one site per config file.
      - These can be automatically pulled via `pull_site.py` with `--multi-output <directory>` switch, will create a config per site.
@@ -103,16 +103,13 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
  use the `--declaim` option. This will unassign AND declaim (AKA "put back in inventory") the permanently offline or broken device. 
  It will also force revocation of all credentials and certificates for that device.
  - Element Extensions with specific PATH IDs are not currently templatable across multiple sites using this script.
- - For ION 9000, if trying to configure a bypasspair and the port with the same name (12,13,14,15,16), configuration pushes via do_site have to be done in the following two steps:
-     - Include only interface configuration of type port and use the do_site utility to push this configuration first.
-     - Update the YAML file to remove the interface configuration of type port, include interface configuration of type bypasspair and use the do_site utiltiy to push the bypasspair configuration.
 
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **1.6.0** | **b2** | Minor bug fixes |
-|           | **b1** | Support for CloudGenix SDK 5.6.1b2, cellular devices, multicast, apiversion flag in cli, bugfixes
-| **1.5.0** | **b2** | Back ported fix for CGCBL-847 - updated used_for (private_wan to private) in default_interfaces|
+| **1.5.0** | **b4** | Fix for CGCBL-1249 and CGCBL-1250 |
+|           | **b3** | Back ported fix for CGCBL-842 and step upgrade |
+|           | **b2** | Back ported fix for CGCBL-847 - updated used_for (private_wan to private) in default_interfaces  |
 |           | **b1** | Removed mandatory 480 seconds delay (workaround for CGSDW-799) after claiming ION|
 | **1.4.0** | **b5** | Default 480 second delay after claiming ION. Workaround for CGSDW-799|
 |           | **b4** | Added wait-element-config parameter to introduce a delay before element configuration|
