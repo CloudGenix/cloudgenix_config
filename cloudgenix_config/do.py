@@ -1273,11 +1273,6 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
 
     # get config info.
     elem_config_version = config_element.get('software_version', '')
-
-    print("\n\n\n****** Current Version on device: ", element_version)
-    print("****** Version in YAML: ", elem_config_version)
-    print("\n\n\n")
-
     if element_version == elem_config_version:
         output_message(" Element: Code is at correct version {0}.".format(elem_config_version))
         return
