@@ -1347,6 +1347,10 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
 
     # get config info.
     elem_config_version = config_element.get('software_version', '')
+    if element_version == str(elem_config_version):
+        # system is already running correct image. Finish.
+        output_message(" Element: Code is at correct version {0}.".format(element_version))
+        return
 
     # kick off upgrade
     software_versions_resp = sdk.get.element_images()
@@ -1380,7 +1384,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     if not software_state_resp.cgx_status:
         throw_error("Could not query element software status of Element {0}."
                     "".format(element_descriptive_text), software_state_resp)
-    backup_active_name = None
+
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
     if active_image_id is None:
@@ -1389,20 +1393,13 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
         if prev_image_operations and isinstance(prev_image_operations, list):
             for prev_image_operation in prev_image_operations:
                 operation_active_id = prev_image_operation.get('active_image_id')
-                operation_active_name = prev_image_operation.get('active_version')
-
-                if operation_active_name:
-                    backup_active_name = operation_active_name
 
                 if operation_active_id:
                     active_image_id = operation_active_id
                     # exit out of for loop
                     break
 
-    # final check
-    if active_image_id is None:
-        # IF active image was not found, derive from elements object,
-        active_image_name = str(images_id2n.get(active_image_id, element_version))
+    active_image_name = str(images_id2n.get(active_image_id, element_version))
 
     local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
     local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
@@ -1412,13 +1409,11 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
     local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
 
-    active_image_name = str(images_id2n.get(active_image_id, backup_active_name))
     new_version, new_image_id = '', ''
 
-    if active_image_id == str(image_id):
+    if active_image_name == str(elem_config_version):
         # system is already running correct image. Finish.
-        output_message(" Element: Code is at correct version {0}.".format(images_id2n.get(active_image_id,
-                                                                                          active_image_id)))
+        output_message(" Element: Code is at correct version {0}.".format(active_image_name))
         return
 
     # Check if the yml software version is greater than current version
@@ -4926,13 +4921,14 @@ def delete_prefixlists(leftover_prefixlists, site_id, element_id, id2n=None):
     for prefixlist_id in leftover_prefixlists:
         # delete all leftover prefixlists.
 
-        output_message("   Deleting Unconfigured Routing Prefixlist {0}.".format(id2n.get(prefixlist_id,
-                                                                                      prefixlist_id)))
+        prefixname = id2n.get(prefixlist_id, prefixlist_id)
+        if prefixname in ["auto-prefix-adv-and-distribute", "auto-prefix-adv-no-distribute"]:
+            continue
+
+        output_message("   Deleting Unconfigured Routing Prefixlist {0}.".format(prefixname))
         prefixlist_del_resp = sdk.delete.routing_prefixlists(site_id, element_id, prefixlist_id)
         if not prefixlist_del_resp.cgx_status:
-            throw_error("Could not delete Routing Prefixlist {0}: ".format(id2n.get(prefixlist_id,
-                                                                                         prefixlist_id)),
-                        prefixlist_del_resp)
+            throw_error("Could not delete Routing Prefixlist {0}: ".format(prefixname), prefixlist_del_resp)
     return
 
 
