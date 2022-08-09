@@ -3837,9 +3837,18 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     # extract prev_revision
     prev_revision = interface_config.get("_etag")
 
+    config = {}
+    if interface_config.get('bypass_pair'):
+        config['bypass_pair'] = interface_config['bypass_pair']
+    if interface_config.get('sub_interface'):
+        config['sub_interface'] = interface_config['sub_interface']
+    if interface_config.get('pppoe_config'):
+        config['pppoe_config'] = interface_config['pppoe_config']
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)
+    interface_config.update(config)
+
     if not force_update and interface_config == interface_change_check:
         # no change in config, pass.
         interface_id = interface_change_check.get('id')
