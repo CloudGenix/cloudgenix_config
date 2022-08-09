@@ -8213,6 +8213,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 for subif in leftover_subinterfaces:
                     default_template = get_member_default_config()
                     output_message("   Setting Subinterface {0} to default.".format(interfaces_id2n.get(subif)))
+                    default_template['type'] = 'subinterface'
                     new_parent_id = modify_interface(default_template, subif, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version)
@@ -8273,6 +8274,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 for pppoe in leftover_pppoe:
                     default_template = get_member_default_config()
                     output_message("   Setting PPPoE {0} to default.".format(interfaces_id2n.get(pppoe)))
+                    default_template['type'] = 'pppoe'
                     new_parent_id = modify_interface(default_template, pppoe, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version)
@@ -8342,6 +8344,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 for bp in leftover_bypasspairs:
                     default_template = get_member_default_config()
                     output_message("   Setting Bypasspair {0} to default.".format(interfaces_id2n.get(bp)))
+                    default_template['type'] = 'bypasspair'
                     new_parent_id = modify_interface(default_template, bp, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version)
