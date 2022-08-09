@@ -3844,6 +3844,8 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         config['sub_interface'] = interface_config['sub_interface']
     if interface_config.get('pppoe_config'):
         config['pppoe_config'] = interface_config['pppoe_config']
+    if interface_config.get('parent'):
+        config['parent'] = interface_config['parent']
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)
