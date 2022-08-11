@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT default device port configurations
 
-**Version:** 1.6.0b2
+**Version:** 1.7.0b1
 
 **Author:** CloudGenix
 
@@ -93,6 +93,9 @@ member_port = """
             tags:
             type: port
             used_for: none
+            ipv6_config: null
+            nat_address_v6: null
+            nat_port_v6: 0
 """
 
 default_backwards_bypasspairs = {
