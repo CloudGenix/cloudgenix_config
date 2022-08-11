@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.6.0b2
+**Version:** 1.7.0b1
 
 **Author:** CloudGenix
 
@@ -136,7 +136,7 @@ __license__ = """
 # Constant settings
 FILE_TYPE_REQUIRED = "cloudgenix template"
 FILE_VERSION_REQUIRED = "1.0"
-SDK_VERSION_REQUIRED = '5.6.1b2'
+SDK_VERSION_REQUIRED = '5.6.1b2'  # Version when these fields were introduced in yml as meta attr
 CONFIG_VERSION_REQUIRED = '1.6.0b2'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
@@ -214,7 +214,8 @@ upgrade_path_regex = {
     "5\.2\..*" : ["5.5..*", "5.4..*", "5.3..*"], ### 5.2.xyz -> 5.5.3 # Fix for CGCBL-566
     "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
     "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
-    "5\.5\..*" : "5.6.1", ### 5.5.xyz -> 5.6.1
+    "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
+    "5\.6\..*" : ["6.0..*"]
 }
 
 downgrade_path_regex = {
@@ -226,6 +227,7 @@ downgrade_path_regex = {
     "5\.4\..*" : ["5.2..*", "5.3..*"], ### 5.4 to 5.2.7 # Fix for CGCBL-566
     "5\.5\..*" : ["5.2..*", "5.3..*", "5.4..*"], ### 5.5 to 5.2.7
     "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
+    "6\.0\..*" : ["5.5..*", "5.6..*"]
 }
 
 # Global Config Cache holders
@@ -261,6 +263,7 @@ ipfixtemplate_cache = []
 ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
 apnprofiles_cache = []
+multicastpeergroups_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -295,6 +298,8 @@ ipfixtemplate_n2id = {}
 ipfixlocalprefix_n2id = {}
 ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
+multicastpeergroups_n2id = {}
+
 
 # Machines/elements need serial to ID mappings
 elements_byserial = {}
@@ -467,6 +472,7 @@ def update_global_cache():
     global ipfixlocalprefix_cache
     global ipfixglobalprefix_cache
     global apnprofiles_cache
+    global multicastpeergroups_cache
 
     global sites_n2id
     global elements_n2id
@@ -500,6 +506,7 @@ def update_global_cache():
     global ipfixlocalprefix_n2id
     global ipfixglobalprefix_n2id
     global apnprofiles_n2id
+    global multicastpeergroups_n2id
 
     global elements_byserial
     global machines_byserial
@@ -636,6 +643,10 @@ def update_global_cache():
     apnprofiles_resp = sdk.get.apnprofiles()
     apnprofiles_cache, _ = extract_items(apnprofiles_resp, 'apnprofiles')
 
+    # multicastpeergroups
+    multicastpeergroups_resp = sdk.get.multicastpeergroups()
+    multicastpeergroups_cache, _ = extract_items(multicastpeergroups_resp, 'multicastpeergroups')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -731,6 +742,9 @@ def update_global_cache():
 
     # apnprofiles name
     apnprofiles_n2id = build_lookup_dict(apnprofiles_cache)
+
+    # multicastpeergroups name
+    multicastpeergroups_n2id = build_lookup_dict(multicastpeergroups_cache)
 
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
@@ -1327,11 +1341,16 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     element_id = element.get('id')
     element_name = element.get('name')
     element_serial = element.get('serial_number')
+    element_version = element.get('software_version')
     element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
         if element_serial else "ID: {0}".format(element_id)
 
     # get config info.
     elem_config_version = config_element.get('software_version', '')
+    if element_version == str(elem_config_version):
+        # system is already running correct image. Finish.
+        output_message(" Element: Code is at correct version {0}.".format(element_version))
+        return
 
     # kick off upgrade
     software_versions_resp = sdk.get.element_images()
@@ -1365,7 +1384,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     if not software_state_resp.cgx_status:
         throw_error("Could not query element software status of Element {0}."
                     "".format(element_descriptive_text), software_state_resp)
-    backup_active_name = None
+
     active_image_id = software_state_resp.cgx_content.get('active_image_id')
 
     if active_image_id is None:
@@ -1374,33 +1393,27 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
         if prev_image_operations and isinstance(prev_image_operations, list):
             for prev_image_operation in prev_image_operations:
                 operation_active_id = prev_image_operation.get('active_image_id')
-                operation_active_name = prev_image_operation.get('active_version')
-
-                if operation_active_name:
-                    backup_active_name = operation_active_name
 
                 if operation_active_id:
                     active_image_id = operation_active_id
                     # exit out of for loop
                     break
 
-    # final check
-    if active_image_id is None:
-        # fail
-        active_image_id = ''
-        throw_error("Unable to get active image id ", software_state_resp)
+    active_image_name = str(images_id2n.get(active_image_id, element_version))
 
     local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
     local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
     local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
 
-    active_image_name = str(images_id2n.get(active_image_id, backup_active_name))
+    local_debug("ACTIVE_IMAGE_ID: {0}".format(active_image_id), software_state_resp)
+    local_debug("REQUESTED IMAGE {0} ID: {1}".format(elem_config_version, image_id))
+    local_debug("CURRENT IMAGE IDS AVAILABLE: ", images_id2n)
+
     new_version, new_image_id = '', ''
 
-    if active_image_id == str(image_id):
+    if active_image_name == str(elem_config_version):
         # system is already running correct image. Finish.
-        output_message(" Element: Code is at correct version {0}.".format(images_id2n.get(active_image_id,
-                                                                                          active_image_id)))
+        output_message(" Element: Code is at correct version {0}.".format(active_image_name))
         return
 
     # Check if the yml software version is greater than current version
@@ -1414,7 +1427,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
                     for upgrade_version in upgrade_path_regex[path]:
                         if major_minor(elem_config_version) > major_minor(upgrade_version):
                             new_version = get_exact_version(upgrade_version, images_dict)
-                            if not new_version:
+                            if not new_version and not len(upgrade_path_regex[path]) == 1:
                                 continue
                             new_image_id = images_dict[new_version]['id'] if new_version else None
                             break
@@ -2045,7 +2058,7 @@ def modify_site(config_site, site_id, version=None):
     return site_id
 
 
-def set_site_state(config_site, site_id, version=None):
+def set_site_state(config_site, site_id, version=None, reset_mpgid=False):
     """
     Modify Site state specifically.
     :param config_site: Site configuration Dict
@@ -2066,7 +2079,13 @@ def set_site_state(config_site, site_id, version=None):
 
     # check state
     cur_state = site_resp.cgx_content.get('admin_state')
+    if reset_mpgid:
+        site_resp.cgx_content['multicast_peer_group_id'] = None
     if not force_update and cur_state is not None and cur_state == site_state:
+        if reset_mpgid:
+            site_modify_resp = sdk.put.sites(site_id, site_resp.cgx_content, api_version=version)
+            if not site_modify_resp.cgx_status:
+                throw_error("Reset of multicast_peer_group_id for site {0} failed: ".format(site_id), site_modify_resp)
         # already this state.
         output_message("No Change for Site {0} state ({1}).".format(site_name, site_state))
         return
@@ -3809,7 +3828,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     local_debug("INTERFACE TEMPLATE: " + str(json.dumps(interface_template, indent=4)))
 
     # get current interface
-    interface_resp = sdk.get.interfaces(site_id, element_id, interface_id)
+    interface_resp = sdk.get.interfaces(site_id, element_id, interface_id, api_version=version)
     if interface_resp.cgx_status:
         interface_config = interface_resp.cgx_content
     else:
@@ -3818,9 +3837,23 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     # extract prev_revision
     prev_revision = interface_config.get("_etag")
 
+    config = {}
+    if interface_config.get('bypass_pair'):
+        config['bypass_pair'] = interface_config['bypass_pair']
+    if interface_config.get('sub_interface'):
+        config['sub_interface'] = interface_config['sub_interface']
+    if interface_config.get('pppoe_config'):
+        config['pppoe_config'] = interface_config['pppoe_config']
+    if interface_config.get('parent'):
+        config['parent'] = interface_config['parent']
+    if interface_config.get('type') == 'subinterface' or interface_config.get('type') == 'pppoe':
+        config['mtu'] = 0
+        config['used_for'] = interface_config.get('used_for')
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)
+    interface_config.update(config)
+
     if not force_update and interface_config == interface_change_check:
         # no change in config, pass.
         interface_id = interface_change_check.get('id')
@@ -4902,13 +4935,14 @@ def delete_prefixlists(leftover_prefixlists, site_id, element_id, id2n=None):
     for prefixlist_id in leftover_prefixlists:
         # delete all leftover prefixlists.
 
-        output_message("   Deleting Unconfigured Routing Prefixlist {0}.".format(id2n.get(prefixlist_id,
-                                                                                      prefixlist_id)))
+        prefixname = id2n.get(prefixlist_id, prefixlist_id)
+        if prefixname in ["auto-prefix-adv-and-distribute", "auto-prefix-adv-no-distribute"]:
+            continue
+
+        output_message("   Deleting Unconfigured Routing Prefixlist {0}.".format(prefixname))
         prefixlist_del_resp = sdk.delete.routing_prefixlists(site_id, element_id, prefixlist_id)
         if not prefixlist_del_resp.cgx_status:
-            throw_error("Could not delete Routing Prefixlist {0}: ".format(id2n.get(prefixlist_id,
-                                                                                         prefixlist_id)),
-                        prefixlist_del_resp)
+            throw_error("Could not delete Routing Prefixlist {0}: ".format(prefixname), prefixlist_del_resp)
     return
 
 
@@ -7047,6 +7081,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                         sdk.put.site_natlocalprefixes, default=[], sdk_or_yaml=apiversion)
             site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
+
+            if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
+                mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
+                if mpg_id:
+                    config_site["multicast_peer_group_id"] = mpg_id
+                else:
+                    throw_error(f"Invalid Multicast Peer Group: {config_site['multicast_peer_group_id']}")
+
             # Determine site ID.
             # look for implicit ID in object.
             implicit_site_id = config_site.get('id')
@@ -8185,6 +8227,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 for subif in leftover_subinterfaces:
                     default_template = get_member_default_config()
                     output_message("   Setting Subinterface {0} to default.".format(interfaces_id2n.get(subif)))
+                    default_template['type'] = 'subinterface'
                     new_parent_id = modify_interface(default_template, subif, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version)
@@ -8245,6 +8288,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 for pppoe in leftover_pppoe:
                     default_template = get_member_default_config()
                     output_message("   Setting PPPoE {0} to default.".format(interfaces_id2n.get(pppoe)))
+                    default_template['type'] = 'pppoe'
                     new_parent_id = modify_interface(default_template, pppoe, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version)
@@ -8314,6 +8358,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 for bp in leftover_bypasspairs:
                     default_template = get_member_default_config()
                     output_message("   Setting Bypasspair {0} to default.".format(interfaces_id2n.get(bp)))
+                    default_template['type'] = 'bypasspair'
                     new_parent_id = modify_interface(default_template, bp, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version)
@@ -10183,7 +10228,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # disable site.
             output_message("Disabling site..")
             config_site['admin_state'] = 'disabled'
-            set_site_state(config_site, del_site_id, version=sites_version)
+            if 'multicast_peer_group_id' in config_site:
+                reset_mpgid = True
+            else:
+                reset_mpgid = False
+            set_site_state(config_site, del_site_id, version=sites_version, reset_mpgid=reset_mpgid)
 
             # wait for element unbinds to complete. If declaiming, wait for at least declaim to start.
             for del_element in unbound_elements:

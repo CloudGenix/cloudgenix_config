@@ -4,7 +4,7 @@ with open('README.md') as f:
     long_description = f.read()
 
 setup(name='cloudgenix_config',
-      version='1.6.0b2',
+      version='1.7.0b1',
       description='Configuration exporting and Continuous Integration (CI) capable configuration importing for the '
                   'CloudGenix Cloud Controller.',
       long_description=long_description,
@@ -14,7 +14,7 @@ setup(name='cloudgenix_config',
       author_email='developers@cloudgenix.com',
       license='MIT',
       install_requires=[
-            'cloudgenix >= 5.6.1b2, < 5.6.3b1',
+            'cloudgenix >= 6.0.1b1',
             'PyYAML >= 5.3'
       ],
       packages=['cloudgenix_config'],
