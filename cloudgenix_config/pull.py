@@ -210,8 +210,8 @@ dup_name_dict_sites = {}
 # Handle cloudblade calls
 FROM_CLOUDBLADE = 0
 # Fix for CGCBL-565
-SDK_VERSION_REQUIRED = '5.6.1b2'
-CONFIG_VERSION_REQUIRED = '1.7.0b1'
+SDK_VERSION_REQUIRED = '5.6.1b2'  # Version when these fields were introduced in yml as meta attr
+CONFIG_VERSION_REQUIRED = '1.6.0b2'
 # Define constructor globally for now.
 sdk = cloudgenix.API()
 jd = cloudgenix.jd
