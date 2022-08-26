@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.7.0b1
+**Version:** 1.7.0b2
 
 **Author:** CloudGenix
 
@@ -322,7 +322,6 @@ site_safety_factor = 1
 apiversion = 'sdk'
 
 # CloudGenix SDK and JSON DUMP helper
-sdk = cloudgenix.API()
 jd = cloudgenix.jd
 
 # logging
@@ -3814,6 +3813,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
+    name_lookup_in_template(interface_template, 'network_context_id', networkcontexts_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -10221,9 +10221,28 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             serviceendpoints = serviceendpoints_resp.cgx_content.get('items', [])
             for service_ep in serviceendpoints:
                 if service_ep.get("site_id") == del_site_id:
-                    output_message(f"Deleting serviceendpoints associated with site {del_site_name}")
+                    output_message(f"Deleting servicebinding and serviceendpoints associated with site {del_site_name}")
                     service_ep_id = service_ep.get("id")
-                    sdk.delete.serviceendpoints(service_ep_id)
+                    sb_resp = sdk.get.servicebindingmaps()
+                    if sb_resp.cgx_status:
+                        bindings = sb_resp.cgx_content.get("items", None)
+                        for sb in bindings:
+                            service_bindings = sb.get("service_bindings",None)
+                            if service_bindings is not None:
+                                service_endpoint_ids = service_bindings.get("service_endpoint_ids",[])
+                                if service_ep_id in service_endpoint_ids:
+                                    service_endpoint_ids.remove(service_ep_id)
+				    
+                                    service_bindings["service_endpoint_ids"] = service_endpoint_ids
+                                    sb["service_bindings"] = service_bindings
+                                    put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
+                                    if not put_sb_resp.cgx_status:
+                                        throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), del_sep_resp.cgx_content)
+
+                    del_sep_resp = sdk.delete.serviceendpoints(service_ep_id)
+                    if not del_sep_resp.cgx_status:
+                        throw_error("Could not delete service endpoint {0}: ".format(service_ep["name"]),
+                            del_sep_resp.cgx_content)
 
             # disable site.
             output_message("Disabling site..")
