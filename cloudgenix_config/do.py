@@ -322,6 +322,7 @@ site_safety_factor = 1
 apiversion = 'sdk'
 
 # CloudGenix SDK and JSON DUMP helper
+sdk = None
 jd = cloudgenix.jd
 
 # logging

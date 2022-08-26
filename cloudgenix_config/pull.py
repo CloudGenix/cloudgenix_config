@@ -213,6 +213,7 @@ FROM_CLOUDBLADE = 0
 SDK_VERSION_REQUIRED = '5.6.1b2'  # Version when these fields were introduced in yml as meta attr
 CONFIG_VERSION_REQUIRED = '1.6.0b2'
 # Define constructor globally for now.
+sdk = None
 jd = cloudgenix.jd
 
 # Set logging to use function name
