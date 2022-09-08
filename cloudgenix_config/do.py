@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.7.0b2
+**Version:** 1.7.0b3
 
 **Author:** CloudGenix
 
@@ -3850,6 +3850,10 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('type') == 'subinterface' or interface_config.get('type') == 'pppoe':
         config['mtu'] = 0
         config['used_for'] = interface_config.get('used_for')
+        config['type'] = interface_config.get('type')
+    if interface_config.get('type') == 'virtual_interface':
+        config['type'] = 'virtual_interface'
+        config['bound_interfaces'] = interface_config.get('bound_interfaces')
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)
