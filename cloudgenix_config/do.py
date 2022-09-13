@@ -264,6 +264,7 @@ ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
+radii_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -299,6 +300,7 @@ ipfixlocalprefix_n2id = {}
 ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
 multicastpeergroups_n2id = {}
+radii_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -473,6 +475,7 @@ def update_global_cache():
     global ipfixglobalprefix_cache
     global apnprofiles_cache
     global multicastpeergroups_cache
+    global radii_cache
 
     global sites_n2id
     global elements_n2id
@@ -507,6 +510,7 @@ def update_global_cache():
     global ipfixglobalprefix_n2id
     global apnprofiles_n2id
     global multicastpeergroups_n2id
+    global radii_n2id
 
     global elements_byserial
     global machines_byserial
@@ -914,11 +918,13 @@ def parse_element_config(config_element):
                                                                        'cellular_modules_sim_security',
                                                                        sdk.put.cellular_modules_sim_security,
                                                                        default={})
+    config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
+
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
         config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
-        config_cellular_modules_sim_security
+        config_cellular_modules_sim_security, config_radii
 
 
 def parse_routing_config(config_routing):
@@ -6977,6 +6983,67 @@ def modify_element_cellular_module(config_element_cellular_module, element_cellu
 
     return cellular_modules_id
 
+def create_radii(config_radii, element_id, interfaces_n2id):
+    """
+    Create a radii
+    :param config_radii: radii config dict
+    :param element_id: Element ID to use
+    :return: Created radii ID
+    """
+    # make a copy of radii to modify
+    radii_template = copy.deepcopy(config_radii)
+
+    if radii_template.get("source_interface_id"):
+        source_interface_id = radii_template.get("source_interface_id")
+        radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+
+    #create radii
+    radii_resp = sdk.post.radii(element_id, radii_template)
+
+    if not radii_resp.cgx_status:
+        throw_error("Radii creation failed: ", radii_resp)
+
+    radius_id = radii_resp.cgx_content.get('id')
+    radius_name = radii_resp.cgx_content.get('name', radius_id)
+
+    if not radius_id:
+        throw_error("Unable to determine Radii attributes (ID {0})..".format(radius_id))
+
+    output_message("   Created Radii {0}.".format(radius_name))
+
+    return radius_id
+
+def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
+    """
+    Modify the existing radii
+    :param config_radii: radii config dict
+    :param radii_id: Existing Radii ID
+    :param element_id: Element ID to use
+    :return: Returned radii ID
+    """
+
+    # make a copy of radii to modify
+    radii_template = copy.deepcopy(config_radii)
+
+    if radii_template.get("source_interface_id"):
+        source_interface_id = radii_template.get("source_interface_id")
+        radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+
+    #modify radii
+    radii_resp = sdk.put.radii(element_id, radii_id, radii_template)
+
+    if not radii_resp.cgx_status:
+        throw_error("Radii update failed: ", radii_resp)
+
+    radius_id = radii_resp.cgx_content.get('id')
+    radius_name = radii_resp.cgx_content.get('name', radius_id)
+
+    if not radius_id:
+        throw_error("Unable to determine Radii attributes (ID {0})..".format(radius_id))
+
+    output_message("   Updated Radii {0}.".format(radius_name))
+
+    return radius_id
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
@@ -7556,7 +7623,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
-                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security \
+                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
                     = parse_element_config(config_element)
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
@@ -8135,6 +8202,46 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1, version=app_probe_version)
 
                 # END Aplication Probe
+
+                # -- Start Radii config
+                radii_resp = sdk.get.radii(element_id)
+                radii_cache, leftover_radii = extract_items(radii_resp, 'radii')
+                # build lookup cache based on prefix.
+                radii_n2id = build_lookup_dict(radii_cache)
+                #print("The config radii is - {}".format(config_radii))
+                # iterate configs (list)
+                for radii_entry, radii_value in config_radii.items():
+
+                    # deepcopy to modify.
+                    config_radii_record = copy.deepcopy(radii_value)
+
+                    # no need to get radii config, no child config objects.
+
+                    # Determine radii ID.
+                    # look for implicit ID in object.
+                    implicit_radii_id = radii_value.get('id')
+                    radii_name = radii_entry
+                    name_radii_id = radii_n2id.get(radii_name)
+
+                    if implicit_radii_id is not None:
+                        radii_id = implicit_radii_id
+
+                    elif name_radii_id is not None:
+                        # look up ID by name on existing interfaces.
+                        radii_id = name_radii_id
+
+                    else:
+                        # no radii object.
+                        radii_id = None
+
+                    if radii_id is not None:
+                        # Radius exists, modify.
+                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id)
+                    else:
+                        # Radius does not exist, create.
+                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id)
+
+                # -- End Radii config
 
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
