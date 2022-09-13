@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.7.0b2
+**Version:** 1.7.0b3
 
 **Author:** CloudGenix
 
@@ -3850,6 +3850,10 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('type') == 'subinterface' or interface_config.get('type') == 'pppoe':
         config['mtu'] = 0
         config['used_for'] = interface_config.get('used_for')
+        config['type'] = interface_config.get('type')
+    if interface_config.get('type') == 'virtual_interface':
+        config['type'] = 'virtual_interface'
+        config['bound_interfaces'] = interface_config.get('bound_interfaces')
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)
@@ -10228,17 +10232,18 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if sb_resp.cgx_status:
                         bindings = sb_resp.cgx_content.get("items", None)
                         for sb in bindings:
-                            service_bindings = sb.get("service_bindings",None)
+                            service_bindings = sb.get("service_bindings",[])
                             if service_bindings is not None:
-                                service_endpoint_ids = service_bindings.get("service_endpoint_ids",[])
-                                if service_ep_id in service_endpoint_ids:
-                                    service_endpoint_ids.remove(service_ep_id)
-				    
-                                    service_bindings["service_endpoint_ids"] = service_endpoint_ids
-                                    sb["service_bindings"] = service_bindings
-                                    put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
-                                    if not put_sb_resp.cgx_status:
-                                        throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), del_sep_resp.cgx_content)
+                                for item in service_bindings:
+                                    service_endpoint_ids = item.get("service_endpoint_ids",[])
+                                    if service_ep_id in service_endpoint_ids:
+                                        service_endpoint_ids.remove(service_ep_id)
+
+                                        item["service_endpoint_ids"] = service_endpoint_ids
+                                        sb["service_bindings"] = [item]
+                                        put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
+                                        if not put_sb_resp.cgx_status:
+                                            throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), put_sb_resp.cgx_content)
 
                     del_sep_resp = sdk.delete.serviceendpoints(service_ep_id)
                     if not del_sep_resp.cgx_status:
