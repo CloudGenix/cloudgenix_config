@@ -172,7 +172,8 @@ createable_interface_types = [
     'loopback',
     'service_link',
     'bypasspair',
-    'virtual_interface'
+    'virtual_interface',
+    'vlan'
 ]
 
 bypasspair_child_names = [
@@ -6988,6 +6989,7 @@ def create_radii(config_radii, element_id, interfaces_n2id):
     Create a radii
     :param config_radii: radii config dict
     :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
     :return: Created radii ID
     """
     # make a copy of radii to modify
@@ -7019,15 +7021,46 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
     :param config_radii: radii config dict
     :param radii_id: Existing Radii ID
     :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
     :return: Returned radii ID
     """
 
+    radii_config = {}
     # make a copy of radii to modify
     radii_template = copy.deepcopy(config_radii)
+
+    # Get current Radii
+    radii_resp = sdk.get.radii(element_id, radii_id)
+    if radii_resp.cgx_status:
+        radii_config = radii_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve interface: ", radii_resp)
+
 
     if radii_template.get("source_interface_id"):
         source_interface_id = radii_template.get("source_interface_id")
         radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+
+    # Check for changes:
+    radii_config_check = copy.deepcopy(radii_config)
+    radii_config.update(radii_template)
+
+    if not force_update and radii_config == radii_config_check:
+        radii_id = radii_config_check.get('id')
+        radii_name = radii_config_check.get('name')
+        radii_n2id[radii_name] = radii_id
+        output_message("   No Change for Radii {0}.".format(radii_name))
+        return radii_id
+
+    radius_servers = radii_template.get("radius_configuration")
+    updated_radius_servers =[]
+    for radius_server in radius_servers:
+        if not radius_server.get("shared_secret"):
+            # When there is no change in the shared secret set the flag retain_shared_secret
+            radius_server["shared_secret"] = "********"
+            radius_server["retain_shared_secret"] = "True"
+        updated_radius_servers.append(radius_server)
+    radii_template["radius_configuration"] = updated_radius_servers
 
     #modify radii
     radii_resp = sdk.put.radii(element_id, radii_id, radii_template)
@@ -8203,45 +8236,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END Aplication Probe
 
-                # -- Start Radii config
-                radii_resp = sdk.get.radii(element_id)
-                radii_cache, leftover_radii = extract_items(radii_resp, 'radii')
-                # build lookup cache based on prefix.
-                radii_n2id = build_lookup_dict(radii_cache)
-                #print("The config radii is - {}".format(config_radii))
-                # iterate configs (list)
-                for radii_entry, radii_value in config_radii.items():
-
-                    # deepcopy to modify.
-                    config_radii_record = copy.deepcopy(radii_value)
-
-                    # no need to get radii config, no child config objects.
-
-                    # Determine radii ID.
-                    # look for implicit ID in object.
-                    implicit_radii_id = radii_value.get('id')
-                    radii_name = radii_entry
-                    name_radii_id = radii_n2id.get(radii_name)
-
-                    if implicit_radii_id is not None:
-                        radii_id = implicit_radii_id
-
-                    elif name_radii_id is not None:
-                        # look up ID by name on existing interfaces.
-                        radii_id = name_radii_id
-
-                    else:
-                        # no radii object.
-                        radii_id = None
-
-                    if radii_id is not None:
-                        # Radius exists, modify.
-                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id)
-                    else:
-                        # Radius does not exist, create.
-                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id)
-
-                # -- End Radii config
 
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
@@ -8553,6 +8547,40 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_interfaces(leftover_cellular_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
                 # END CELLULAR
+
+                # START VLAN
+                config_vlan_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'vlan')
+                leftover_vlan_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'vlan',
+                                                                               key_name='id')
+
+                for config_interface_name, config_interface_value in config_vlan_interfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # remove from delete queue before configuring cellular
+                    leftover_vlan_interfaces = [entry for entry in leftover_vlan_interfaces if
+                                                        entry != interface_id]
+                # cleanup - delete unused cellular interfaces, modified cellular and child interfaces
+                delete_interfaces(leftover_vlan_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END VLAN
 
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
@@ -9097,6 +9125,79 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END SERVICELINK
 
+                # START VLAN
+
+                config_vlans = get_config_interfaces_by_type(config_interfaces_defaults, 'vlan')
+                for config_interface_name, config_interface_value in config_vlans.items():
+                    local_debug("DO VLAN: {0}".format(config_interface_name), config_interface_value)
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                    else:
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                # END VLAN
+
+                # START SWITCH PORT
+
+                config_switch_ports = get_config_interfaces_by_type(config_interfaces_defaults, 'switch_port')
+                for config_interface_name, config_interface_value in config_switch_ports.items():
+                    local_debug("DO VLAN: {0}".format(config_interface_name), config_interface_value)
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                    else:
+                        # Interface does not exist.
+                        throw_error("Interface {0} does not exist".format(name_interface_id))
+
+                # END SWITCH PORT
                 # ------------------
 
                 # Moved INTERFACE cleanup above create/edit
@@ -9113,6 +9214,47 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
+
+                # -- Start Radii config
+                radii_resp = sdk.get.radii(element_id)
+                if not radii_resp.cgx_status:
+                    throw_error("Radii AAA get failed: ", radii_resp)
+
+                radii_cache, leftover_radii = extract_items(radii_resp, 'radii')
+
+                # build lookup cache based on prefix.
+                radii_n2id = build_lookup_dict(radii_cache)
+
+                # iterate configs (list)
+                for radii_entry, radii_value in config_radii.items():
+                    radii_value["name"] = radii_entry
+
+                    # deepcopy to modify.
+                    config_radii_record = copy.deepcopy(radii_value)
+
+                    # Determine radii ID.
+                    # look for implicit ID in object.
+                    implicit_radii_id = radii_value.get('id')
+                    radii_name = radii_value.get('name')
+                    name_radii_id = radii_n2id.get(radii_name)
+
+                    if implicit_radii_id is not None:
+                        radii_id = implicit_radii_id
+                    elif name_radii_id is not None:
+                        # look up ID by name on existing interfaces.
+                        radii_id = name_radii_id
+                    else:
+                        # no radii object.
+                        radii_id = None
+
+                    if radii_id is not None:
+                        # Radius exists, modify.
+                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id)
+                    else:
+                        # Radius does not exist, create.
+                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id)
+
+                # -- End Radii config
 
                 # START Cellular Modules
 

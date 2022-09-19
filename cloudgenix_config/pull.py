@@ -1429,7 +1429,7 @@ def _pull_config_for_single_site(site_name_id):
             if radii_template.get("source_interface_id"):
                 source_interface_id = radii_template.get("source_interface_id")
                 radii_template["source_interface_id"] = id_name_cache.get(source_interface_id, source_interface_id)
-            strip_meta_attributes(radii_template, leave_name=True)
+            strip_meta_attributes(radii_template)
             element[RADII_STR][radii.get("name")] = (radii_template)
 
         delete_if_empty(element, RADII_STR)
