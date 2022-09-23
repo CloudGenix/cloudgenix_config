@@ -3862,6 +3862,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('type') == 'virtual_interface':
         config['type'] = 'virtual_interface'
         config['bound_interfaces'] = interface_config.get('bound_interfaces')
+    config['type'] = interface_config.get('type')
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)

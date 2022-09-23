@@ -1779,7 +1779,7 @@ def _pull_config_for_single_site(site_name_id):
 
 def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None, passed_report_id=None,
                       passed_strip_versions=None, passed_force_parents=None, no_header=None, return_result=False,
-                      normalize=False):
+                      normalize=False, reset_duplicate=True):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
@@ -1802,6 +1802,10 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     global STRIP_VERSIONS
     global FORCE_PARENTS
     global sdk
+
+    if reset_duplicate:
+        global dup_name_dict_sites
+        dup_name_dict_sites = {}
 
     # check passed vars
     if passed_sdk is not None:
