@@ -451,10 +451,6 @@ def update_global_cache():
     multicastpeergroups_resp = sdk.get.multicastpeergroups()
     multicastpeergroups_cache, _ = extract_items(multicastpeergroups_resp, 'multicastpeergroups')
 
-    #radii
-    #radii_resp = sdk.get.radii()
-    #radii_cache, _ = extract_items(radii_resp, 'radii')
-
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
