@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.7.0b1
+**Version:** 1.7.0b3
 
 **Author:** CloudGenix
 
@@ -215,7 +215,7 @@ FROM_CLOUDBLADE = 0
 SDK_VERSION_REQUIRED = '5.6.1b2'  # Version when these fields were introduced in yml as meta attr
 CONFIG_VERSION_REQUIRED = '1.6.0b2'
 # Define constructor globally for now.
-sdk = cloudgenix.API()
+sdk = None
 jd = cloudgenix.jd
 
 # Set logging to use function name
@@ -690,7 +690,7 @@ def delete_if_empty(variable_dict, key):
     """
     if key in variable_dict:
         val = variable_dict[key]
-        if not val and not isinstance(val, bool) and val is not 0:
+        if not val and not isinstance(val, bool) and val != 0:
             variable_dict.pop(key)
     return
 
