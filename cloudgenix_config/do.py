@@ -3862,6 +3862,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('type') == 'virtual_interface':
         config['type'] = 'virtual_interface'
         config['bound_interfaces'] = interface_config.get('bound_interfaces')
+    config['name'] = interface_config.get('name')
     config['type'] = interface_config.get('type')
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
@@ -8259,6 +8260,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
 
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
+                                        version=elements_version)
                 # START SERVICELINK
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -8525,6 +8528,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # remove from delete queue before configuring VI
                     leftover_virtual_interfaces = [entry for entry in leftover_virtual_interfaces if
                                                        entry != interface_id]
+                # Reset the configuration before delete. Else api will throw error.
+                for vi in leftover_virtual_interfaces:
+                    default_template = get_member_default_config()
+                    output_message("   Setting VI {0} to default.".format(interfaces_id2n.get(vi)))
+                    default_template['type'] = 'virtual_interface'
+                    new_parent_id = modify_interface(default_template, vi, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
 
                 # cleanup - delete unused virtual interfaces, modified VIs and child interfaces
                 delete_interfaces(leftover_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
