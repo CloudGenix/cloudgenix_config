@@ -163,7 +163,10 @@ element_put_items = [
     "spoke_ha_config",
     "sw_obj",
     "tags",
-    "vpn_to_vpn_forwarding"
+    "vpn_to_vpn_forwarding",
+    "switch_config",
+    "device_profile_id",
+    "main_power_usage_threshold"
 ]
 
 createable_interface_types = [
