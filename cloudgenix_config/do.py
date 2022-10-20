@@ -3645,7 +3645,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
 
 def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id,
-                     site_id, element_id, interfaces_funny_n2id=None, version=None, reset_switch_port=0):
+                     site_id, element_id, interfaces_funny_n2id=None, version=None, reset_switch_port=0, reset_dhcp=0):
     """
     Modify an existing interface
     :param config_interface: Interface config dict
@@ -3882,7 +3882,14 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                 interface_config["switch_port_config"]["trunk_vlans"] = None
         else:
             return 1
-
+    elif reset_dhcp:
+        if interface_config != interface_change_check:
+            if interface_config.get("dhcp_relay"):
+                output_message(
+                    "Resetting the dhcp configuration for the VLAN {0}.".format(interface_change_check.get("name")))
+                interface_config["dhcp_relay"] = None
+        else:
+            return 1
     elif not force_update and interface_config == interface_change_check:
         # no change in config, pass.
         interface_id = interface_change_check.get('id')
@@ -8265,6 +8272,22 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
                                         version=elements_version)
+
+                # Reset Dhcp Relay in Vlan before deleting the interfaces.
+                args = get_function_default_args(sdk.put.interfaces)
+                # extract API version and use to reset interface to default
+                api_version = args.get('api_version')
+
+                config_vlan_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'vlan')
+                for config_interface_name, config_interface_value in config_vlan_interfaces.items():
+                    vlan_id = interfaces_n2id.get(config_interface_name)
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    new_parent_id = modify_interface(config_interface, vlan_id, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id, version=api_version, reset_dhcp=1)
+
+
                 # START SERVICELINK
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
