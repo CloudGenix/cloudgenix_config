@@ -8666,6 +8666,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     leftover_vlan_interfaces = [entry for entry in leftover_vlan_interfaces if
                                                         entry != interface_id]
 
+                # Reset the configuration before delete. Else api will throw error
+                for vlan in leftover_vlan_interfaces:
+                    default_template = get_member_default_config()
+                    output_message("   Setting VLAN {0} to default.".format(interfaces_id2n.get(vlan)))
+                    default_template['type'] = 'vlan'
+                    new_parent_id = modify_interface(default_template, vlan, interfaces_n2id,
+                                                         waninterfaces_n2id,
+                                                         lannetworks_n2id, site_id, element_id, version=api_version)
                 # cleanup - delete unused cellular interfaces, modified cellular and child interfaces
                 delete_interfaces(leftover_vlan_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
