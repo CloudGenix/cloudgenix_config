@@ -3885,8 +3885,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     elif reset_dhcp:
         if interface_config != interface_change_check:
             if interface_config.get("dhcp_relay"):
-                output_message(
-                    "Resetting the dhcp configuration for the VLAN {0}.".format(interface_change_check.get("name")))
+                output_message("   Resetting the dhcp configuration for the VLAN {0}.".format(interface_change_check.get("name")))
                 interface_config["dhcp_relay"] = None
         else:
             return 1
@@ -8281,9 +8280,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_vlan_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'vlan')
                 for config_interface_name, config_interface_value in config_vlan_interfaces.items():
                     vlan_id = interfaces_n2id.get(config_interface_name)
-                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                    if vlan_id is not None:
+                        config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
                                                                  name_key='name')
-                    new_parent_id = modify_interface(config_interface, vlan_id, interfaces_n2id,
+                        new_parent_id = modify_interface(config_interface, vlan_id, interfaces_n2id,
                                                      waninterfaces_n2id,
                                                      lannetworks_n2id, site_id, element_id, version=api_version, reset_dhcp=1)
 
