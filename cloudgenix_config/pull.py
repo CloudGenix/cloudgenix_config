@@ -1086,6 +1086,15 @@ def _pull_config_for_single_site(site_name_id):
             elif if_type in ['loopback']:
                 interface_template['site_wan_interface_ids'] = None
 
+            if if_type in ["cellular"]:
+                if not interface_template.get("ipv6_config"):
+                    interface_template["ipv6_config"] = {}
+                    interface_template["ipv6_config"]["type"] = "negotiated"
+                    interface_template["ipv6_config"]["static_config"] = None
+                    interface_template["ipv6_config"]["dhcp_config"] = None
+                    interface_template["ipv6_config"]["dns_v6_config"] = None
+                    interface_template["ipv6_config"]["routes"] = None
+
             att_ln_list = interface.get('attached_lan_networks', None)
             if att_ln_list and isinstance(att_ln_list, list):
                 att_ln_template = []
