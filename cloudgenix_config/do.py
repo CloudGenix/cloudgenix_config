@@ -269,6 +269,7 @@ ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
 radii_cache = []
+multicastsourcesiteconfigs_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -480,6 +481,7 @@ def update_global_cache():
     global apnprofiles_cache
     global multicastpeergroups_cache
     global radii_cache
+    global multicastsourcesiteconfigs_cache
 
     global sites_n2id
     global elements_n2id
@@ -888,9 +890,12 @@ def parse_site_config(config_site):
                                                                 sdk.put.site_natlocalprefixes, default=[])
     config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
                                                                 sdk.put.site_ipfixlocalprefixes, default=[])
+    config_multicastsourcesiteconfigs, _ = config_lower_version_get(config_site, 'multicastsourcesiteconfigs',
+                                                                sdk.put.multicastsourcesiteconfigs, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
+        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs
 
 
 def parse_element_config(config_element):
@@ -1951,6 +1956,7 @@ def create_site(config_site, version=None):
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2008,6 +2014,7 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2044,6 +2051,7 @@ def modify_site(config_site, site_id, version=None):
     if debuglevel >= 3:
         local_debug("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
 
+    print("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
     # Update Site.
     site_resp2 = sdk.put.sites(site_id, site_config, api_version=version)
 
@@ -3036,6 +3044,120 @@ def delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id, id2n
                         site_nat_localprefix_del_resp)
     return
 
+def create_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs, site_id, version=None):
+    """
+        Create a MULTICASTSOURCESITECONFIGS
+        :param config_multicastsourcesiteconfigsr: MULTICASTSOURCESITECONFIGS config dict
+        :param multicastsourcesiteconfigs_n2id: MULTICASTSOURCESITECONFIGS Name to ID dict
+        :param site_id: Site ID to use
+        :return: New MULTICASTSOURCESITECONFIGS ID
+        """
+    # make a copy of multicastsourcesiteconfigs to modify
+    multicastsourcesiteconfigs_template = copy.deepcopy(config_multicastsourcesiteconfigs)
+
+    # perform name -> ID lookups
+    # None needed for MULTICASTSOURCESITECONFIGS
+
+    local_debug("MULTICASTSOURCESITECONFIGS TEMPLATE: " + str(json.dumps(multicastsourcesiteconfigs_template, indent=4)))
+
+    # create multicastsourcesiteconfigs
+    multicastsourcesiteconfigs_resp = sdk.post.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_template, api_version=version)
+
+    if not multicastsourcesiteconfigs_resp.cgx_status:
+        throw_error("MULTICASTSOURCESITECONFIGS creation failed: ", multicastsourcesiteconfigs_resp)
+
+    multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_resp.cgx_content.get('id')
+
+    if not multicastsourcesiteconfigs_id:
+        throw_error("Unable to determine MULTICASTSOURCESITECONFIGS attributes (ID {0})..".format(multicastsourcesiteconfigs_id))
+
+    output_message(" Created MULTICASTSOURCESITECONFIGS {0}.".format(multicastsourcesiteconfigs_id))
+
+    return multicastsourcesiteconfigs_id
+
+def modify_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs, multicastsourcesiteconfigs_id, site_id, version=None):
+    """
+        Modify Existing MULTICASTSOURCESITECONFIGS
+        :param config_multicastsourcesiteconfigs: MULTICASTSOURCESITECONFIGS config dict
+        :param multicastsourcesiteconfigs_id: Existing MULTICASTSOURCESITECONFIGS ID
+        :param multicastsourcesiteconfigs_n2id: MULTICASTSOURCESITECONFIGS Name to ID dict
+        :param site_id: Site ID to use
+        :return: Returned Spoke Cluster ID
+        """
+    multicastsourcesiteconfigs_config = {}
+    # make a copy of multicastsourcesiteconfigs to modify
+    multicastsourcesiteconfigs_template = copy.deepcopy(config_multicastsourcesiteconfigs)
+
+    # perform name -> ID lookups
+    # None needed for MULTICASTSOURCESITECONFIGS
+
+    local_debug("MULTICASTSOURCESITECONFIGS TEMPLATE: " + str(json.dumps(multicastsourcesiteconfigs_template, indent=4)))
+
+    # get current multicastsourcesiteconfigs
+    multicastsourcesiteconfigs_resp = sdk.get.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_id, api_version=version)
+    if multicastsourcesiteconfigs_resp.cgx_status:
+        multicastsourcesiteconfigs_config = multicastsourcesiteconfigs_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve MULTICASTSOURCESITECONFIGS: ", multicastsourcesiteconfigs_resp)
+
+    # extract prev_revision
+    prev_revision = multicastsourcesiteconfigs_config.get("_etag")
+
+    # Check for changes:
+    multicastsourcesiteconfigs_change_check = copy.deepcopy(multicastsourcesiteconfigs_config)
+    multicastsourcesiteconfigs_config.update(multicastsourcesiteconfigs_template)
+
+    if not force_update and multicastsourcesiteconfigs_config == multicastsourcesiteconfigs_change_check:
+        # no change in config, pass.
+        multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_change_check.get('id')
+        multicastsourcesiteconfigs_name = multicastsourcesiteconfigs_change_check.get('name')
+        output_message(" No Change for MULTICASTSOURCESITECONFIGS {0}.".format(multicastsourcesiteconfigs_id))
+        return multicastsourcesiteconfigs_id
+
+    if debuglevel >= 3:
+        local_debug("MULTICASTSOURCESITECONFIGS DIFF: {0}".format(find_diff(multicastsourcesiteconfigs_change_check, multicastsourcesiteconfigs_config)))
+
+    # Update multicastsourcesiteconfigs.
+    multicastsourcesiteconfigs_resp2 = sdk.put.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_config, api_version=version)
+
+    if not multicastsourcesiteconfigs_resp2.cgx_status:
+        throw_error("MULTICASTSOURCESITECONFIGS update failed: ", multicastsourcesiteconfigs_resp2)
+
+    multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = multicastsourcesiteconfigs_resp2.cgx_content.get("_etag")
+
+    if not multicastsourcesiteconfigs_id:
+        throw_error("Unable to determine MULTICASTSOURCESITECONFIGS attribute (ID {0})..".format(multicastsourcesiteconfigs_id))
+
+    output_message(" Updated MULTICASTSOURCESITECONFIGS {0} (Etag {1} -> {2}).".format(multicastsourcesiteconfigs_id, prev_revision,
+                                                                          current_revision))
+
+
+    return multicastsourcesiteconfigs_id
+
+def delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id, id2n=None):
+    """
+        Delete MULTICASTSOURCESITECONFIGS
+        :param leftover_multicastsourcesiteconfigs: List of MULTICASTSOURCESITECONFIGS IDs to delete
+        :param site_id: Site ID to use
+        :param id2n: Optional - ID to Name lookup dict
+        :return: None
+        """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for multicastsourcesiteconfigs_id in leftover_multicastsourcesiteconfigs:
+        # delete all leftover multicastsourcesiteconfigs.
+
+        output_message(" Deleting Unconfigured MULTICASTSOURCESITECONFIGS {0}.".format(id2n.get(multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_id)))
+        multicastsourcesiteconfigs_del_resp = sdk.delete.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_id)
+        if not multicastsourcesiteconfigs_del_resp.cgx_status:
+            throw_error("Could not delete MULTICASTSOURCESITECONFIGS {0}: ".format(id2n.get(multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_id)),
+                        multicastsourcesiteconfigs_del_resp)
+    return
 
 def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, version=None):
     """
@@ -3072,7 +3194,6 @@ def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, versio
     spokeclusters_n2id[spokecluster_name] = spokecluster_id
 
     return spokecluster_id
-
 
 def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id, site_id, version=None):
     """
@@ -7184,6 +7305,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+                config_multicastsourcesiteconfigs, \
                 = parse_site_config(config_site)
 
             # Getting version for site resourcesinput apiversion
@@ -7204,6 +7326,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                         sdk.put.site_natlocalprefixes, default=[], sdk_or_yaml=apiversion)
             site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
+
+            multicastsourcesiteconfigs_version = use_sdk_yaml_version(config_site, 'multicastsourcesiteconfigs',
+                                                                          sdk.put.multicastsourcesiteconfigs, default=[], sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
                 mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
@@ -7389,6 +7514,47 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # remove from delete queue
                 leftover_dhcpservers = [entry for entry in leftover_dhcpservers if entry != dhcpserver_id]
             # -- End DHCPSERVER config
+
+            # -- Start MULTICASTSOURCESITECONFIGS config
+            multicastsourcesiteconfigs_resp = sdk.get.multicastsourcesiteconfigs(site_id)
+            multicastsourcesiteconfigs_cache, leftover_multicastsourcesiteconfigs = extract_items(multicastsourcesiteconfigs_resp, 'multicastsourcesiteconfigs')
+            # build lookup cache based on subnet in each entry.
+            multicastsourcesiteconfigs_n2id = build_lookup_dict(multicastsourcesiteconfigs_cache, key_val='id')
+
+            # Determine multicastsourcesiteconfigs ID.
+            implicit_multicastsourcesiteconfigs_id = None
+            for key in multicastsourcesiteconfigs_n2id.keys():
+                implicit_multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_n2id.get(key)
+
+
+            # iterate configs (list)
+            for config_multicastsourcesiteconfigs_entry in config_multicastsourcesiteconfigs:
+
+                # deepcopy to modify.
+                config_multicastsourcesiteconfigs_record = copy.deepcopy(config_multicastsourcesiteconfigs_entry)
+
+                if implicit_multicastsourcesiteconfigs_id is not None:
+                    multicastsourcesiteconfigs_id = implicit_multicastsourcesiteconfigs_id
+
+                else:
+                    # no multicastsourcesiteconfigs object.
+                    multicastsourcesiteconfigs_id = None
+
+                # Create or modify multicastsourcesiteconfigs.
+                if multicastsourcesiteconfigs_id is not None:
+                    # MULTICASTSOURCESITECONFIGS exists, modify.
+                    multicastsourcesiteconfigs_id = modify_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs_record, multicastsourcesiteconfigs_id, site_id,
+                                                          version=multicastsourcesiteconfigs_version)
+
+                else:
+                    # MULTICASTSOURCESITECONFIGS does not exist, create.
+                    multicastsourcesiteconfigs_id = create_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs_record, site_id,
+                                                          version=multicastsourcesiteconfigs_version)
+
+                # remove from delete queue
+                leftover_multicastsourcesiteconfigs = [entry for entry in leftover_multicastsourcesiteconfigs if entry != multicastsourcesiteconfigs_id]
+
+            # -- End MULTICASTSOURCESITECONFIGS config
 
             # -- Start Site_extensions
             site_extensions_resp = sdk.get.site_extensions(site_id)
@@ -10398,6 +10564,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # delete remaining dhcpserver configs
             dhcpservers_id2n = build_lookup_dict(dhcpservers_cache, key_val='id', value_val='subnet')
             delete_dhcpservers(leftover_dhcpservers, site_id, id2n=dhcpservers_id2n)
+
+            multicastsourcesiteconfigs_id2n = build_lookup_dict(multicastsourcesiteconfigs_cache,  key_val='id', value_val='id')
+            delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id, id2n=multicastsourcesiteconfigs_id2n)
 
             # cleanup - delete unused Lannetworks
             lannetworks_id2n = build_lookup_dict(lannetworks_cache, key_val='id', value_val='name')

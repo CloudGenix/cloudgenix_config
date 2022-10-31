@@ -166,6 +166,7 @@ CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
 ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
 ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 RADII_STR = "radii"
+MULTICASTSOURCESITECONFIGS_STR = "multicastsourcesiteconfigs"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 
 # Global Config Cache holders
@@ -203,6 +204,7 @@ ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
 radii_cache = []
+multicastsourcesiteconfigs_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -313,6 +315,7 @@ def update_global_cache():
     global apnprofiles_cache
     global multicastpeergroups_cache
     global radii_cache
+    global multicastsourcesiteconfigs_cache
 
 
     global id_name_cache
@@ -615,6 +618,7 @@ def build_version_strings():
     global ELEMENT_CELLULAR_MODULES_STR
     global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
     global RADII_STR
+    global MULTICASTSOURCESITECONFIGS_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -655,6 +659,7 @@ def build_version_strings():
         ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
         ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
         RADII_STR = add_version_to_object(sdk.get.radii, "radii")
+        MULTICASTSOURCESITECONFIGS_STR = add_version_to_object(sdk.get.radii, "multicastsourcesiteconfigs")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -946,6 +951,19 @@ def _pull_config_for_single_site(site_name_id):
         site[SITE_IPFIXLOCALPREFIXES_STR].append(site_ipfix_localprefix_template)
 
     delete_if_empty(site, SITE_IPFIXLOCALPREFIXES_STR)
+
+    # Get Multicast Source Site Config
+    site[MULTICASTSOURCESITECONFIGS_STR] = []
+    response = sdk.get.multicastsourcesiteconfigs(site['id'])
+    if not response.cgx_status:
+        throw_error("MultiCast Source Site Config Fetch Failed: ", response)
+    multicastsourcesiteconfigs_items = response.cgx_content['items']
+    for multicastsourcesiteconfigs in multicastsourcesiteconfigs_items:
+        multicastsourcesiteconfigs_template = copy.deepcopy(multicastsourcesiteconfigs)
+        strip_meta_attributes(multicastsourcesiteconfigs_template)
+        site[MULTICASTSOURCESITECONFIGS_STR].append(multicastsourcesiteconfigs_template)
+
+    delete_if_empty(site, MULTICASTSOURCESITECONFIGS_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
