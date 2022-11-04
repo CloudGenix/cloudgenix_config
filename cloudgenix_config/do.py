@@ -150,7 +150,7 @@ element_put_items = [
     "_etag",
     "_schema",
     "cluster_insertion_mode",
-    "cluster_member_id",
+    "cluster_id",
     "description",
     "id",
     "l3_direct_private_wan_forwarding",
@@ -166,7 +166,8 @@ element_put_items = [
     "vpn_to_vpn_forwarding",
     "switch_config",
     "device_profile_id",
-    "main_power_usage_threshold"
+    "main_power_usage_threshold",
+    "led_config"
 ]
 
 createable_interface_types = [
@@ -270,6 +271,7 @@ apnprofiles_cache = []
 multicastpeergroups_cache = []
 radii_cache = []
 multicastsourcesiteconfigs_cache = []
+hubclusters_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -482,6 +484,7 @@ def update_global_cache():
     global multicastpeergroups_cache
     global radii_cache
     global multicastsourcesiteconfigs_cache
+    global hubclusters_cache
 
     global sites_n2id
     global elements_n2id
@@ -892,10 +895,12 @@ def parse_site_config(config_site):
                                                                 sdk.put.site_ipfixlocalprefixes, default=[])
     config_multicastsourcesiteconfigs, _ = config_lower_version_get(config_site, 'multicastsourcesiteconfigs',
                                                                 sdk.put.multicastsourcesiteconfigs, default=[])
+    config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
+                                                                    sdk.put.hubclusters, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
-        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs
+        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters
 
 
 def parse_element_config(config_element):
@@ -1694,6 +1699,7 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
             if debuglevel >= 3:
                 local_debug("ELEMENT DIFF: {0}".format(find_diff(element_change_check, elem_template)))
 
+            #print("ELEMENT DIFF: {0}".format(find_diff(element_change_check, elem_template)))
             output_message("  Updating Element {0}.".format(element_descriptive_text))
 
             # clean up element template.
@@ -3157,6 +3163,129 @@ def delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_
         if not multicastsourcesiteconfigs_del_resp.cgx_status:
             throw_error("Could not delete MULTICASTSOURCESITECONFIGS {0}: ".format(id2n.get(multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_id)),
                         multicastsourcesiteconfigs_del_resp)
+    return
+
+def create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=None):
+    """
+    Create a HubCluster
+    :param config_hubcluster: HubCluster config dict
+    :param hubclusters_n2id: HubCluster Name to ID dict
+    :param site_id: Site ID to use
+    :return: New HubCluster ID
+    """
+    # make a copy of hubcluster to modify
+    hubcluster_template = copy.deepcopy(config_hubcluster)
+
+    # perform name -> ID lookups
+    # None needed for HubClusters
+
+    local_debug("HubCluster TEMPLATE: " + str(json.dumps(hubcluster_template, indent=4)))
+
+    # create hubcluster
+    hubcluster_resp = sdk.post.hubclusters(site_id, hubcluster_template, api_version=version)
+
+    if not hubcluster_resp.cgx_status:
+        throw_error("HubCluster creation failed: ", hubcluster_resp)
+
+    hubcluster_name = hubcluster_resp.cgx_content.get('name')
+    hubcluster_id = hubcluster_resp.cgx_content.get('id')
+
+    if not hubcluster_name or not hubcluster_id:
+        throw_error("Unable to determine hubcluster attributes (Name: {0}, ID {1})..".format(hubcluster_name,
+                                                                                               hubcluster_id))
+
+    output_message(" Created HubCluster {0}.".format(hubcluster_name))
+
+    # update caches
+    hubclusters_n2id[hubcluster_name] = hubcluster_id
+
+    return hubcluster_id
+
+def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_id, version=None):
+    """
+    Modify Existing Spoke CLuster
+    :param config_hubcluster: HubCluster config dict
+    :param hubcluster_id: Existing HubCluster ID
+    :param hubclusters_n2id: HubCluster Name to ID dict
+    :param site_id: Site ID to use
+    :return: Returned HubCluster ID
+    """
+    hubcluster_config = {}
+    # make a copy of hubcluster to modify
+    hubcluster_template = copy.deepcopy(config_hubcluster)
+
+    # perform name -> ID lookups
+    # None needed for HubCluster
+
+    local_debug("HubCluster TEMPLATE: " + str(json.dumps(hubcluster_template, indent=4)))
+
+    # get current hubcluster
+    hubcluster_resp = sdk.get.hubclusters(site_id, hubcluster_id, api_version=version)
+    if hubcluster_resp.cgx_status:
+        hubcluster_config = hubcluster_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve HubCluster: ", hubcluster_resp)
+
+    # extract prev_revision
+    prev_revision = hubcluster_config.get("_etag")
+
+    # Check for changes:
+    hubcluster_change_check = copy.deepcopy(hubcluster_config)
+    hubcluster_config.update(hubcluster_template)
+    if not force_update and hubcluster_config == hubcluster_change_check:
+        # no change in config, pass.
+        hubcluster_id = hubcluster_change_check.get('id')
+        hubcluster_name = hubcluster_change_check.get('name')
+        output_message(" No Change for HubCluster {0}.".format(hubcluster_name))
+        return hubcluster_id
+
+    if debuglevel >= 3:
+        local_debug("HubCluster DIFF: {0}".format(find_diff(hubcluster_change_check, hubcluster_config)))
+
+    # Update hubcluster.
+    hubcluster_resp2 = sdk.put.hubclusters(site_id, hubcluster_id, hubcluster_config, api_version=version)
+
+    if not hubcluster_resp2.cgx_status:
+        throw_error("HubCluster update failed: ", hubcluster_resp2)
+
+    hubcluster_name = hubcluster_resp2.cgx_content.get('name')
+    hubcluster_id = hubcluster_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = hubcluster_resp2.cgx_content.get("_etag")
+
+    if not hubcluster_name or not hubcluster_id:
+        throw_error("Unable to determine HubCluster attributes (Name: {0}, ID {1})..".format(hubcluster_name,
+                                                                                                hubcluster_id))
+
+    output_message(" Updated HubCluster {0} (Etag {1} -> {2}).".format(hubcluster_name, prev_revision,
+                                                                          current_revision))
+
+    # update caches
+    hubclusters_n2id[hubcluster_name] = hubcluster_id
+
+    return hubcluster_id
+
+def delete_hubclusters(leftover_hubclusters, site_id, id2n=None):
+    """
+    Delete HubCluster
+    :param leftover_hubclusters: List of HubCluster IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for hubcluster_id in leftover_hubclusters:
+        # delete all leftover hubclusters.
+
+        output_message(" Deleting Unconfigured HubCluster {0}.".format(id2n.get(hubcluster_id, hubcluster_id)))
+        hubcluster_del_resp = sdk.delete.hubclusters(site_id, hubcluster_id)
+        if not hubcluster_del_resp.cgx_status:
+            throw_error("Could not delete HubCluster {0}: ".format(id2n.get(hubcluster_id, hubcluster_id)),
+                        hubcluster_del_resp)
     return
 
 def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, version=None):
@@ -7305,7 +7434,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-                config_multicastsourcesiteconfigs, \
+                config_multicastsourcesiteconfigs, config_hubclusters\
                 = parse_site_config(config_site)
 
             # Getting version for site resourcesinput apiversion
@@ -7326,9 +7455,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                         sdk.put.site_natlocalprefixes, default=[], sdk_or_yaml=apiversion)
             site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
-
             multicastsourcesiteconfigs_version = use_sdk_yaml_version(config_site, 'multicastsourcesiteconfigs',
                                                                           sdk.put.multicastsourcesiteconfigs, default=[], sdk_or_yaml=apiversion)
+            hubclusters_version = use_sdk_yaml_version(config_site, 'hubclusters',
+                                                                      sdk.put.hubclusters, default=[],
+                                                                      sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
                 mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
@@ -7555,6 +7686,122 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 leftover_multicastsourcesiteconfigs = [entry for entry in leftover_multicastsourcesiteconfigs if entry != multicastsourcesiteconfigs_id]
 
             # -- End MULTICASTSOURCESITECONFIGS config
+
+            # -- Start HubClusters
+            hubclusters_resp = sdk.get.hubclusters(site_id)
+            hubclusters_cache, leftover_hubclusters = extract_items(hubclusters_resp, 'hubclusters')
+            hubclusters_n2id = build_lookup_dict(hubclusters_cache)
+
+            # Handle Move peer sites accross clusters
+            dict_peer_sites = {}
+            for config_hubcluster_name, config_hubcluster_value in config_hubclusters.items():
+                # recombine object
+                config_hubcluster = recombine_named_key_value(config_hubcluster_name, config_hubcluster_value,
+                                                              name_key='name')
+
+                hubcluster_id = hubclusters_n2id.get(config_hubcluster_name)
+                if hubcluster_id:
+                    if config_hubcluster_value.get('peer_sites'):
+                        new_peer_sites = config_hubcluster_value.get('peer_sites')
+                    else:
+                        new_peer_sites = []
+                    hubcluster_data = sdk.get.hubclusters(site_id, hubcluster_id)
+                    if hubcluster_data.cgx_status:
+                        hubcluster_config = hubcluster_data.cgx_content
+                    else:
+                        throw_error("Unable to retrieve HubCluster: ", hubcluster_data)
+                        continue
+                    if hubcluster_config.get('peer_sites'):
+                        existing_peer_sites = hubcluster_config.get('peer_sites')
+                    else:
+                        existing_peer_sites = []
+                    #print("Existing Clusters ---- {} {}".format(new_peer_sites, existing_peer_sites))
+
+                    delete_peer_sites = [site for site in existing_peer_sites if site not in new_peer_sites]
+                    add_peer_sites = [site for site in new_peer_sites if site not in existing_peer_sites]
+
+                    for site in delete_peer_sites:
+                        if site not in dict_peer_sites:
+                            dict_peer_sites[site] = {}
+                        dict_peer_sites[site]["delete"] = hubcluster_id
+
+                    for site in add_peer_sites:
+                        if site not in dict_peer_sites:
+                            dict_peer_sites[site] = {}
+                        dict_peer_sites[site]["add"] = hubcluster_id
+                else:
+                    continue
+            #print("The Peer site dict is -----{}".format(dict_peer_sites))
+
+            for peer_site, peer_site_operation_value in dict_peer_sites.items():
+
+                # Delete the peer site from the hub cluster
+                delete_from_hub_cluster = peer_site_operation_value.get('delete')
+                hubcluster_data = sdk.get.hubclusters(site_id, delete_from_hub_cluster)
+                if hubcluster_data.cgx_status:
+                    hubcluster_config = hubcluster_data.cgx_content
+                else:
+                    throw_error("Unable to retrieve HubCluster: ", hubcluster_data)
+                    continue
+                if hubcluster_config.get('peer_sites'):
+                    existing_peer_sites = hubcluster_config.get('peer_sites')
+                    existing_peer_sites.remove(peer_site)
+                    hubcluster_config['peer_sites'] = existing_peer_sites
+                    hubcluster_id = modify_hubcluster(hubcluster_config, delete_from_hub_cluster, hubclusters_n2id,
+                                                      site_id, version=hubclusters_version)
+
+                # Add the peer site to the hub cluster
+                add_to_hub_cluster = peer_site_operation_value.get('add')
+                hubcluster_data = sdk.get.hubclusters(site_id, add_to_hub_cluster)
+                if hubcluster_data.cgx_status:
+                    hubcluster_config = hubcluster_data.cgx_content
+                else:
+                    throw_error("Unable to retrieve HubCluster: ", hubcluster_data)
+                    continue
+                if hubcluster_config.get('peer_sites'):
+                    existing_peer_sites = hubcluster_config.get('peer_sites')
+                    existing_peer_sites.append(peer_site)
+                    hubcluster_config['peer_sites'] = existing_peer_sites
+                    hubcluster_id = modify_hubcluster(hubcluster_config, add_to_hub_cluster, hubclusters_n2id,
+                                                      site_id, version=hubclusters_version)
+
+            # iterate configs
+            for config_hubcluster_name, config_hubcluster_value in config_hubclusters.items():
+                # recombine object
+                config_hubcluster = recombine_named_key_value(config_hubcluster_name, config_hubcluster_value,
+                                                                name_key='name')
+
+                # no need to get Hub Cluster config, no child config objects.
+
+                # Determine hubcluster ID.
+                # look for implicit ID in object.
+                implicit_hubcluster_id = config_hubcluster.get('id')
+                name_hubcluster_id = hubclusters_n2id.get(config_hubcluster_name)
+
+                if implicit_hubcluster_id is not None:
+                    hubcluster_id = implicit_hubcluster_id
+
+                elif name_hubcluster_id is not None:
+                    # look up ID by name on existing hubclusters.
+                    hubcluster_id = name_hubcluster_id
+                else:
+                    # no hubcluster object.
+                    hubcluster_id = None
+
+                # Create or modify hubcluster.
+                if hubcluster_id is not None:
+                    # Hubcluster exists, modify.
+                    hubcluster_id = modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id,
+                                                          site_id, version=hubclusters_version)
+
+                else:
+                    # Hubcluster does not exist, create.
+                    hubcluster_id = create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=hubclusters_version)
+
+                # remove from delete queue
+                leftover_hubclusters = [entry for entry in leftover_hubclusters if entry != hubcluster_id]
+
+            # -- End HubClusters
 
             # -- Start Site_extensions
             site_extensions_resp = sdk.get.site_extensions(site_id)
@@ -10567,6 +10814,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             multicastsourcesiteconfigs_id2n = build_lookup_dict(multicastsourcesiteconfigs_cache,  key_val='id', value_val='id')
             delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id, id2n=multicastsourcesiteconfigs_id2n)
+
+            hubclusters_id2n = build_lookup_dict(hubclusters_cache, key_val='id', value_val='name')
+            delete_hubclusters(leftover_hubclusters, site_id, id2n=hubclusters_id2n)
 
             # cleanup - delete unused Lannetworks
             lannetworks_id2n = build_lookup_dict(lannetworks_cache, key_val='id', value_val='name')

@@ -646,7 +646,7 @@ def build_version_strings():
         PREFIXLISTS_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "prefix_lists")
         IPCOMMUNITYLISTS_CONFIG_STR = add_version_to_object(sdk.get.routing_ipcommunitylists,
                                                             "ip_community_lists")
-        HUBCLUSTER_CONFIG_STR = add_version_to_object(sdk.get.routing_prefixlists, "hubclusters")
+        HUBCLUSTER_CONFIG_STR = add_version_to_object(sdk.get.hubclusters, "hubclusters")
         SPOKECLUSTER_CONFIG_STR = add_version_to_object(sdk.get.spokeclusters, "spokeclusters")
         NATLOCALPREFIX_STR = add_version_to_object(sdk.get.site_natlocalprefixes, "site_nat_localprefixes")
         DNS_SERVICES_STR = add_version_to_object(sdk.get.dnsservices, "dnsservices")
