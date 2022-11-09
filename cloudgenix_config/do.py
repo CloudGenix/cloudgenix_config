@@ -2057,7 +2057,6 @@ def modify_site(config_site, site_id, version=None):
     if debuglevel >= 3:
         local_debug("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
 
-    print("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
     # Update Site.
     site_resp2 = sdk.put.sites(site_id, site_config, api_version=version)
 
