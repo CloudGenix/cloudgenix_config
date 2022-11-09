@@ -896,7 +896,7 @@ def parse_site_config(config_site):
     config_multicastsourcesiteconfigs, _ = config_lower_version_get(config_site, 'multicastsourcesiteconfigs',
                                                                 sdk.put.multicastsourcesiteconfigs, default=[])
     config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
-                                                                    sdk.put.hubclusters, default=[])
+                                                                    sdk.put.hubclusters, default={})
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
