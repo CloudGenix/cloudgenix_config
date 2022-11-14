@@ -2054,6 +2054,26 @@ def modify_site(config_site, site_id, version=None):
         output_message("No Change for Site {0}.".format(site_name))
         return site_id
 
+    if site_config.get("multicast_peer_group_id") != site_change_check.get("multicast_peer_group_id"):
+        if site_config.get("multicast_peer_group_id") == None:
+
+            site_id = site_change_check.get('id')
+            site_name = site_change_check.get('name')
+            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
+            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+            config_multicastsourcesiteconfigs, config_hubclusters = parse_site_config(config_site)
+
+            if not config_multicastsourcesiteconfigs:
+                output_message(" Resetting Multicast Source Site Config for the Site {0}.".format(site_name))
+                multicastsourcesiteconfigs_resp = sdk.get.multicastsourcesiteconfigs(site_id)
+                multicastsourcesiteconfigs_cache, leftover_multicastsourcesiteconfigs = extract_items(
+                    multicastsourcesiteconfigs_resp, 'multicastsourcesiteconfigs')
+
+                multicastsourcesiteconfigs_id2n = build_lookup_dict(multicastsourcesiteconfigs_cache, key_val='id',
+                                                                    value_val='id')
+                delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id,
+                                                  id2n=multicastsourcesiteconfigs_id2n)
+
     if debuglevel >= 3:
         local_debug("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
 
@@ -3241,6 +3261,23 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
     if debuglevel >= 3:
         local_debug("HubCluster DIFF: {0}".format(find_diff(hubcluster_change_check, hubcluster_config)))
 
+    # Check the hub cluster status.
+    hubcluster_update_wait = 1
+
+    while hubcluster_update_wait:
+        hubcluster_status_resp = sdk.get.hubcluster_status(site_id, hubcluster_id, api_version=version)
+        if not hubcluster_status_resp.cgx_status:
+            throw_error("Fetching HubCluster status failed: ", hubcluster_status_resp)
+
+        hubcluster_status = hubcluster_status_resp.cgx_content.get('cluster_state')
+        output_message("Hub cluster status - {0}".format(hubcluster_status))
+        if hubcluster_status.lower() != "cluster_update_completed":
+            hubcluster_name = hubcluster_change_check.get('name')
+            output_message("HubCluster {0} update is under progress. Trying after 60secs.".format(hubcluster_name))
+            time.sleep(60)
+        else:
+            hubcluster_update_wait = 0
+
     # Update hubcluster.
     hubcluster_resp2 = sdk.put.hubclusters(site_id, hubcluster_id, hubcluster_config, api_version=version)
 
@@ -3894,7 +3931,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
 
 def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id,
-                     site_id, element_id, interfaces_funny_n2id=None, version=None, reset_switch_port=0):
+                     site_id, element_id, interfaces_funny_n2id=None, version=None, reset_switch_port=0,
+                     reset_ipfix_collector_filter_context=0):
     """
     Modify an existing interface
     :param config_interface: Interface config dict
@@ -4123,12 +4161,22 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
 
     if reset_switch_port:
         if interface_config != interface_change_check:
-            output_message(" Resetting the vlan interface id for Switch port {0}.".format(interface_change_check.get("name")))
+            output_message("   Resetting the vlan interface id for Switch port {0}.".format(interface_change_check.get("name")))
             if interface_config.get("switch_port_config"):
                 interface_config["switch_port_config"]["access_vlan_id"] = None
                 interface_config["switch_port_config"]["native_vlan_id"] = None
                 interface_config["switch_port_config"]["voice_vlan_id"] = None
                 interface_config["switch_port_config"]["trunk_vlans"] = None
+        else:
+            return 1
+    elif reset_ipfix_collector_filter_context:
+        if interface_config != interface_change_check:
+            output_message(
+                "   Resetting the IPFIXCOLLECTORCONTEXT, IPFIXFILTERCONTEXT for Interface {0}.".format(interface_change_check.get("name")))
+            if interface_config.get("ipfixcollectorcontext_id"):
+                interface_config["ipfixcollectorcontext_id"] = None
+            if interface_config.get("ipfixfiltercontext_id"):
+                interface_config["ipfixfiltercontext_id"] = None
         else:
             return 1
 
@@ -5416,7 +5464,7 @@ def delete_routemaps(leftover_routemaps, site_id, element_id, id2n=None):
     return
 
 
-def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=None):
+def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=None, set_device_local=0):
     """
     Modify BGP Global config - no create or destroy for bgpconfigs
     :param config_routing_bgp_global: BGP Global Config dict
@@ -5452,6 +5500,11 @@ def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=No
     # Check for changes:
     bgp_global_change_check = copy.deepcopy(bgp_global_config)
     bgp_global_config.update(bgp_global_template)
+
+    # Reset of local as num should be done after removing Bgp peers.
+    if bgp_global_config.get("local_as_num") == None and set_device_local:
+        return 1
+
     if not force_update and bgp_global_config == bgp_global_change_check:
         # no change in config, pass.
         bgp_global_id = bgp_global_change_check.get('id')
@@ -8758,6 +8811,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
                     # remove from delete queue
                     leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
 
@@ -8888,6 +8949,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     else:
                         # no interface object.
                         interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version, reset_ipfix_collector_filter_context=1)
 
                     # remove from delete queue
                     leftover_bypasspairs = [entry for entry in leftover_bypasspairs if entry != interface_id]
@@ -10120,7 +10189,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # No need to determine BGP Global (bgpconfigs), one object per element.
 
-                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=routing_bgp_global_version)
+                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
+                                                      version=routing_bgp_global_version, set_device_local=1)
 
                 # END BGP GLOBAL
 
@@ -10772,6 +10842,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                              key_val='id', value_val='name')
                 delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id,
                                            id2n=aspath_access_lists_id2n)
+
+                # Reset local as num after removing all the Bgp peers.
+                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
+                                                  version=routing_bgp_global_version)
 
             # ------------------
             # BEGIN SITE CLEANUP.
