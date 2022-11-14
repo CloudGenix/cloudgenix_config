@@ -220,7 +220,8 @@ upgrade_path_regex = {
     "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
     "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
     "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
-    "5\.6\..*" : ["6.0..*"]
+    "5\.6\..*" : ["6.0..*", "6.1..*"],
+    "6\.0\..*" : ["6.1..*"],
 }
 
 downgrade_path_regex = {
@@ -232,7 +233,8 @@ downgrade_path_regex = {
     "5\.4\..*" : ["5.2..*", "5.3..*"], ### 5.4 to 5.2.7 # Fix for CGCBL-566
     "5\.5\..*" : ["5.2..*", "5.3..*", "5.4..*"], ### 5.5 to 5.2.7
     "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
-    "6\.0\..*" : ["5.5..*", "5.6..*"]
+    "6\.0\..*" : ["5.5..*", "5.6..*"],
+    "6\.1\..*" : ["5.6..*", "6.0..*"],
 }
 
 # Global Config Cache holders
@@ -3262,9 +3264,9 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
         local_debug("HubCluster DIFF: {0}".format(find_diff(hubcluster_change_check, hubcluster_config)))
 
     # Check the hub cluster status.
-    hubcluster_update_wait = 1
+    hubcluster_update_wait = 0
 
-    while hubcluster_update_wait:
+    while hubcluster_update_wait <= 600:
         hubcluster_status_resp = sdk.get.hubcluster_status(site_id, hubcluster_id, api_version=version)
         if not hubcluster_status_resp.cgx_status:
             throw_error("Fetching HubCluster status failed: ", hubcluster_status_resp)
@@ -3273,10 +3275,13 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
         output_message("Hub cluster status - {0}".format(hubcluster_status))
         if hubcluster_status.lower() != "cluster_update_completed":
             hubcluster_name = hubcluster_change_check.get('name')
-            output_message("HubCluster {0} update is under progress. Trying after 60secs.".format(hubcluster_name))
-            time.sleep(60)
+            output_message("HubCluster {0} update is under progress. Trying after 30secs.".format(hubcluster_name))
+            time.sleep(30)
+            hubcluster_update_wait += 30
+            if hubcluster_update_wait > 600:
+                throw_error("HubCluster {0} update took longer than 10 minutes. Exiting.".format(hubcluster_name))
         else:
-            hubcluster_update_wait = 0
+            hubcluster_update_wait = 601
 
     # Update hubcluster.
     hubcluster_resp2 = sdk.put.hubclusters(site_id, hubcluster_id, hubcluster_config, api_version=version)
@@ -8814,7 +8819,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
                     if interface_id is not None:
                         # Interface exists, modify.
-                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
                                                         interfaces_funny_n2id=interfaces_funny_n2id,
                                                         version=interfaces_version, reset_ipfix_collector_filter_context=1)
@@ -8953,7 +8958,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
                     if interface_id is not None:
                         # Interface exists, modify.
-                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                         waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
                                                         interfaces_funny_n2id=interfaces_funny_n2id,
                                                         version=interfaces_version, reset_ipfix_collector_filter_context=1)
