@@ -96,6 +96,8 @@ member_port = """
             ipv6_config: null
             nat_address_v6: null
             nat_port_v6: 0
+            ipfixcollectorcontext_id: null
+            ipfixfiltercontext_id: null
 """
 
 default_backwards_bypasspairs = {

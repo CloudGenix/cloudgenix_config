@@ -4185,11 +4185,9 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     elif reset_ipfix_collector_filter_context:
         if interface_config != interface_change_check:
             output_message(
-                "   Resetting the IPFIXCOLLECTORCONTEXT, IPFIXFILTERCONTEXT for Interface {0}.".format(interface_change_check.get("name")))
+                "   Resetting the IPFIXCOLLECTORCONTEXT for Interface {0}.".format(interface_change_check.get("name")))
             if interface_config.get("ipfixcollectorcontext_id"):
                 interface_config["ipfixcollectorcontext_id"] = None
-            if interface_config.get("ipfixfiltercontext_id"):
-                interface_config["ipfixfiltercontext_id"] = None
         else:
             return 1
 
@@ -9053,8 +9051,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
                                                             waninterfaces_n2id, lannetworks_n2id, site_id,
                                                             element_id, interfaces_funny_n2id=interfaces_funny_n2id,
-                                                            version=interfaces_version,
-                                                            reset_ipfix_collector_filter_context=1)
+                                                            version=interfaces_version, reset_ipfix_collector_filter_context=1)
 
                 # END PORT
 
