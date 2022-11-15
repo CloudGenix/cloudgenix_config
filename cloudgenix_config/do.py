@@ -8744,61 +8744,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
                                         version=elements_version)
 
-                # START PORT
-                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
-                current_interfaces_n2id_holder = interfaces_n2id
-                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
-                interfaces_n2id.update(current_interfaces_n2id_holder)
-
-                config_ports = get_config_interfaces_by_type(config_interfaces_defaults, 'port')
-
-                for config_interface_name, config_interface_value in config_ports.items():
-
-                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
-                    # look for unconfigurable interfaces.
-                    if config_interface_name in skip_interface_list:
-                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
-                        # dont configure this interface, break out of loop.
-                        continue
-                    # look for parent interface
-                    elif config_interface_name in config_parent2child.keys():
-                        throw_warning("Cannot use configuration for interface {0}, it is set as a parent for {1}."
-                                      "".format(config_interface_name,
-                                                ", ".join(config_parent2child.get(config_interface_name))))
-                        # skip this interface
-                        continue
-
-                    # recombine object
-                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
-                                                                 name_key='name')
-
-                    # no need to get interface config, no child config objects.
-
-                    # Determine interface ID.
-                    # look for implicit ID in object.
-                    implicit_interface_id = config_interface.get('id')
-                    name_interface_id = interfaces_n2id.get(config_interface_name)
-
-                    if implicit_interface_id is not None:
-                        interface_id = implicit_interface_id
-
-                    elif name_interface_id is not None:
-                        # look up ID by name on existing interfaces.
-                        interface_id = name_interface_id
-                    else:
-                        # no interface object.
-                        interface_id = None
-
-                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
-                    if interface_id is not None:
-                        # Interface exists, modify.
-                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
-                                                            waninterfaces_n2id, lannetworks_n2id, site_id,
-                                                            element_id, interfaces_funny_n2id=interfaces_funny_n2id,
-                                                            version=interfaces_version, reset_ipfix_collector_filter_context=1)
-
-                # END PORT
-
                 # START SERVICELINK
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -9056,6 +9001,62 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # DELETE unused bypasspairs at this point.
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
+
+                # START PORT
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_ports = get_config_interfaces_by_type(config_interfaces_defaults, 'port')
+
+                for config_interface_name, config_interface_value in config_ports.items():
+
+                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
+                    # look for unconfigurable interfaces.
+                    if config_interface_name in skip_interface_list:
+                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
+                        # dont configure this interface, break out of loop.
+                        continue
+                    # look for parent interface
+                    elif config_interface_name in config_parent2child.keys():
+                        throw_warning("Cannot use configuration for interface {0}, it is set as a parent for {1}."
+                                      "".format(config_interface_name,
+                                                ", ".join(config_parent2child.get(config_interface_name))))
+                        # skip this interface
+                        continue
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                            waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                            element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                            version=interfaces_version,
+                                                            reset_ipfix_collector_filter_context=1)
+
+                # END PORT
 
                 # START VIRTUAL INTERFACE
 
