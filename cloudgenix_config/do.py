@@ -8754,6 +8754,20 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 for config_interface_name, config_interface_value in config_ports.items():
 
+                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
+                    # look for unconfigurable interfaces.
+                    if config_interface_name in skip_interface_list:
+                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
+                        # dont configure this interface, break out of loop.
+                        continue
+                    # look for parent interface
+                    elif config_interface_name in config_parent2child.keys():
+                        throw_warning("Cannot use configuration for interface {0}, it is set as a parent for {1}."
+                                      "".format(config_interface_name,
+                                                ", ".join(config_parent2child.get(config_interface_name))))
+                        # skip this interface
+                        continue
+
                     # recombine object
                     config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
                                                                  name_key='name')
