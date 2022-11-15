@@ -3247,6 +3247,13 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
     else:
         throw_error("Unable to retrieve HubCluster: ", hubcluster_resp)
 
+    if hubcluster_template.get("peer_sites"):
+        peer_sites = []
+        for peer_site in hubcluster_template["peer_sites"]:
+            peer_site = sites_n2id(peer_site, peer_site)
+            peer_sites.append(peer_site)
+        hubcluster_template["peer_sites"] = peer_sites
+
     # extract prev_revision
     prev_revision = hubcluster_config.get("_etag")
 
@@ -3272,7 +3279,7 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
             throw_error("Fetching HubCluster status failed: ", hubcluster_status_resp)
 
         hubcluster_status = hubcluster_status_resp.cgx_content.get('cluster_state')
-        output_message("Hub cluster status - {0}".format(hubcluster_status))
+        #output_message("Hub cluster status - {0}".format(hubcluster_status))
         if hubcluster_status.lower() != "cluster_update_completed":
             hubcluster_name = hubcluster_change_check.get('name')
             output_message("HubCluster {0} update is under progress. Trying after 30secs.".format(hubcluster_name))
@@ -3783,6 +3790,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
+    name_lookup_in_template(interface_template, 'network_context_id', networkcontexts_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -8768,6 +8776,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                            waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                            element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                            version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
                     # remove from delete queue
                     leftover_servicelinks = [entry for entry in leftover_servicelinks if entry != interface_id]
 
@@ -8885,6 +8901,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
                     # remove from delete queue
                     leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
 
@@ -9014,6 +9037,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
                     # remove from delete queue before configuring VI
                     leftover_virtual_interfaces = [entry for entry in leftover_virtual_interfaces if
                                                        entry != interface_id]
@@ -9031,6 +9062,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END VIRTUAL INTERFACE
 
+                # START CELLULAR
                 config_cellular_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'cellular')
                 leftover_cellular_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'cellular', key_name='id')
 
@@ -9057,6 +9089,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     else:
                         # no interface object.
                         interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
 
                     # remove from delete queue before configuring cellular
                     leftover_cellular_interfaces = [entry for entry in leftover_cellular_interfaces if
@@ -9125,11 +9165,19 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
-                    # remove from delete queue before configuring cellular
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
+                    # remove from delete queue before configuring vlan
                     leftover_vlan_interfaces = [entry for entry in leftover_vlan_interfaces if
                                                         entry != interface_id]
 
-                # cleanup - delete unused cellular interfaces, modified cellular and child interfaces
+                # cleanup - delete unused vlan interfaces, modified vlan  interfaces
                 delete_interfaces(leftover_vlan_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
                 # END VLAN
