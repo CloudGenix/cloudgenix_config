@@ -810,13 +810,19 @@ def _pull_config_for_single_site(site_name_id):
         hubcluster_template = copy.deepcopy(hubcluster)
         name_lookup_in_template(hubcluster_template, 'network_context_id', id_name_cache)
         name_lookup_in_template(hubcluster_template, 'security_policy_set', id_name_cache)
-        strip_meta_attributes(hubcluster_template)
+        strip_meta_attributes(hubcluster_template, report_id=True)
         # check name for duplicates
         checked_hubcluster_name = check_name(hubcluster['name'], dup_name_dict, 'Hubcluster',
                                              error_site_txt="{0}({1})".format(error_site_name,
                                                                               site_id))
         # update id name cache in case name changed.
         id_name_cache[hubcluster['id']] = checked_hubcluster_name
+        if hubcluster_template.get("peer_sites"):
+            peer_sites = []
+            for peer_site in hubcluster_template["peer_sites"]:
+                peer_site = id_name_cache.get(peer_site, peer_site)
+                peer_sites.append(peer_site)
+            hubcluster_template["peer_sites"] = peer_sites
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
     delete_if_empty(site, HUBCLUSTER_CONFIG_STR)
 

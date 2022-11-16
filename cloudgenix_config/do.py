@@ -3202,6 +3202,23 @@ def create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=None
 
     local_debug("HubCluster TEMPLATE: " + str(json.dumps(hubcluster_template, indent=4)))
 
+    if hubcluster_template.get('default_cluster'):
+        hubclusters_resp = sdk.get.hubclusters(site_id, api_version=version)
+        if hubclusters_resp.cgx_status:
+            hubclusters_config = hubclusters_resp.cgx_content
+        else:
+            throw_error("Unable to retrieve HubCluster: ", hubclusters_resp)
+
+        for hc in hubclusters_config.get("items"):
+            if hc.get('default_cluster'):
+                hc_id = hc.get('id')
+                output_message("Hub Cluster {0} will be unset as default cluster!".format(hc.get('name')))
+                hc['default_cluster'] = False
+                # Unset the existing default cluster
+                hc_resp = sdk.put.hubclusters(site_id, hc_id, hc, api_version=version)
+                if not hc_resp.cgx_status:
+                    throw_error("HubCluster update failed: ", hc_resp)
+
     # create hubcluster
     hubcluster_resp = sdk.post.hubclusters(site_id, hubcluster_template, api_version=version)
 
@@ -3250,7 +3267,7 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
     if hubcluster_template.get("peer_sites"):
         peer_sites = []
         for peer_site in hubcluster_template["peer_sites"]:
-            peer_site = sites_n2id(peer_site, peer_site)
+            peer_site = sites_n2id.get(peer_site)
             peer_sites.append(peer_site)
         hubcluster_template["peer_sites"] = peer_sites
 
@@ -3260,6 +3277,25 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
     # Check for changes:
     hubcluster_change_check = copy.deepcopy(hubcluster_config)
     hubcluster_config.update(hubcluster_template)
+
+    # Check if this Hub Cluster needs to be set as Default.
+    if not hubcluster_change_check.get('default_cluster') and hubcluster_config.get('default_cluster'):
+        hubclusters_resp = sdk.get.hubclusters(site_id, api_version=version)
+        if hubclusters_resp.cgx_status:
+            hubclusters_config = hubclusters_resp.cgx_content
+        else:
+            throw_error("Unable to retrieve HubCluster: ", hubclusters_resp)
+
+        for hc in hubclusters_config.get("items"):
+            if hc.get('default_cluster'):
+                hc_id = hc.get('id')
+                output_message("Hub Cluster {0} will be unset as default cluster!".format(hc.get('name')))
+                hc['default_cluster'] = False
+                # Unset the existing default cluster
+                hc_resp = sdk.put.hubclusters(site_id, hc_id, hc, api_version=version)
+                if not hc_resp.cgx_status:
+                    throw_error("HubCluster update failed: ", hc_resp)
+
     if not force_update and hubcluster_config == hubcluster_change_check:
         # no change in config, pass.
         hubcluster_id = hubcluster_change_check.get('id')
@@ -7757,6 +7793,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # Handle Move peer sites accross clusters
             dict_peer_sites = {}
+
             for config_hubcluster_name, config_hubcluster_value in config_hubclusters.items():
                 # recombine object
                 config_hubcluster = recombine_named_key_value(config_hubcluster_name, config_hubcluster_value,
@@ -7765,7 +7802,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 hubcluster_id = hubclusters_n2id.get(config_hubcluster_name)
                 if hubcluster_id:
                     if config_hubcluster_value.get('peer_sites'):
-                        new_peer_sites = config_hubcluster_value.get('peer_sites')
+                        new_peer_sites_n = config_hubcluster_value.get('peer_sites')
+                        new_peer_sites = []
+                        for peer_site in new_peer_sites_n:
+                            peer_site = sites_n2id.get(peer_site)
+                            new_peer_sites.append(peer_site)
                     else:
                         new_peer_sites = []
                     hubcluster_data = sdk.get.hubclusters(site_id, hubcluster_id)
@@ -7794,10 +7835,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         dict_peer_sites[site]["add"] = hubcluster_id
                 else:
                     continue
-            #print("The Peer site dict is -----{}".format(dict_peer_sites))
 
             for peer_site, peer_site_operation_value in dict_peer_sites.items():
-
+                print("Move sites accross the hub clusters")
                 # Delete the peer site from the hub cluster
                 delete_from_hub_cluster = peer_site_operation_value.get('delete')
                 hubcluster_data = sdk.get.hubclusters(site_id, delete_from_hub_cluster)
