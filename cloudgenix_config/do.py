@@ -11195,14 +11195,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                             if service_bindings is not None:
                                 for item in service_bindings:
                                     service_endpoint_ids = item.get("service_endpoint_ids",[])
-                                    if service_ep_id in service_endpoint_ids:
-                                        service_endpoint_ids.remove(service_ep_id)
+                                    if service_endpoint_ids is not None:
+                                        if service_ep_id in service_endpoint_ids:
+                                            service_endpoint_ids.remove(service_ep_id)
 
-                                        item["service_endpoint_ids"] = service_endpoint_ids
-                                        sb["service_bindings"] = [item]
-                                        put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
-                                        if not put_sb_resp.cgx_status:
-                                            throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), put_sb_resp.cgx_content)
+                                            item["service_endpoint_ids"] = service_endpoint_ids
+                                            sb["service_bindings"] = [item]
+                                            put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
+                                            if not put_sb_resp.cgx_status:
+                                                throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), put_sb_resp.cgx_content)
 
                     del_sep_resp = sdk.delete.serviceendpoints(service_ep_id)
                     if not del_sep_resp.cgx_status:
