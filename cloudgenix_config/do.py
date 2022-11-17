@@ -1530,7 +1530,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     return
 
 
-def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, version=None):
+def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, hubclusters_n2id, version=None):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
     :param matching_element: Element object (containing ID) to work on
@@ -1609,6 +1609,9 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     # Update element template with config changes from cleaned copy
     elem_template.update(config_element_copy)
 
+    if elem_template.get('cluster_id'):
+        elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'])
+
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
     if not force_update and elem_template == element_change_check:
         # no change in config, pass.
@@ -1638,7 +1641,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     return
 
 
-def assign_modify_element(matching_element, site_id, config_element, version=None):
+def assign_modify_element(matching_element, site_id, config_element, hubclusters_n2id, version=None):
     """
     Assign or Modify element object
     :param matching_element: Element API response
@@ -1690,6 +1693,21 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
 
             # Update element template with config changes from cleaned copy
             elem_template.update(config_element_copy)
+
+            if elem_template.get('cluster_id'):
+                elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'], elem_template['cluster_id'])
+
+                if element_change_check.get('cluster_id') and elem_template['cluster_id'] != element_change_check['cluster_id'] :
+                    output_message("Resetting the cluster id for the element {0}.".format(element_name))
+                    elem_template['cluster_id'] = None
+                    elem_template['sw_obj'] = None
+                    elem_template['site_id'] = 1
+                    elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+                    if not elem_update_resp.cgx_status:
+                        throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                                    elem_update_resp)
+
+                    return "assign_cluster"
 
             # Check for changes in cleaned config copy and cleaned template (will not detect spoke HA changes here):
             if not force_update and elem_template == element_change_check:
@@ -1753,6 +1771,9 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
         # Add missing elem attributes
         elem_template['sw_obj'] = None
         elem_template['site_id'] = site_id
+
+        if elem_template.get('cluster_id'):
+            elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'], elem_template['cluster_id'])
 
         # Ensure spoke HA config is blank for Element assignment:
         elem_template['spoke_ha_config'] = None
@@ -1890,7 +1911,7 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
             matching_element = {"id": element_item_id}
 
             # use the temp fake element to flush the Spoke HA configuration prior to unbind.
-            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, version=version)
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, {}, version=version)
 
             # refresh the element
             element_resp = sdk.get.elements(element_item_id)
@@ -3202,6 +3223,13 @@ def create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=None
 
     local_debug("HubCluster TEMPLATE: " + str(json.dumps(hubcluster_template, indent=4)))
 
+    if hubcluster_template.get("peer_sites"):
+        peer_sites = []
+        for peer_site in hubcluster_template["peer_sites"]:
+            peer_site = sites_n2id.get(peer_site, peer_site)
+            peer_sites.append(peer_site)
+        hubcluster_template["peer_sites"] = peer_sites
+
     if hubcluster_template.get('default_cluster'):
         hubclusters_resp = sdk.get.hubclusters(site_id, api_version=version)
         if hubclusters_resp.cgx_status:
@@ -3219,6 +3247,12 @@ def create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=None
                 if not hc_resp.cgx_status:
                     throw_error("HubCluster update failed: ", hc_resp)
 
+    elements = []
+    if hubcluster_template.get('elements'):
+        for element in hubcluster_template['elements']:
+            elements.append(element)
+        del hubcluster_template['elements']
+
     # create hubcluster
     hubcluster_resp = sdk.post.hubclusters(site_id, hubcluster_template, api_version=version)
 
@@ -3233,6 +3267,12 @@ def create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=None
                                                                                                hubcluster_id))
 
     output_message(" Created HubCluster {0}.".format(hubcluster_name))
+
+    # if elements:
+    #     output_message(" Assigning the devices to the Hub Cluster {0}.".format(hubcluster_name))
+    #     hubcluster_config = hubcluster_resp.cgx_content
+    #     hubcluster_config['elements'] = elements
+    #     hubcluster_id = modify_hubcluster(hubcluster_config, hubcluster_id, hubclusters_n2id, site_id, version=version)
 
     # update caches
     hubclusters_n2id[hubcluster_name] = hubcluster_id
@@ -3267,9 +3307,18 @@ def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_i
     if hubcluster_template.get("peer_sites"):
         peer_sites = []
         for peer_site in hubcluster_template["peer_sites"]:
-            peer_site = sites_n2id.get(peer_site)
+            peer_site = sites_n2id.get(peer_site, peer_site)
             peer_sites.append(peer_site)
         hubcluster_template["peer_sites"] = peer_sites
+
+    if hubcluster_template.get('elements'):
+        elements = []
+        for element in hubcluster_template['elements']:
+            hub_element_id = element.get('hub_element_id')
+            hub_element_id = elements_n2id.get(hub_element_id, hub_element_id)
+            element['hub_element_id'] = hub_element_id
+            elements.append(element)
+        hubcluster_template['elements'] = elements
 
     # extract prev_revision
     prev_revision = hubcluster_config.get("_etag")
@@ -7836,8 +7885,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 else:
                     continue
 
+            #print("The peer sites dict is -- {}".format(dict_peer_sites))
             for peer_site, peer_site_operation_value in dict_peer_sites.items():
-                print("Move sites accross the hub clusters")
+                output_message("Move sites accross the hub clusters")
                 # Delete the peer site from the hub cluster
                 delete_from_hub_cluster = peer_site_operation_value.get('delete')
                 hubcluster_data = sdk.get.hubclusters(site_id, delete_from_hub_cluster)
@@ -8289,12 +8339,24 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if matching_element["site_id"] in ["1", 1]:
                     assign_element_flag = True
 
-                assign_modify_element(matching_element, site_id, config_element, version=elements_version)
+                return_str = assign_modify_element(matching_element, site_id, config_element, hubclusters_n2id, version=elements_version)
+
+                if return_str == "assign_cluster":
+                    # wait for element assignment. Update element record in case etag changes.
+                    new_matching_element = wait_for_element_state(matching_element, ['ready'],
+                                                              wait_verify_success=timeout_state,
+                                                              wait_interval=interval_timeout)
+                    matching_element['_etag'] = new_matching_element.get('_etag')
+                    matching_element['site_id'] = new_matching_element.get('site_id')
+
+                    assign_modify_element(matching_element, site_id, config_element, hubclusters_n2id,
+                                          version=elements_version)
 
                 # wait for element assignment. Update element record in case etag changes.
                 matching_element = wait_for_element_state(matching_element, ['bound'],
                                                           wait_verify_success=timeout_state,
                                                           wait_interval=interval_timeout)
+
 
                 #
                 # Add a delay post element assignment
@@ -8780,7 +8842,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # This will ensure any unused interfaces can be reused or reconfigured
 
                 handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
-                                        version=elements_version)
+                                        hubclusters_n2id, version=elements_version)
 
                 # START SERVICELINK
 
@@ -10049,7 +10111,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # a second element operation AFTER the interfaces are enumerated and at the correct state (here).
 
                 # assign and configure element
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, version=elements_version)
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, hubclusters_n2id, version=elements_version)
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
