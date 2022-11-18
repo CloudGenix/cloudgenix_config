@@ -817,12 +817,22 @@ def _pull_config_for_single_site(site_name_id):
                                                                               site_id))
         # update id name cache in case name changed.
         id_name_cache[hubcluster['id']] = checked_hubcluster_name
+
         if hubcluster_template.get("peer_sites"):
             peer_sites = []
             for peer_site in hubcluster_template["peer_sites"]:
                 peer_site = id_name_cache.get(peer_site, peer_site)
                 peer_sites.append(peer_site)
             hubcluster_template["peer_sites"] = peer_sites
+
+        if hubcluster_template.get('elements'):
+            elements = []
+            for element in hubcluster_template['elements']:
+                hub_element_id = element.get('hub_element_id')
+                element['hub_element_id'] = id_name_cache.get(hub_element_id, hub_element_id)
+                elements.append(element)
+            hubcluster_template['elements'] = elements
+
         site[HUBCLUSTER_CONFIG_STR][checked_hubcluster_name] = hubcluster_template
     delete_if_empty(site, HUBCLUSTER_CONFIG_STR)
 
@@ -977,6 +987,9 @@ def _pull_config_for_single_site(site_name_id):
     for element in ELEMENTS:
         if element['site_id'] != site['id']:
             continue
+
+        if element.get('cluster_id'):
+            element['cluster_id'] = id_name_cache.get(element['cluster_id'])
 
         # Get cellular_modules
         element[ELEMENT_CELLULAR_MODULES_STR] = {}
