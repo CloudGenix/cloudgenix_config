@@ -7577,6 +7577,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
         # -- Start Sites - Iterate loop
         for config_site_name, config_site_value in config_sites.items():
             # recombine site object
+            new_site_id = None
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
@@ -7640,6 +7641,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             else:
                 # Site does not exist, create.
                 site_id = create_site(config_site, version=sites_version)
+                new_site_id = site_id
             # -- End Sites
 
             # -- Start WAN Interfaces
@@ -7838,6 +7840,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # -- Start HubClusters
             hubclusters_resp = sdk.get.hubclusters(site_id)
             hubclusters_cache, leftover_hubclusters = extract_items(hubclusters_resp, 'hubclusters')
+
+            # CGCBL-1539 - Handle the default cluster deletion during new site creation.
+            #output_message("The new site id and existing site id is - {0} {1}".format(site_id, new_site_id))
+            if new_site_id == site_id:
+                leftover_hubclusters = []
+
             hubclusters_n2id = build_lookup_dict(hubclusters_cache)
 
             # Handle Move peer sites accross clusters
