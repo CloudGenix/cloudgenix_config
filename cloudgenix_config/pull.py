@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.7.0b3
+**Version:** 1.8.0b1
 
 **Author:** CloudGenix
 
@@ -165,6 +165,7 @@ MULTICASTRPS_STR = "multicastrps"
 CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
 ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
 ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
+RADII_STR = "radii"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 
 # Global Config Cache holders
@@ -201,6 +202,7 @@ ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
+radii_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -310,6 +312,8 @@ def update_global_cache():
     global ipfixglobalprefix_cache
     global apnprofiles_cache
     global multicastpeergroups_cache
+    global radii_cache
+
 
     global id_name_cache
     global wannetworks_id2type
@@ -545,6 +549,9 @@ def update_global_cache():
     # multicastpeergroups name
     id_name_cache.update(build_lookup_dict(multicastpeergroups_cache, key_val='id', value_val='name'))
 
+    # radii name
+    id_name_cache.update(build_lookup_dict(radii_cache, key_val='id', value_val='name'))
+
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
     wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
@@ -607,6 +614,7 @@ def build_version_strings():
     global CELLULAR_MODULES_SIM_SECURITY_STR
     global ELEMENT_CELLULAR_MODULES_STR
     global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
+    global RADII_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -646,6 +654,7 @@ def build_version_strings():
         CELLULAR_MODULES_SIM_SECURITY_STR = add_version_to_object(sdk.get.cellular_modules_sim_security, "cellular_modules_sim_security")
         ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
         ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
+        RADII_STR = add_version_to_object(sdk.get.radii, "radii")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -1077,6 +1086,15 @@ def _pull_config_for_single_site(site_name_id):
             elif if_type in ['loopback']:
                 interface_template['site_wan_interface_ids'] = None
 
+            if if_type in ["cellular"]:
+                if not interface_template.get("ipv6_config"):
+                    interface_template["ipv6_config"] = {}
+                    interface_template["ipv6_config"]["type"] = "negotiated"
+                    interface_template["ipv6_config"]["static_config"] = None
+                    interface_template["ipv6_config"]["dhcp_config"] = None
+                    interface_template["ipv6_config"]["dns_v6_config"] = None
+                    interface_template["ipv6_config"]["routes"] = None
+
             att_ln_list = interface.get('attached_lan_networks', None)
             if att_ln_list and isinstance(att_ln_list, list):
                 att_ln_template = []
@@ -1404,6 +1422,23 @@ def _pull_config_for_single_site(site_name_id):
             # names used, but config doesn't index by name for this value currently.
             element[MULTICASTRPS_STR].append(multicastrp_template)
         delete_if_empty(element, MULTICASTRPS_STR)
+
+        # Get radii
+        element[RADII_STR] = {}
+        response = sdk.get.radii(element['id'])
+        if not response.cgx_status:
+            throw_error("Radii AAA get failed: ", response)
+        radii_items = response.cgx_content['items']
+        for radii in radii_items:
+            radii_template = copy.deepcopy(radii)
+            if radii_template.get("source_interface_id"):
+                source_interface_id = radii_template.get("source_interface_id")
+                radii_template["source_interface_id"] = id_name_cache.get(source_interface_id, source_interface_id)
+            strip_meta_attributes(radii_template)
+            element[RADII_STR][radii.get("name")] = (radii_template)
+
+        delete_if_empty(element, RADII_STR)
+
 
         # Get syslog
         element[SYSLOG_STR] = []
@@ -1753,7 +1788,7 @@ def _pull_config_for_single_site(site_name_id):
 
 def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None, passed_report_id=None,
                       passed_strip_versions=None, passed_force_parents=None, no_header=None, return_result=False,
-                      normalize=False):
+                      normalize=False, reset_duplicate=True):
     """
     Main configuration pull function
     :param sites: Comma seperated list of site names or IDs, or "ALL_SITES" text.
@@ -1776,6 +1811,10 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     global STRIP_VERSIONS
     global FORCE_PARENTS
     global sdk
+
+    if reset_duplicate:
+        global dup_name_dict_sites
+        dup_name_dict_sites = {}
 
     # check passed vars
     if passed_sdk is not None:

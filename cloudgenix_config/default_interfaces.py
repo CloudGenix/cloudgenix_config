@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT default device port configurations
 
-**Version:** 1.7.0b3
+**Version:** 1.8.0b1
 
 **Author:** CloudGenix
 
@@ -2273,7 +2273,750 @@ ion_1200 = """
           scope: local
           tags: null
 """
-
+ion_1200s = """
+        '1':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+            dhcp_config:
+            dns_v4_config:
+            routes:
+            static_config:
+            type: dhcp
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: port
+          used_for: public
+          vlan_config:
+        '2':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+            dhcp_config:
+            dns_v4_config:
+            routes:
+            static_config:
+            type: dhcp
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: port
+          used_for: public
+          vlan_config:
+        '3':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: port
+          used_for: none
+          vlan_config:
+        '4':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+            dhcp_config:
+            dns_v4_config:
+            routes:
+            static_config:
+            type: dhcp
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+            dr_priority: 1
+            igmp_static_joins:
+            igmp_version: IGMPV3
+            multicast_enabled: false
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: port
+          used_for: public
+          vlan_config:
+        '5':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+            mode: none
+            reauthentication_timeout: 1800
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+            access_vlan_id:
+            bpdu_guard_enabled: false
+            forward_fast_enabled: true
+            native_vlan_id:
+            root_guard_enabled: false
+            storm_control_config:
+              broadcast_threshold: 1000
+              multicast_threshold:
+              unicast_threshold:
+            stp_port_cost: 4
+            stp_port_enabled: true
+            stp_port_priority: 128
+            trunk_vlans:
+            vlan_mode: access
+            voice_vlan_id:
+          tags:
+          type: switch_port
+          used_for: switch-access
+          vlan_config:
+        '6':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+            mode: none
+            reauthentication_timeout: 1800
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+            access_vlan_id:
+            bpdu_guard_enabled: false
+            forward_fast_enabled: true
+            native_vlan_id:
+            root_guard_enabled: false
+            storm_control_config:
+              broadcast_threshold: 1000
+              multicast_threshold:
+              unicast_threshold:
+            stp_port_cost: 4
+            stp_port_enabled: true
+            stp_port_priority: 128
+            trunk_vlans:
+            vlan_mode: access
+            voice_vlan_id:
+          tags:
+          type: switch_port
+          used_for: switch-access
+          vlan_config:
+        '7':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+            mode: none
+            reauthentication_timeout: 1800
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: true
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: true
+          power_usage_threshold: 100
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+            access_vlan_id:
+            bpdu_guard_enabled: false
+            forward_fast_enabled: true
+            native_vlan_id:
+            root_guard_enabled: false
+            storm_control_config:
+              broadcast_threshold: 1000
+              multicast_threshold:
+              unicast_threshold:
+            stp_port_cost: 4
+            stp_port_enabled: true
+            stp_port_priority: 128
+            trunk_vlans:
+            vlan_mode: access
+            voice_vlan_id:
+          tags:
+          type: switch_port
+          used_for: switch-access
+          vlan_config:
+        '8':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+            mode: none
+            reauthentication_timeout: 1800
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: true
+          mac_address:
+          mtu: 1500
+          multicast_config:
+            dr_priority: 1
+            igmp_static_joins:
+            igmp_version: IGMPV3
+            multicast_enabled: false
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: true
+          power_usage_threshold: 100
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+            access_vlan_id:
+            bpdu_guard_enabled: false
+            forward_fast_enabled: true
+            native_vlan_id:
+            root_guard_enabled: false
+            storm_control_config:
+              broadcast_threshold: 1000
+              multicast_threshold:
+              unicast_threshold:
+            stp_port_cost: 4
+            stp_port_enabled: true
+            stp_port_priority: 128
+            trunk_vlans:
+            vlan_mode: access
+            voice_vlan_id:
+          tags:
+          type: switch_port
+          used_for: switch-access
+          vlan_config:
+        '9':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+            mode: none
+            reauthentication_timeout: 1800
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: true
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: true
+          power_usage_threshold: 100
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+            access_vlan_id:
+            bpdu_guard_enabled: false
+            forward_fast_enabled: true
+            native_vlan_id:
+            root_guard_enabled: false
+            storm_control_config:
+              broadcast_threshold: 1000
+              multicast_threshold:
+              unicast_threshold:
+            stp_port_cost: 4
+            stp_port_enabled: true
+            stp_port_priority: 128
+            trunk_vlans:
+            vlan_mode: access
+            voice_vlan_id:
+          tags:
+          type: switch_port
+          used_for: switch-access
+          vlan_config:
+        '10':
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+            mode: none
+            reauthentication_timeout: 1800
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: true
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: true
+          power_usage_threshold: 100
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+            access_vlan_id:
+            bpdu_guard_enabled: false
+            forward_fast_enabled: true
+            native_vlan_id:
+            root_guard_enabled: false
+            storm_control_config:
+              broadcast_threshold: 1000
+              multicast_threshold:
+              unicast_threshold:
+            stp_port_cost: 4
+            stp_port_enabled: true
+            stp_port_priority: 128
+            trunk_vlans:
+            vlan_mode: access
+            voice_vlan_id:
+          tags:
+          type: switch_port
+          used_for: switch-access
+          vlan_config:
+        cellular1:
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+            apn_config:
+            apnprofile_id:
+            auto_apn: true
+            parent_module_id: cwan1
+            parent_sim_slot_number: 1
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+            dhcp_config:
+            dns_v4_config:
+            routes:
+            static_config:
+            type: negotiated
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1428
+          multicast_config:
+            dr_priority: 1
+            igmp_static_joins:
+            igmp_version: IGMPV3
+            multicast_enabled: false
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id: internet
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: cellular
+          used_for: public
+          vlan_config:
+        cellular2:
+          admin_up: true
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+            apn_config:
+              apn:
+              authentication: none
+              clear_password: true
+              password:
+              user_name:
+            apnprofile_id:
+            auto_apn: true
+            parent_module_id: cwan1
+            parent_sim_slot_number: 2
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+            dhcp_config:
+            dns_v4_config:
+            routes:
+            static_config:
+            type: negotiated
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1428
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: cellular
+          used_for: public
+          vlan_config:
+        vlan1:
+          admin_up: false
+          attached_lan_networks:
+          authentication_config:
+          bound_interfaces:
+          bypass_pair:
+          cellular_config:
+          description: ''
+          devicemgmt_policysetstack_id:
+          dhcp_relay:
+          directed_broadcast: false
+          ethernet_port:
+            full_duplex: false
+            speed: 0
+          interface_profile_id:
+          ipfixcollectorcontext_id:
+          ipfixfiltercontext_id:
+          ipv4_config:
+          ipv6_config:
+          lldp_enabled: false
+          mac_address:
+          mtu: 1500
+          multicast_config:
+          nat_address:
+          nat_address_v6:
+          nat_pools:
+          nat_port: 0
+          nat_port_v6: 0
+          nat_zone_id:
+          network_context_id:
+          parent:
+          poe_enabled: false
+          power_usage_threshold: 0
+          pppoe_config:
+          scope: local
+          secondary_ip_configs:
+          service_link_config:
+          site_wan_interface_ids:
+          static_arp_configs:
+          sub_interface:
+          switch_port_config:
+          tags:
+          type: vlan
+          used_for: lan
+          vlan_config:
+            mstp_instance: 0
+            vlan_id: 1
+            voice_enabled: false
+"""
 ion_3104v = ion_3102v
 ion_3108v = ion_3102v
 ion_7108v = ion_3102v
@@ -2282,4 +3025,6 @@ ion_7132v = ion_3102v
 ion_1200_c_row = ion_1200
 ion_1200_c_na = ion_1200
 ion_1200_c5g_ww = ion_1200
+ion_1200_s_c5g_ww = ion_1200s
+ion_1200_s_c_na = ion_1200s
 
