@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.8.0b1
+**Version:** 1.9.0b1
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "1.8.0b1"
+__version__ = "1.9.0b1"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"

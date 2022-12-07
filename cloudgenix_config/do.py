@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.8.0b1
+**Version:** 1.9.0b1
 
 **Author:** CloudGenix
 
@@ -1633,10 +1633,35 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
 
     local_debug("ELEM_SPOKEHA_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-    elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+    # Fetch the current etag.
+    elem_update_wait = 0
+    while elem_update_wait <= 600:
+        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
-    if not elem_update_resp.cgx_status:
-        throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text), elem_update_resp)
+        if not elem_update_resp.cgx_status:
+            error = elem_update_resp.cgx_content.get('_error', None)
+            # Check for the error code. If the error is etag mismatch try to get the updated etag.
+            if error:
+                if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                    output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                        element_descriptive_text))
+                    time.sleep(10)
+                    elem_update_wait += 10
+                    elem_resp = sdk.get.elements(element_id, api_version=version)
+                    if elem_resp.cgx_status:
+                        elem_config = elem_resp.cgx_content
+                    else:
+                        throw_error("Unable to retrieve Element: ", elem_resp)
+
+                    # extract Updated version
+                    updated_revision = elem_config.get("_etag")
+                    elem_template['_etag'] = updated_revision
+                    continue
+
+            throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text),
+                        elem_update_resp)
+        else:
+            break
 
     return
 
@@ -1702,10 +1727,37 @@ def assign_modify_element(matching_element, site_id, config_element, hubclusters
                     elem_template['cluster_id'] = None
                     elem_template['sw_obj'] = None
                     elem_template['site_id'] = 1
-                    elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
-                    if not elem_update_resp.cgx_status:
-                        throw_error("Element {0} Update failed: ".format(element_descriptive_text),
-                                    elem_update_resp)
+
+                    # Fetch the current etag.
+                    elem_update_wait = 0
+
+                    while elem_update_wait <= 600:
+                        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+
+                        if not elem_update_resp.cgx_status:
+                            error = elem_update_resp.cgx_content.get('_error', None)
+                            # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                            if error:
+                                if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                                    output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                                            element_descriptive_text))
+                                    time.sleep(10)
+                                    elem_update_wait += 10
+                                    elem_resp = sdk.get.elements(element_id, api_version=version)
+                                    if elem_resp.cgx_status:
+                                        elem_config = elem_resp.cgx_content
+                                    else:
+                                        throw_error("Unable to retrieve Element: ", elem_resp)
+
+                                    # extract Updated version
+                                    updated_revision = elem_config.get("_etag")
+                                    elem_template['_etag'] = updated_revision
+                                    continue
+
+                            throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                                        elem_update_resp)
+                        else:
+                            break
 
                     return "assign_cluster"
 
@@ -1732,11 +1784,35 @@ def assign_modify_element(matching_element, site_id, config_element, hubclusters
 
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-            elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+            # Fetch the current etag.
+            elem_update_wait = 0
+            while elem_update_wait <= 600:
+                elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
-            if not elem_update_resp.cgx_status:
-                throw_error("Element {0} Update failed: ".format(element_descriptive_text),
-                            elem_update_resp)
+                if not elem_update_resp.cgx_status:
+                    error = elem_update_resp.cgx_content.get('_error', None)
+                    # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                    if error:
+                        if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                            output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                                element_descriptive_text))
+                            time.sleep(10)
+                            elem_update_wait += 10
+                            elem_resp = sdk.get.elements(element_id, api_version=version)
+                            if elem_resp.cgx_status:
+                                elem_config = elem_resp.cgx_content
+                            else:
+                                throw_error("Unable to retrieve Element: ", elem_resp)
+
+                            # extract Updated version
+                            updated_revision = elem_config.get("_etag")
+                            elem_template['_etag'] = updated_revision
+                            continue
+
+                    throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                                elem_update_resp)
+                else:
+                    break
 
             return
 
@@ -1780,12 +1856,35 @@ def assign_modify_element(matching_element, site_id, config_element, hubclusters
 
         local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+        # Fetch the current etag.
+        elem_update_wait = 0
+        while elem_update_wait <= 600:
+            elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
-        if not elem_update_resp.cgx_status:
-            throw_error("Element {0} Assign failed: ".format(element_descriptive_text),
-                        elem_update_resp)
+            if not elem_update_resp.cgx_status:
+                error = elem_update_resp.cgx_content.get('_error', None)
+                # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                if error:
+                    if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                        output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                            element_descriptive_text))
+                        time.sleep(10)
+                        elem_update_wait += 10
+                        elem_resp = sdk.get.elements(element_id, api_version=version)
+                        if elem_resp.cgx_status:
+                            elem_config = elem_resp.cgx_content
+                        else:
+                            throw_error("Unable to retrieve Element: ", elem_resp)
 
+                        # extract Updated version
+                        updated_revision = elem_config.get("_etag")
+                        elem_template['_etag'] = updated_revision
+                        continue
+
+                throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                            elem_update_resp)
+            else:
+                break
     return
 
 
@@ -1936,14 +2035,41 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
             # Wipe them out. All of them..
-            elem_resp = sdk.put.elements(element_item_id, elem_template, api_version=version)
-            if not elem_resp.cgx_status:
-                if declaim:
-                    # element may be stuck offline, and we are going to do a declaim.
-                    output_message(" Could not unbind Element {0}, proceeding to declaim. "
-                                   "".format(element_item_descriptive_text))
+
+            # Fetch the current etag.
+            elem_update_wait = 0
+            while elem_update_wait <= 600:
+                elem_update_resp = sdk.put.elements(element_item_id, elem_template, api_version=version)
+
+                if not elem_update_resp.cgx_status:
+                    error = elem_update_resp.cgx_content.get('_error', None)
+                    # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                    if error:
+                        if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                            output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                                element_item_descriptive_text))
+                            time.sleep(10)
+                            elem_update_wait += 10
+                            elem_resp = sdk.get.elements(element_item_id, api_version=version)
+                            if elem_resp.cgx_status:
+                                elem_config = elem_resp.cgx_content
+                            else:
+                                throw_error("Unable to retrieve Element: ", elem_resp)
+
+                            # extract Updated version
+                            updated_revision = elem_config.get("_etag")
+                            elem_template['_etag'] = updated_revision
+                            continue
+
+                    if declaim:
+                        # element may be stuck offline, and we are going to do a declaim.
+                        output_message(" Could not unbind Element {0}, proceeding to declaim. "
+                                       "".format(element_item_descriptive_text))
+                    else:
+                        throw_error("Could not unbind Element {0}: ".format(element_item_descriptive_text), elem_resp)
                 else:
-                    throw_error("Could not unbind Element {0}: ".format(element_item_descriptive_text), elem_resp)
+                    break
+
             if declaim:
                 # Declaim is set. Fire a declaim at this point as well. (really wipe this guy out.)
                 declaim_data = {
