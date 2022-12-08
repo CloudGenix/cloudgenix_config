@@ -14,7 +14,7 @@ setup(name='cloudgenix_config',
       author_email='developers@cloudgenix.com',
       license='MIT',
       install_requires=[
-            'cloudgenix >= 6.0.1b1, < 6.0.2b1',
+            'cloudgenix >= 6.1.1b1, < 6.1.2b1',
             'PyYAML >= 5.3'
       ],
       packages=['cloudgenix_config'],
