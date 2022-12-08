@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.7.0b3
+**Version:** 1.9.0b1
 
 **Author:** CloudGenix
 
@@ -150,7 +150,7 @@ element_put_items = [
     "_etag",
     "_schema",
     "cluster_insertion_mode",
-    "cluster_member_id",
+    "cluster_id",
     "description",
     "id",
     "l3_direct_private_wan_forwarding",
@@ -163,7 +163,11 @@ element_put_items = [
     "spoke_ha_config",
     "sw_obj",
     "tags",
-    "vpn_to_vpn_forwarding"
+    "vpn_to_vpn_forwarding",
+    "switch_config",
+    "device_profile_id",
+    "main_power_usage_threshold",
+    "led_config"
 ]
 
 createable_interface_types = [
@@ -172,7 +176,8 @@ createable_interface_types = [
     'loopback',
     'service_link',
     'bypasspair',
-    'virtual_interface'
+    'virtual_interface',
+    'vlan'
 ]
 
 bypasspair_child_names = [
@@ -215,7 +220,8 @@ upgrade_path_regex = {
     "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
     "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
     "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
-    "5\.6\..*" : ["6.0..*"]
+    "5\.6\..*" : ["6.0..*", "6.1..*"],
+    "6\.0\..*" : ["6.1..*"],
 }
 
 downgrade_path_regex = {
@@ -227,7 +233,8 @@ downgrade_path_regex = {
     "5\.4\..*" : ["5.2..*", "5.3..*"], ### 5.4 to 5.2.7 # Fix for CGCBL-566
     "5\.5\..*" : ["5.2..*", "5.3..*", "5.4..*"], ### 5.5 to 5.2.7
     "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
-    "6\.0\..*" : ["5.5..*", "5.6..*"]
+    "6\.0\..*" : ["5.5..*", "5.6..*"],
+    "6\.1\..*" : ["5.6..*", "6.0..*"],
 }
 
 # Global Config Cache holders
@@ -264,6 +271,9 @@ ipfixlocalprefix_cache = []
 ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
+radii_cache = []
+multicastsourcesiteconfigs_cache = []
+hubclusters_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -299,6 +309,7 @@ ipfixlocalprefix_n2id = {}
 ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
 multicastpeergroups_n2id = {}
+radii_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -473,6 +484,9 @@ def update_global_cache():
     global ipfixglobalprefix_cache
     global apnprofiles_cache
     global multicastpeergroups_cache
+    global radii_cache
+    global multicastsourcesiteconfigs_cache
+    global hubclusters_cache
 
     global sites_n2id
     global elements_n2id
@@ -507,6 +521,7 @@ def update_global_cache():
     global ipfixglobalprefix_n2id
     global apnprofiles_n2id
     global multicastpeergroups_n2id
+    global radii_n2id
 
     global elements_byserial
     global machines_byserial
@@ -880,9 +895,14 @@ def parse_site_config(config_site):
                                                                 sdk.put.site_natlocalprefixes, default=[])
     config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
                                                                 sdk.put.site_ipfixlocalprefixes, default=[])
+    config_multicastsourcesiteconfigs, _ = config_lower_version_get(config_site, 'multicastsourcesiteconfigs',
+                                                                sdk.put.multicastsourcesiteconfigs, default=[])
+    config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
+                                                                    sdk.put.hubclusters, default={})
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
+        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters
 
 
 def parse_element_config(config_element):
@@ -914,11 +934,13 @@ def parse_element_config(config_element):
                                                                        'cellular_modules_sim_security',
                                                                        sdk.put.cellular_modules_sim_security,
                                                                        default={})
+    config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
+
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
         config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
-        config_cellular_modules_sim_security
+        config_cellular_modules_sim_security, config_radii
 
 
 def parse_routing_config(config_routing):
@@ -1508,7 +1530,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     return
 
 
-def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, version=None):
+def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, hubclusters_n2id, version=None):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
     :param matching_element: Element object (containing ID) to work on
@@ -1587,6 +1609,9 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
     # Update element template with config changes from cleaned copy
     elem_template.update(config_element_copy)
 
+    if elem_template.get('cluster_id'):
+        elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'])
+
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
     if not force_update and elem_template == element_change_check:
         # no change in config, pass.
@@ -1608,15 +1633,40 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
 
     local_debug("ELEM_SPOKEHA_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-    elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+    # Fetch the current etag.
+    elem_update_wait = 0
+    while elem_update_wait <= 600:
+        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
-    if not elem_update_resp.cgx_status:
-        throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text), elem_update_resp)
+        if not elem_update_resp.cgx_status:
+            error = elem_update_resp.cgx_content.get('_error', None)
+            # Check for the error code. If the error is etag mismatch try to get the updated etag.
+            if error:
+                if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                    output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                        element_descriptive_text))
+                    time.sleep(10)
+                    elem_update_wait += 10
+                    elem_resp = sdk.get.elements(element_id, api_version=version)
+                    if elem_resp.cgx_status:
+                        elem_config = elem_resp.cgx_content
+                    else:
+                        throw_error("Unable to retrieve Element: ", elem_resp)
+
+                    # extract Updated version
+                    updated_revision = elem_config.get("_etag")
+                    elem_template['_etag'] = updated_revision
+                    continue
+
+            throw_error("Element {0} Spoke HA Update failed: ".format(element_descriptive_text),
+                        elem_update_resp)
+        else:
+            break
 
     return
 
 
-def assign_modify_element(matching_element, site_id, config_element, version=None):
+def assign_modify_element(matching_element, site_id, config_element, hubclusters_n2id, version=None):
     """
     Assign or Modify element object
     :param matching_element: Element API response
@@ -1669,6 +1719,48 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
             # Update element template with config changes from cleaned copy
             elem_template.update(config_element_copy)
 
+            if elem_template.get('cluster_id'):
+                elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'], elem_template['cluster_id'])
+
+                if element_change_check.get('cluster_id') and elem_template['cluster_id'] != element_change_check['cluster_id'] :
+                    output_message("Resetting the cluster id for the element {0}.".format(element_name))
+                    elem_template['cluster_id'] = None
+                    elem_template['sw_obj'] = None
+                    elem_template['site_id'] = 1
+
+                    # Fetch the current etag.
+                    elem_update_wait = 0
+
+                    while elem_update_wait <= 600:
+                        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+
+                        if not elem_update_resp.cgx_status:
+                            error = elem_update_resp.cgx_content.get('_error', None)
+                            # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                            if error:
+                                if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                                    output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                                            element_descriptive_text))
+                                    time.sleep(10)
+                                    elem_update_wait += 10
+                                    elem_resp = sdk.get.elements(element_id, api_version=version)
+                                    if elem_resp.cgx_status:
+                                        elem_config = elem_resp.cgx_content
+                                    else:
+                                        throw_error("Unable to retrieve Element: ", elem_resp)
+
+                                    # extract Updated version
+                                    updated_revision = elem_config.get("_etag")
+                                    elem_template['_etag'] = updated_revision
+                                    continue
+
+                            throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                                        elem_update_resp)
+                        else:
+                            break
+
+                    return "assign_cluster"
+
             # Check for changes in cleaned config copy and cleaned template (will not detect spoke HA changes here):
             if not force_update and elem_template == element_change_check:
                 # no change in config, pass.
@@ -1679,6 +1771,7 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
             if debuglevel >= 3:
                 local_debug("ELEMENT DIFF: {0}".format(find_diff(element_change_check, elem_template)))
 
+            #print("ELEMENT DIFF: {0}".format(find_diff(element_change_check, elem_template)))
             output_message("  Updating Element {0}.".format(element_descriptive_text))
 
             # clean up element template.
@@ -1691,11 +1784,35 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
 
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-            elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+            # Fetch the current etag.
+            elem_update_wait = 0
+            while elem_update_wait <= 600:
+                elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
-            if not elem_update_resp.cgx_status:
-                throw_error("Element {0} Update failed: ".format(element_descriptive_text),
-                            elem_update_resp)
+                if not elem_update_resp.cgx_status:
+                    error = elem_update_resp.cgx_content.get('_error', None)
+                    # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                    if error:
+                        if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                            output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                                element_descriptive_text))
+                            time.sleep(10)
+                            elem_update_wait += 10
+                            elem_resp = sdk.get.elements(element_id, api_version=version)
+                            if elem_resp.cgx_status:
+                                elem_config = elem_resp.cgx_content
+                            else:
+                                throw_error("Unable to retrieve Element: ", elem_resp)
+
+                            # extract Updated version
+                            updated_revision = elem_config.get("_etag")
+                            elem_template['_etag'] = updated_revision
+                            continue
+
+                    throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                                elem_update_resp)
+                else:
+                    break
 
             return
 
@@ -1731,17 +1848,43 @@ def assign_modify_element(matching_element, site_id, config_element, version=Non
         elem_template['sw_obj'] = None
         elem_template['site_id'] = site_id
 
+        if elem_template.get('cluster_id'):
+            elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'], elem_template['cluster_id'])
+
         # Ensure spoke HA config is blank for Element assignment:
         elem_template['spoke_ha_config'] = None
 
         local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
-        elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
+        # Fetch the current etag.
+        elem_update_wait = 0
+        while elem_update_wait <= 600:
+            elem_update_resp = sdk.put.elements(element_id, elem_template, api_version=version)
 
-        if not elem_update_resp.cgx_status:
-            throw_error("Element {0} Assign failed: ".format(element_descriptive_text),
-                        elem_update_resp)
+            if not elem_update_resp.cgx_status:
+                error = elem_update_resp.cgx_content.get('_error', None)
+                # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                if error:
+                    if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                        output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                            element_descriptive_text))
+                        time.sleep(10)
+                        elem_update_wait += 10
+                        elem_resp = sdk.get.elements(element_id, api_version=version)
+                        if elem_resp.cgx_status:
+                            elem_config = elem_resp.cgx_content
+                        else:
+                            throw_error("Unable to retrieve Element: ", elem_resp)
 
+                        # extract Updated version
+                        updated_revision = elem_config.get("_etag")
+                        elem_template['_etag'] = updated_revision
+                        continue
+
+                throw_error("Element {0} Update failed: ".format(element_descriptive_text),
+                            elem_update_resp)
+            else:
+                break
     return
 
 
@@ -1867,7 +2010,7 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
             matching_element = {"id": element_item_id}
 
             # use the temp fake element to flush the Spoke HA configuration prior to unbind.
-            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, version=version)
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, {}, version=version)
 
             # refresh the element
             element_resp = sdk.get.elements(element_item_id)
@@ -1892,14 +2035,41 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
             local_debug("ELEM_TEMPLATE_FINAL: " + str(json.dumps(elem_template, indent=4)))
 
             # Wipe them out. All of them..
-            elem_resp = sdk.put.elements(element_item_id, elem_template, api_version=version)
-            if not elem_resp.cgx_status:
-                if declaim:
-                    # element may be stuck offline, and we are going to do a declaim.
-                    output_message(" Could not unbind Element {0}, proceeding to declaim. "
-                                   "".format(element_item_descriptive_text))
+
+            # Fetch the current etag.
+            elem_update_wait = 0
+            while elem_update_wait <= 600:
+                elem_update_resp = sdk.put.elements(element_item_id, elem_template, api_version=version)
+
+                if not elem_update_resp.cgx_status:
+                    error = elem_update_resp.cgx_content.get('_error', None)
+                    # Check for the error code. If the error is etag mismatch try to get the updated etag.
+                    if error:
+                        if error[0].get('code') in ('INVALID_JSON_COMMON_ATTR_MISMATCH'):
+                            output_message("Element {0} update is under progress. Trying after 10secs.".format(
+                                element_item_descriptive_text))
+                            time.sleep(10)
+                            elem_update_wait += 10
+                            elem_resp = sdk.get.elements(element_item_id, api_version=version)
+                            if elem_resp.cgx_status:
+                                elem_config = elem_resp.cgx_content
+                            else:
+                                throw_error("Unable to retrieve Element: ", elem_resp)
+
+                            # extract Updated version
+                            updated_revision = elem_config.get("_etag")
+                            elem_template['_etag'] = updated_revision
+                            continue
+
+                    if declaim:
+                        # element may be stuck offline, and we are going to do a declaim.
+                        output_message(" Could not unbind Element {0}, proceeding to declaim. "
+                                       "".format(element_item_descriptive_text))
+                    else:
+                        throw_error("Could not unbind Element {0}: ".format(element_item_descriptive_text), elem_resp)
                 else:
-                    throw_error("Could not unbind Element {0}: ".format(element_item_descriptive_text), elem_resp)
+                    break
+
             if declaim:
                 # Declaim is set. Fire a declaim at this point as well. (really wipe this guy out.)
                 declaim_data = {
@@ -1941,6 +2111,7 @@ def create_site(config_site, version=None):
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -1998,6 +2169,7 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2030,6 +2202,26 @@ def modify_site(config_site, site_id, version=None):
         site_name = site_change_check.get('name')
         output_message("No Change for Site {0}.".format(site_name))
         return site_id
+
+    if site_config.get("multicast_peer_group_id") != site_change_check.get("multicast_peer_group_id"):
+        if site_config.get("multicast_peer_group_id") == None:
+
+            site_id = site_change_check.get('id')
+            site_name = site_change_check.get('name')
+            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
+            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+            config_multicastsourcesiteconfigs, config_hubclusters = parse_site_config(config_site)
+
+            if not config_multicastsourcesiteconfigs:
+                output_message(" Resetting Multicast Source Site Config for the Site {0}.".format(site_name))
+                multicastsourcesiteconfigs_resp = sdk.get.multicastsourcesiteconfigs(site_id)
+                multicastsourcesiteconfigs_cache, leftover_multicastsourcesiteconfigs = extract_items(
+                    multicastsourcesiteconfigs_resp, 'multicastsourcesiteconfigs')
+
+                multicastsourcesiteconfigs_id2n = build_lookup_dict(multicastsourcesiteconfigs_cache, key_val='id',
+                                                                    value_val='id')
+                delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id,
+                                                  id2n=multicastsourcesiteconfigs_id2n)
 
     if debuglevel >= 3:
         local_debug("SITE DIFF: {0}".format(find_diff(site_change_check, site_config)))
@@ -3026,6 +3218,334 @@ def delete_site_nat_localprefixes(leftover_site_nat_localprefixes, site_id, id2n
                         site_nat_localprefix_del_resp)
     return
 
+def create_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs, site_id, version=None):
+    """
+        Create a MULTICASTSOURCESITECONFIGS
+        :param config_multicastsourcesiteconfigsr: MULTICASTSOURCESITECONFIGS config dict
+        :param multicastsourcesiteconfigs_n2id: MULTICASTSOURCESITECONFIGS Name to ID dict
+        :param site_id: Site ID to use
+        :return: New MULTICASTSOURCESITECONFIGS ID
+        """
+    # make a copy of multicastsourcesiteconfigs to modify
+    multicastsourcesiteconfigs_template = copy.deepcopy(config_multicastsourcesiteconfigs)
+
+    # perform name -> ID lookups
+    # None needed for MULTICASTSOURCESITECONFIGS
+
+    local_debug("MULTICASTSOURCESITECONFIGS TEMPLATE: " + str(json.dumps(multicastsourcesiteconfigs_template, indent=4)))
+
+    # create multicastsourcesiteconfigs
+    multicastsourcesiteconfigs_resp = sdk.post.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_template, api_version=version)
+
+    if not multicastsourcesiteconfigs_resp.cgx_status:
+        throw_error("MULTICASTSOURCESITECONFIGS creation failed: ", multicastsourcesiteconfigs_resp)
+
+    multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_resp.cgx_content.get('id')
+
+    if not multicastsourcesiteconfigs_id:
+        throw_error("Unable to determine MULTICASTSOURCESITECONFIGS attributes (ID {0})..".format(multicastsourcesiteconfigs_id))
+
+    output_message(" Created MULTICASTSOURCESITECONFIGS {0}.".format(multicastsourcesiteconfigs_id))
+
+    return multicastsourcesiteconfigs_id
+
+def modify_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs, multicastsourcesiteconfigs_id, site_id, version=None):
+    """
+        Modify Existing MULTICASTSOURCESITECONFIGS
+        :param config_multicastsourcesiteconfigs: MULTICASTSOURCESITECONFIGS config dict
+        :param multicastsourcesiteconfigs_id: Existing MULTICASTSOURCESITECONFIGS ID
+        :param multicastsourcesiteconfigs_n2id: MULTICASTSOURCESITECONFIGS Name to ID dict
+        :param site_id: Site ID to use
+        :return: Returned Spoke Cluster ID
+        """
+    multicastsourcesiteconfigs_config = {}
+    # make a copy of multicastsourcesiteconfigs to modify
+    multicastsourcesiteconfigs_template = copy.deepcopy(config_multicastsourcesiteconfigs)
+
+    # perform name -> ID lookups
+    # None needed for MULTICASTSOURCESITECONFIGS
+
+    local_debug("MULTICASTSOURCESITECONFIGS TEMPLATE: " + str(json.dumps(multicastsourcesiteconfigs_template, indent=4)))
+
+    # get current multicastsourcesiteconfigs
+    multicastsourcesiteconfigs_resp = sdk.get.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_id, api_version=version)
+    if multicastsourcesiteconfigs_resp.cgx_status:
+        multicastsourcesiteconfigs_config = multicastsourcesiteconfigs_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve MULTICASTSOURCESITECONFIGS: ", multicastsourcesiteconfigs_resp)
+
+    # extract prev_revision
+    prev_revision = multicastsourcesiteconfigs_config.get("_etag")
+
+    # Check for changes:
+    multicastsourcesiteconfigs_change_check = copy.deepcopy(multicastsourcesiteconfigs_config)
+    multicastsourcesiteconfigs_config.update(multicastsourcesiteconfigs_template)
+
+    if not force_update and multicastsourcesiteconfigs_config == multicastsourcesiteconfigs_change_check:
+        # no change in config, pass.
+        multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_change_check.get('id')
+        multicastsourcesiteconfigs_name = multicastsourcesiteconfigs_change_check.get('name')
+        output_message(" No Change for MULTICASTSOURCESITECONFIGS {0}.".format(multicastsourcesiteconfigs_id))
+        return multicastsourcesiteconfigs_id
+
+    if debuglevel >= 3:
+        local_debug("MULTICASTSOURCESITECONFIGS DIFF: {0}".format(find_diff(multicastsourcesiteconfigs_change_check, multicastsourcesiteconfigs_config)))
+
+    # Update multicastsourcesiteconfigs.
+    multicastsourcesiteconfigs_resp2 = sdk.put.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_config, api_version=version)
+
+    if not multicastsourcesiteconfigs_resp2.cgx_status:
+        throw_error("MULTICASTSOURCESITECONFIGS update failed: ", multicastsourcesiteconfigs_resp2)
+
+    multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = multicastsourcesiteconfigs_resp2.cgx_content.get("_etag")
+
+    if not multicastsourcesiteconfigs_id:
+        throw_error("Unable to determine MULTICASTSOURCESITECONFIGS attribute (ID {0})..".format(multicastsourcesiteconfigs_id))
+
+    output_message(" Updated MULTICASTSOURCESITECONFIGS {0} (Etag {1} -> {2}).".format(multicastsourcesiteconfigs_id, prev_revision,
+                                                                          current_revision))
+
+
+    return multicastsourcesiteconfigs_id
+
+def delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id, id2n=None):
+    """
+        Delete MULTICASTSOURCESITECONFIGS
+        :param leftover_multicastsourcesiteconfigs: List of MULTICASTSOURCESITECONFIGS IDs to delete
+        :param site_id: Site ID to use
+        :param id2n: Optional - ID to Name lookup dict
+        :return: None
+        """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for multicastsourcesiteconfigs_id in leftover_multicastsourcesiteconfigs:
+        # delete all leftover multicastsourcesiteconfigs.
+
+        output_message(" Deleting Unconfigured MULTICASTSOURCESITECONFIGS {0}.".format(id2n.get(multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_id)))
+        multicastsourcesiteconfigs_del_resp = sdk.delete.multicastsourcesiteconfigs(site_id, multicastsourcesiteconfigs_id)
+        if not multicastsourcesiteconfigs_del_resp.cgx_status:
+            throw_error("Could not delete MULTICASTSOURCESITECONFIGS {0}: ".format(id2n.get(multicastsourcesiteconfigs_id, multicastsourcesiteconfigs_id)),
+                        multicastsourcesiteconfigs_del_resp)
+    return
+
+def create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=None):
+    """
+    Create a HubCluster
+    :param config_hubcluster: HubCluster config dict
+    :param hubclusters_n2id: HubCluster Name to ID dict
+    :param site_id: Site ID to use
+    :return: New HubCluster ID
+    """
+    # make a copy of hubcluster to modify
+    hubcluster_template = copy.deepcopy(config_hubcluster)
+
+    # perform name -> ID lookups
+    # None needed for HubClusters
+
+    local_debug("HubCluster TEMPLATE: " + str(json.dumps(hubcluster_template, indent=4)))
+
+    if hubcluster_template.get("peer_sites"):
+        peer_sites = []
+        for peer_site in hubcluster_template["peer_sites"]:
+            peer_site = sites_n2id.get(peer_site, peer_site)
+            peer_sites.append(peer_site)
+        hubcluster_template["peer_sites"] = peer_sites
+
+    if hubcluster_template.get('default_cluster'):
+        hubclusters_resp = sdk.get.hubclusters(site_id, api_version=version)
+        if hubclusters_resp.cgx_status:
+            hubclusters_config = hubclusters_resp.cgx_content
+        else:
+            throw_error("Unable to retrieve HubCluster: ", hubclusters_resp)
+
+        for hc in hubclusters_config.get("items"):
+            if hc.get('default_cluster'):
+                hc_id = hc.get('id')
+                output_message("Hub Cluster {0} will be unset as default cluster!".format(hc.get('name')))
+                hc['default_cluster'] = False
+                # Unset the existing default cluster
+                hc_resp = sdk.put.hubclusters(site_id, hc_id, hc, api_version=version)
+                if not hc_resp.cgx_status:
+                    throw_error("HubCluster update failed: ", hc_resp)
+
+    elements = []
+    if hubcluster_template.get('elements'):
+        for element in hubcluster_template['elements']:
+            elements.append(element)
+        del hubcluster_template['elements']
+
+    # create hubcluster
+    hubcluster_resp = sdk.post.hubclusters(site_id, hubcluster_template, api_version=version)
+
+    if not hubcluster_resp.cgx_status:
+        throw_error("HubCluster creation failed: ", hubcluster_resp)
+
+    hubcluster_name = hubcluster_resp.cgx_content.get('name')
+    hubcluster_id = hubcluster_resp.cgx_content.get('id')
+
+    if not hubcluster_name or not hubcluster_id:
+        throw_error("Unable to determine hubcluster attributes (Name: {0}, ID {1})..".format(hubcluster_name,
+                                                                                               hubcluster_id))
+
+    output_message(" Created HubCluster {0}.".format(hubcluster_name))
+
+    # if elements:
+    #     output_message(" Assigning the devices to the Hub Cluster {0}.".format(hubcluster_name))
+    #     hubcluster_config = hubcluster_resp.cgx_content
+    #     hubcluster_config['elements'] = elements
+    #     hubcluster_id = modify_hubcluster(hubcluster_config, hubcluster_id, hubclusters_n2id, site_id, version=version)
+
+    # update caches
+    hubclusters_n2id[hubcluster_name] = hubcluster_id
+
+    return hubcluster_id
+
+def modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id, site_id, version=None):
+    """
+    Modify Existing Spoke CLuster
+    :param config_hubcluster: HubCluster config dict
+    :param hubcluster_id: Existing HubCluster ID
+    :param hubclusters_n2id: HubCluster Name to ID dict
+    :param site_id: Site ID to use
+    :return: Returned HubCluster ID
+    """
+    hubcluster_config = {}
+    # make a copy of hubcluster to modify
+    hubcluster_template = copy.deepcopy(config_hubcluster)
+
+    # perform name -> ID lookups
+    # None needed for HubCluster
+
+    local_debug("HubCluster TEMPLATE: " + str(json.dumps(hubcluster_template, indent=4)))
+
+    # get current hubcluster
+    hubcluster_resp = sdk.get.hubclusters(site_id, hubcluster_id, api_version=version)
+    if hubcluster_resp.cgx_status:
+        hubcluster_config = hubcluster_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve HubCluster: ", hubcluster_resp)
+
+    if hubcluster_template.get("peer_sites"):
+        peer_sites = []
+        for peer_site in hubcluster_template["peer_sites"]:
+            peer_site = sites_n2id.get(peer_site, peer_site)
+            peer_sites.append(peer_site)
+        hubcluster_template["peer_sites"] = peer_sites
+
+    if hubcluster_template.get('elements'):
+        elements = []
+        for element in hubcluster_template['elements']:
+            hub_element_id = element.get('hub_element_id')
+            hub_element_id = elements_n2id.get(hub_element_id, hub_element_id)
+            element['hub_element_id'] = hub_element_id
+            elements.append(element)
+        hubcluster_template['elements'] = elements
+
+    # extract prev_revision
+    prev_revision = hubcluster_config.get("_etag")
+
+    # Check for changes:
+    hubcluster_change_check = copy.deepcopy(hubcluster_config)
+    hubcluster_config.update(hubcluster_template)
+
+    # Check if this Hub Cluster needs to be set as Default.
+    if not hubcluster_change_check.get('default_cluster') and hubcluster_config.get('default_cluster'):
+        hubclusters_resp = sdk.get.hubclusters(site_id, api_version=version)
+        if hubclusters_resp.cgx_status:
+            hubclusters_config = hubclusters_resp.cgx_content
+        else:
+            throw_error("Unable to retrieve HubCluster: ", hubclusters_resp)
+
+        for hc in hubclusters_config.get("items"):
+            if hc.get('default_cluster'):
+                hc_id = hc.get('id')
+                output_message("Hub Cluster {0} will be unset as default cluster!".format(hc.get('name')))
+                hc['default_cluster'] = False
+                # Unset the existing default cluster
+                hc_resp = sdk.put.hubclusters(site_id, hc_id, hc, api_version=version)
+                if not hc_resp.cgx_status:
+                    throw_error("HubCluster update failed: ", hc_resp)
+
+    if not force_update and hubcluster_config == hubcluster_change_check:
+        # no change in config, pass.
+        hubcluster_id = hubcluster_change_check.get('id')
+        hubcluster_name = hubcluster_change_check.get('name')
+        output_message(" No Change for HubCluster {0}.".format(hubcluster_name))
+        return hubcluster_id
+
+    if debuglevel >= 3:
+        local_debug("HubCluster DIFF: {0}".format(find_diff(hubcluster_change_check, hubcluster_config)))
+
+    # Check the hub cluster status.
+    hubcluster_update_wait = 0
+
+    while hubcluster_update_wait <= 600:
+        hubcluster_status_resp = sdk.get.hubcluster_status(site_id, hubcluster_id, api_version=version)
+        if not hubcluster_status_resp.cgx_status:
+            throw_error("Fetching HubCluster status failed: ", hubcluster_status_resp)
+
+        hubcluster_status = hubcluster_status_resp.cgx_content.get('cluster_state')
+        #output_message("Hub cluster status - {0}".format(hubcluster_status))
+        if hubcluster_status.lower() != "cluster_update_completed":
+            hubcluster_name = hubcluster_change_check.get('name')
+            output_message("HubCluster {0} update is under progress. Trying after 30secs.".format(hubcluster_name))
+            time.sleep(30)
+            hubcluster_update_wait += 30
+            if hubcluster_update_wait > 600:
+                throw_error("HubCluster {0} update took longer than 10 minutes. Exiting.".format(hubcluster_name))
+        else:
+            hubcluster_update_wait = 601
+
+    # Update hubcluster.
+    hubcluster_resp2 = sdk.put.hubclusters(site_id, hubcluster_id, hubcluster_config, api_version=version)
+
+    if not hubcluster_resp2.cgx_status:
+        throw_error("HubCluster update failed: ", hubcluster_resp2)
+
+    hubcluster_name = hubcluster_resp2.cgx_content.get('name')
+    hubcluster_id = hubcluster_resp2.cgx_content.get('id')
+
+    # extract current_revision
+    current_revision = hubcluster_resp2.cgx_content.get("_etag")
+
+    if not hubcluster_name or not hubcluster_id:
+        throw_error("Unable to determine HubCluster attributes (Name: {0}, ID {1})..".format(hubcluster_name,
+                                                                                                hubcluster_id))
+
+    output_message(" Updated HubCluster {0} (Etag {1} -> {2}).".format(hubcluster_name, prev_revision,
+                                                                          current_revision))
+
+    # update caches
+    hubclusters_n2id[hubcluster_name] = hubcluster_id
+
+    return hubcluster_id
+
+def delete_hubclusters(leftover_hubclusters, site_id, id2n=None):
+    """
+    Delete HubCluster
+    :param leftover_hubclusters: List of HubCluster IDs to delete
+    :param site_id: Site ID to use
+    :param id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    # ensure id2n is empty dict if not set.
+    if id2n is None:
+        id2n = {}
+
+    for hubcluster_id in leftover_hubclusters:
+        # delete all leftover hubclusters.
+
+        output_message(" Deleting Unconfigured HubCluster {0}.".format(id2n.get(hubcluster_id, hubcluster_id)))
+        hubcluster_del_resp = sdk.delete.hubclusters(site_id, hubcluster_id)
+        if not hubcluster_del_resp.cgx_status:
+            throw_error("Could not delete HubCluster {0}: ".format(id2n.get(hubcluster_id, hubcluster_id)),
+                        hubcluster_del_resp)
+    return
 
 def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, version=None):
     """
@@ -3062,7 +3582,6 @@ def create_spokecluster(config_spokecluster, spokeclusters_n2id, site_id, versio
     spokeclusters_n2id[spokecluster_name] = spokecluster_id
 
     return spokecluster_id
-
 
 def modify_spokecluster(config_spokecluster, spokecluster_id, spokeclusters_n2id, site_id, version=None):
     """
@@ -3313,6 +3832,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
     config_interface_type = config_interface.get('type')
     # validate this interface can be created.
+
     if config_interface_type not in createable_interface_types:
         throw_warning("Interface does not exist, and type {0} cannot be created.".format(config_interface.get('type')))
         # return empty
@@ -3481,6 +4001,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
     name_lookup_in_template(interface_template, 'nat_zone_id', natzones_n2id)
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
+    name_lookup_in_template(interface_template, 'network_context_id', networkcontexts_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -3634,7 +4155,8 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
 
 
 def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id,
-                     site_id, element_id, interfaces_funny_n2id=None, version=None):
+                     site_id, element_id, interfaces_funny_n2id=None, version=None, reset_switch_port=0,
+                     reset_ipfix_collector_filter_context=0):
     """
     Modify an existing interface
     :param config_interface: Interface config dict
@@ -3854,12 +4376,33 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('type') == 'virtual_interface':
         config['type'] = 'virtual_interface'
         config['bound_interfaces'] = interface_config.get('bound_interfaces')
+    config['name'] = interface_config.get('name')
+    config['type'] = interface_config.get('type')
     # Check for changes:
     interface_change_check = copy.deepcopy(interface_config)
     interface_config.update(interface_template)
     interface_config.update(config)
 
-    if not force_update and interface_config == interface_change_check:
+    if reset_switch_port:
+        if interface_config != interface_change_check:
+            output_message("   Resetting the vlan interface id for Switch port {0}.".format(interface_change_check.get("name")))
+            if interface_config.get("switch_port_config"):
+                interface_config["switch_port_config"]["access_vlan_id"] = None
+                interface_config["switch_port_config"]["native_vlan_id"] = None
+                interface_config["switch_port_config"]["voice_vlan_id"] = None
+                interface_config["switch_port_config"]["trunk_vlans"] = None
+        else:
+            return 1
+    elif reset_ipfix_collector_filter_context:
+        if interface_config != interface_change_check:
+            output_message(
+                "   Resetting the IPFIXCOLLECTORCONTEXT for Interface {0}.".format(interface_change_check.get("name")))
+            if interface_config.get("ipfixcollectorcontext_id"):
+                interface_config["ipfixcollectorcontext_id"] = None
+        else:
+            return 1
+
+    elif not force_update and interface_config == interface_change_check:
         # no change in config, pass.
         interface_id = interface_change_check.get('id')
         interface_name = interface_change_check.get('name')
@@ -5143,7 +5686,7 @@ def delete_routemaps(leftover_routemaps, site_id, element_id, id2n=None):
     return
 
 
-def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=None):
+def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=None, set_device_local=0):
     """
     Modify BGP Global config - no create or destroy for bgpconfigs
     :param config_routing_bgp_global: BGP Global Config dict
@@ -5179,6 +5722,11 @@ def modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=No
     # Check for changes:
     bgp_global_change_check = copy.deepcopy(bgp_global_config)
     bgp_global_config.update(bgp_global_template)
+
+    # Reset of local as num should be done after removing Bgp peers.
+    if bgp_global_config.get("local_as_num") == None and set_device_local:
+        return 1
+
     if not force_update and bgp_global_config == bgp_global_change_check:
         # no change in config, pass.
         bgp_global_id = bgp_global_change_check.get('id')
@@ -6982,6 +7530,100 @@ def modify_element_cellular_module(config_element_cellular_module, element_cellu
 
     return cellular_modules_id
 
+def create_radii(config_radii, element_id, interfaces_n2id):
+    """
+    Create a radii
+    :param config_radii: radii config dict
+    :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :return: Created radii ID
+    """
+    # make a copy of radii to modify
+    radii_template = copy.deepcopy(config_radii)
+
+    if radii_template.get("source_interface_id"):
+        source_interface_id = radii_template.get("source_interface_id")
+        radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+
+    #create radii
+    radii_resp = sdk.post.radii(element_id, radii_template)
+
+    if not radii_resp.cgx_status:
+        throw_error("Radii creation failed: ", radii_resp)
+
+    radius_id = radii_resp.cgx_content.get('id')
+    radius_name = radii_resp.cgx_content.get('name', radius_id)
+
+    if not radius_id:
+        throw_error("Unable to determine Radii attributes (ID {0})..".format(radius_id))
+
+    output_message("   Created Radii {0}.".format(radius_name))
+
+    return radius_id
+
+def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
+    """
+    Modify the existing radii
+    :param config_radii: radii config dict
+    :param radii_id: Existing Radii ID
+    :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :return: Returned radii ID
+    """
+
+    radii_config = {}
+    # make a copy of radii to modify
+    radii_template = copy.deepcopy(config_radii)
+
+    # Get current Radii
+    radii_resp = sdk.get.radii(element_id, radii_id)
+    if radii_resp.cgx_status:
+        radii_config = radii_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve interface: ", radii_resp)
+
+
+    if radii_template.get("source_interface_id"):
+        source_interface_id = radii_template.get("source_interface_id")
+        radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+
+    # Check for changes:
+    radii_config_check = copy.deepcopy(radii_config)
+    radii_config.update(radii_template)
+
+    if not force_update and radii_config == radii_config_check:
+        radii_id = radii_config_check.get('id')
+        radii_name = radii_config_check.get('name')
+        radii_n2id[radii_name] = radii_id
+        output_message("   No Change for Radii {0}.".format(radii_name))
+        return radii_id
+
+    radius_servers = radii_template.get("radius_configuration")
+    updated_radius_servers =[]
+    for radius_server in radius_servers:
+        if not radius_server.get("shared_secret"):
+            # When there is no change in the shared secret set the flag retain_shared_secret
+            radius_server["shared_secret"] = "********"
+            radius_server["retain_shared_secret"] = "True"
+        updated_radius_servers.append(radius_server)
+    if updated_radius_servers:
+        radii_template["radius_configuration"] = updated_radius_servers
+
+    #modify radii
+    radii_resp = sdk.put.radii(element_id, radii_id, radii_template)
+
+    if not radii_resp.cgx_status:
+        throw_error("Radii update failed: ", radii_resp)
+
+    radius_id = radii_resp.cgx_content.get('id')
+    radius_name = radii_resp.cgx_content.get('name', radius_id)
+
+    if not radius_id:
+        throw_error("Unable to determine Radii attributes (ID {0})..".format(radius_id))
+
+    output_message("   Updated Radii {0}.".format(radius_name))
+
+    return radius_id
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
@@ -7061,11 +7703,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
         # -- Start Sites - Iterate loop
         for config_site_name, config_site_value in config_sites.items():
             # recombine site object
+            new_site_id = None
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+                config_multicastsourcesiteconfigs, config_hubclusters\
                 = parse_site_config(config_site)
 
             # Getting version for site resourcesinput apiversion
@@ -7086,6 +7730,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                         sdk.put.site_natlocalprefixes, default=[], sdk_or_yaml=apiversion)
             site_ipfix_localprefixes_version = use_sdk_yaml_version(config_site, 'site_ipfix_localprefixes',
                                                                           sdk.put.site_ipfixlocalprefixes, default=[], sdk_or_yaml=apiversion)
+            multicastsourcesiteconfigs_version = use_sdk_yaml_version(config_site, 'multicastsourcesiteconfigs',
+                                                                          sdk.put.multicastsourcesiteconfigs, default=[], sdk_or_yaml=apiversion)
+            hubclusters_version = use_sdk_yaml_version(config_site, 'hubclusters',
+                                                                      sdk.put.hubclusters, default=[],
+                                                                      sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
                 mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
@@ -7118,6 +7767,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             else:
                 # Site does not exist, create.
                 site_id = create_site(config_site, version=sites_version)
+                new_site_id = site_id
             # -- End Sites
 
             # -- Start WAN Interfaces
@@ -7271,6 +7921,174 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # remove from delete queue
                 leftover_dhcpservers = [entry for entry in leftover_dhcpservers if entry != dhcpserver_id]
             # -- End DHCPSERVER config
+
+            # -- Start MULTICASTSOURCESITECONFIGS config
+            multicastsourcesiteconfigs_resp = sdk.get.multicastsourcesiteconfigs(site_id)
+            multicastsourcesiteconfigs_cache, leftover_multicastsourcesiteconfigs = extract_items(multicastsourcesiteconfigs_resp, 'multicastsourcesiteconfigs')
+            # build lookup cache based on subnet in each entry.
+            multicastsourcesiteconfigs_n2id = build_lookup_dict(multicastsourcesiteconfigs_cache, key_val='id')
+
+            # Determine multicastsourcesiteconfigs ID.
+            implicit_multicastsourcesiteconfigs_id = None
+            for key in multicastsourcesiteconfigs_n2id.keys():
+                implicit_multicastsourcesiteconfigs_id = multicastsourcesiteconfigs_n2id.get(key)
+
+
+            # iterate configs (list)
+            for config_multicastsourcesiteconfigs_entry in config_multicastsourcesiteconfigs:
+
+                # deepcopy to modify.
+                config_multicastsourcesiteconfigs_record = copy.deepcopy(config_multicastsourcesiteconfigs_entry)
+
+                if implicit_multicastsourcesiteconfigs_id is not None:
+                    multicastsourcesiteconfigs_id = implicit_multicastsourcesiteconfigs_id
+
+                else:
+                    # no multicastsourcesiteconfigs object.
+                    multicastsourcesiteconfigs_id = None
+
+                # Create or modify multicastsourcesiteconfigs.
+                if multicastsourcesiteconfigs_id is not None:
+                    # MULTICASTSOURCESITECONFIGS exists, modify.
+                    multicastsourcesiteconfigs_id = modify_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs_record, multicastsourcesiteconfigs_id, site_id,
+                                                          version=multicastsourcesiteconfigs_version)
+
+                else:
+                    # MULTICASTSOURCESITECONFIGS does not exist, create.
+                    multicastsourcesiteconfigs_id = create_multicastsourcesiteconfigs(config_multicastsourcesiteconfigs_record, site_id,
+                                                          version=multicastsourcesiteconfigs_version)
+
+                # remove from delete queue
+                leftover_multicastsourcesiteconfigs = [entry for entry in leftover_multicastsourcesiteconfigs if entry != multicastsourcesiteconfigs_id]
+
+            # -- End MULTICASTSOURCESITECONFIGS config
+
+            # -- Start HubClusters
+            hubclusters_resp = sdk.get.hubclusters(site_id)
+            hubclusters_cache, leftover_hubclusters = extract_items(hubclusters_resp, 'hubclusters')
+
+            # CGCBL-1539 - Handle the default cluster deletion during new site creation.
+            #output_message("The new site id and existing site id is - {0} {1}".format(site_id, new_site_id))
+            if new_site_id == site_id:
+                leftover_hubclusters = []
+
+            hubclusters_n2id = build_lookup_dict(hubclusters_cache)
+
+            # Handle Move peer sites accross clusters
+            dict_peer_sites = {}
+
+            for config_hubcluster_name, config_hubcluster_value in config_hubclusters.items():
+                # recombine object
+                config_hubcluster = recombine_named_key_value(config_hubcluster_name, config_hubcluster_value,
+                                                              name_key='name')
+
+                hubcluster_id = hubclusters_n2id.get(config_hubcluster_name)
+                if hubcluster_id:
+                    if config_hubcluster_value.get('peer_sites'):
+                        new_peer_sites_n = config_hubcluster_value.get('peer_sites')
+                        new_peer_sites = []
+                        for peer_site in new_peer_sites_n:
+                            peer_site = sites_n2id.get(peer_site)
+                            new_peer_sites.append(peer_site)
+                    else:
+                        new_peer_sites = []
+                    hubcluster_data = sdk.get.hubclusters(site_id, hubcluster_id)
+                    if hubcluster_data.cgx_status:
+                        hubcluster_config = hubcluster_data.cgx_content
+                    else:
+                        throw_error("Unable to retrieve HubCluster: ", hubcluster_data)
+                        continue
+                    if hubcluster_config.get('peer_sites'):
+                        existing_peer_sites = hubcluster_config.get('peer_sites')
+                    else:
+                        existing_peer_sites = []
+                    #print("Existing Clusters ---- {} {}".format(new_peer_sites, existing_peer_sites))
+
+                    delete_peer_sites = [site for site in existing_peer_sites if site not in new_peer_sites]
+                    add_peer_sites = [site for site in new_peer_sites if site not in existing_peer_sites]
+
+                    for site in delete_peer_sites:
+                        if site not in dict_peer_sites:
+                            dict_peer_sites[site] = {}
+                        dict_peer_sites[site]["delete"] = hubcluster_id
+
+                    for site in add_peer_sites:
+                        if site not in dict_peer_sites:
+                            dict_peer_sites[site] = {}
+                        dict_peer_sites[site]["add"] = hubcluster_id
+                else:
+                    continue
+
+            #print("The peer sites dict is -- {}".format(dict_peer_sites))
+            for peer_site, peer_site_operation_value in dict_peer_sites.items():
+                output_message("Move sites accross the hub clusters")
+                # Delete the peer site from the hub cluster
+                delete_from_hub_cluster = peer_site_operation_value.get('delete')
+                hubcluster_data = sdk.get.hubclusters(site_id, delete_from_hub_cluster)
+                if hubcluster_data.cgx_status:
+                    hubcluster_config = hubcluster_data.cgx_content
+                else:
+                    throw_error("Unable to retrieve HubCluster: ", hubcluster_data)
+                    continue
+                if hubcluster_config.get('peer_sites'):
+                    existing_peer_sites = hubcluster_config.get('peer_sites')
+                    existing_peer_sites.remove(peer_site)
+                    hubcluster_config['peer_sites'] = existing_peer_sites
+                    hubcluster_id = modify_hubcluster(hubcluster_config, delete_from_hub_cluster, hubclusters_n2id,
+                                                      site_id, version=hubclusters_version)
+
+                # Add the peer site to the hub cluster
+                add_to_hub_cluster = peer_site_operation_value.get('add')
+                hubcluster_data = sdk.get.hubclusters(site_id, add_to_hub_cluster)
+                if hubcluster_data.cgx_status:
+                    hubcluster_config = hubcluster_data.cgx_content
+                else:
+                    throw_error("Unable to retrieve HubCluster: ", hubcluster_data)
+                    continue
+                if hubcluster_config.get('peer_sites'):
+                    existing_peer_sites = hubcluster_config.get('peer_sites')
+                    existing_peer_sites.append(peer_site)
+                    hubcluster_config['peer_sites'] = existing_peer_sites
+                    hubcluster_id = modify_hubcluster(hubcluster_config, add_to_hub_cluster, hubclusters_n2id,
+                                                      site_id, version=hubclusters_version)
+
+            # iterate configs
+            for config_hubcluster_name, config_hubcluster_value in config_hubclusters.items():
+                # recombine object
+                config_hubcluster = recombine_named_key_value(config_hubcluster_name, config_hubcluster_value,
+                                                                name_key='name')
+
+                # no need to get Hub Cluster config, no child config objects.
+
+                # Determine hubcluster ID.
+                # look for implicit ID in object.
+                implicit_hubcluster_id = config_hubcluster.get('id')
+                name_hubcluster_id = hubclusters_n2id.get(config_hubcluster_name)
+
+                if implicit_hubcluster_id is not None:
+                    hubcluster_id = implicit_hubcluster_id
+
+                elif name_hubcluster_id is not None:
+                    # look up ID by name on existing hubclusters.
+                    hubcluster_id = name_hubcluster_id
+                else:
+                    # no hubcluster object.
+                    hubcluster_id = None
+
+                # Create or modify hubcluster.
+                if hubcluster_id is not None:
+                    # Hubcluster exists, modify.
+                    hubcluster_id = modify_hubcluster(config_hubcluster, hubcluster_id, hubclusters_n2id,
+                                                          site_id, version=hubclusters_version)
+
+                else:
+                    # Hubcluster does not exist, create.
+                    hubcluster_id = create_hubcluster(config_hubcluster, hubclusters_n2id, site_id, version=hubclusters_version)
+
+                # remove from delete queue
+                leftover_hubclusters = [entry for entry in leftover_hubclusters if entry != hubcluster_id]
+
+            # -- End HubClusters
 
             # -- Start Site_extensions
             site_extensions_resp = sdk.get.site_extensions(site_id)
@@ -7561,7 +8379,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
-                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security \
+                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
                     = parse_element_config(config_element)
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
@@ -7655,12 +8473,24 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if matching_element["site_id"] in ["1", 1]:
                     assign_element_flag = True
 
-                assign_modify_element(matching_element, site_id, config_element, version=elements_version)
+                return_str = assign_modify_element(matching_element, site_id, config_element, hubclusters_n2id, version=elements_version)
+
+                if return_str == "assign_cluster":
+                    # wait for element assignment. Update element record in case etag changes.
+                    new_matching_element = wait_for_element_state(matching_element, ['ready'],
+                                                              wait_verify_success=timeout_state,
+                                                              wait_interval=interval_timeout)
+                    matching_element['_etag'] = new_matching_element.get('_etag')
+                    matching_element['site_id'] = new_matching_element.get('site_id')
+
+                    assign_modify_element(matching_element, site_id, config_element, hubclusters_n2id,
+                                          version=elements_version)
 
                 # wait for element assignment. Update element record in case etag changes.
                 matching_element = wait_for_element_state(matching_element, ['bound'],
                                                           wait_verify_success=timeout_state,
                                                           wait_interval=interval_timeout)
+
 
                 #
                 # Add a delay post element assignment
@@ -8141,8 +8971,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END Aplication Probe
 
+
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
+
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
+                                        hubclusters_n2id, version=elements_version)
 
                 # START SERVICELINK
 
@@ -8176,6 +9010,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     else:
                         # no interface object.
                         interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                            waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                            element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                            version=interfaces_version, reset_ipfix_collector_filter_context=1)
 
                     # remove from delete queue
                     leftover_servicelinks = [entry for entry in leftover_servicelinks if entry != interface_id]
@@ -8224,6 +9066,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     else:
                         # no interface object.
                         interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version, reset_ipfix_collector_filter_context=1)
 
                     # remove from delete queue
                     leftover_subinterfaces = [entry for entry in leftover_subinterfaces if entry != interface_id]
@@ -8286,6 +9136,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
                     # remove from delete queue
                     leftover_pppoe = [entry for entry in leftover_pppoe if entry != interface_id]
 
@@ -8356,6 +9213,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
                     # remove from delete queue
                     leftover_bypasspairs = [entry for entry in leftover_bypasspairs if entry != interface_id]
 
@@ -8370,6 +9235,61 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # DELETE unused bypasspairs at this point.
                 delete_interfaces(leftover_bypasspairs, site_id, element_id, id2n=interfaces_id2n)
+
+                # START PORT
+                # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
+                current_interfaces_n2id_holder = interfaces_n2id
+                interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
+                interfaces_n2id.update(current_interfaces_n2id_holder)
+
+                config_ports = get_config_interfaces_by_type(config_interfaces_defaults, 'port')
+
+                for config_interface_name, config_interface_value in config_ports.items():
+
+                    local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
+                    # look for unconfigurable interfaces.
+                    if config_interface_name in skip_interface_list:
+                        throw_warning("Interface {0} is not configurable.".format(config_interface_name))
+                        # dont configure this interface, break out of loop.
+                        continue
+                    # look for parent interface
+                    elif config_interface_name in config_parent2child.keys():
+                        throw_warning("Cannot use configuration for interface {0}, it is set as a parent for {1}."
+                                      "".format(config_interface_name,
+                                                ", ".join(config_parent2child.get(config_interface_name))))
+                        # skip this interface
+                        continue
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # no need to get interface config, no child config objects.
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                            waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                            element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                            version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
+                # END PORT
 
                 # START VIRTUAL INTERFACE
 
@@ -8407,15 +9327,32 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
                     # remove from delete queue before configuring VI
                     leftover_virtual_interfaces = [entry for entry in leftover_virtual_interfaces if
                                                        entry != interface_id]
+                # Reset the configuration before delete. Else api will throw error.
+                for vi in leftover_virtual_interfaces:
+                    default_template = get_member_default_config()
+                    output_message("   Setting VI {0} to default.".format(interfaces_id2n.get(vi)))
+                    default_template['type'] = 'virtual_interface'
+                    new_parent_id = modify_interface(default_template, vi, interfaces_n2id,
+                                                     waninterfaces_n2id,
+                                                     lannetworks_n2id, site_id, element_id, version=api_version)
 
                 # cleanup - delete unused virtual interfaces, modified VIs and child interfaces
                 delete_interfaces(leftover_virtual_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
                 # END VIRTUAL INTERFACE
 
+                # START CELLULAR
                 config_cellular_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'cellular')
                 leftover_cellular_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'cellular', key_name='id')
 
@@ -8443,6 +9380,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no interface object.
                         interface_id = None
 
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
                     # remove from delete queue before configuring cellular
                     leftover_cellular_interfaces = [entry for entry in leftover_cellular_interfaces if
                                                    entry != interface_id]
@@ -8451,6 +9396,81 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_interfaces(leftover_cellular_interfaces, site_id, element_id, id2n=interfaces_id2n)
 
                 # END CELLULAR
+
+                # START Switch Port Interface
+                # We cannot delete Switch Port Interface. So checking if Switch Port Interface is modified in config
+                # If modified, we will reset the vlan interface binding and later update it again
+
+                config_switch_port_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'switch_port')
+                for config_interface_name, config_interface_value in config_switch_port_interfaces.items():
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    #  Reset interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version, reset_switch_port=1)
+
+                # START VLAN
+                config_vlan_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'vlan')
+                leftover_vlan_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'vlan',
+                                                                               key_name='id')
+
+                for config_interface_name, config_interface_value in config_vlan_interfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                                waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                                element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                                version=interfaces_version, reset_ipfix_collector_filter_context=1)
+
+                    # remove from delete queue before configuring vlan
+                    leftover_vlan_interfaces = [entry for entry in leftover_vlan_interfaces if
+                                                        entry != interface_id]
+
+                # cleanup - delete unused vlan interfaces, modified vlan  interfaces
+                delete_interfaces(leftover_vlan_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END VLAN
 
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
@@ -8995,6 +10015,83 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END SERVICELINK
 
+                # START VLAN
+
+                config_vlans = get_config_interfaces_by_type(config_interfaces_defaults, 'vlan')
+                for config_interface_name, config_interface_value in config_vlans.items():
+                    local_debug("DO VLAN: {0}".format(config_interface_name), config_interface_value)
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                    else:
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                # END VLAN
+
+                # START SWITCH PORT
+
+                config_switch_ports = get_config_interfaces_by_type(config_interfaces_defaults, 'switch_port')
+                for config_interface_name, config_interface_value in config_switch_ports.items():
+                    local_debug("DO VLAN: {0}".format(config_interface_name), config_interface_value)
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                    else:
+                        # Interface does not exist.
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+
+                # END SWITCH PORT
                 # ------------------
 
                 # Moved INTERFACE cleanup above create/edit
@@ -9011,6 +10108,53 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id = copy.deepcopy(interfaces_funny_n2id)
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
+
+                # -- Start Radii config
+                radii_resp = sdk.get.radii(element_id)
+                if not radii_resp.cgx_status:
+                    throw_error("Radii AAA get failed: ", radii_resp)
+
+                radii_cache, leftover_radii = extract_items(radii_resp, 'radii')
+
+                implicit_radii_id = None
+                # There exists only one Radius item, Fetch the radius id from the cache
+                if radii_cache:
+                    implicit_radii_id = radii_cache[0].get("id")
+
+                # build lookup cache based on prefix.
+                radii_n2id = build_lookup_dict(radii_cache)
+                radii_id2n = build_lookup_dict(radii_cache, key_val = "id", value_val = "name")
+
+                radii_name = radii_id2n.get(implicit_radii_id)
+
+                # iterate configs (list)
+                for radii_entry, radii_value in config_radii.items():
+
+                    # deepcopy to modify.
+                    config_radii_record = copy.deepcopy(radii_value)
+
+                    # Determine radii ID.
+                    name_radii_id = radii_n2id.get(radii_name)
+
+                    if implicit_radii_id is not None:
+                        radii_id = implicit_radii_id
+                    elif name_radii_id is not None:
+                        # look up ID by name on existing interfaces.
+                        radii_id = name_radii_id
+                    else:
+                        # no radii object.
+                        radii_id = None
+
+                    if radii_id is not None:
+                        # Radius exists, modify.
+                        config_radii_record["name"] = radii_name
+                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id)
+                    else:
+                        # Radius does not exist, create.
+                        config_radii_record["name"] = radii_entry
+                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id)
+
+                # -- End Radii config
 
                 # START Cellular Modules
 
@@ -9101,7 +10245,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # a second element operation AFTER the interfaces are enumerated and at the correct state (here).
 
                 # assign and configure element
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, version=elements_version)
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, hubclusters_n2id, version=elements_version)
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
@@ -9388,7 +10532,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # No need to determine BGP Global (bgpconfigs), one object per element.
 
-                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id, version=routing_bgp_global_version)
+                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
+                                                      version=routing_bgp_global_version, set_device_local=1)
 
                 # END BGP GLOBAL
 
@@ -10041,6 +11186,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id,
                                            id2n=aspath_access_lists_id2n)
 
+                # Reset local as num after removing all the Bgp peers.
+                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
+                                                  version=routing_bgp_global_version)
+
             # ------------------
             # BEGIN SITE CLEANUP.
 
@@ -10078,6 +11227,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # delete remaining dhcpserver configs
             dhcpservers_id2n = build_lookup_dict(dhcpservers_cache, key_val='id', value_val='subnet')
             delete_dhcpservers(leftover_dhcpservers, site_id, id2n=dhcpservers_id2n)
+
+            multicastsourcesiteconfigs_id2n = build_lookup_dict(multicastsourcesiteconfigs_cache,  key_val='id', value_val='id')
+            delete_multicastsourcesiteconfigs(leftover_multicastsourcesiteconfigs, site_id, id2n=multicastsourcesiteconfigs_id2n)
+
+            hubclusters_id2n = build_lookup_dict(hubclusters_cache, key_val='id', value_val='name')
+            delete_hubclusters(leftover_hubclusters, site_id, id2n=hubclusters_id2n)
 
             # cleanup - delete unused Lannetworks
             lannetworks_id2n = build_lookup_dict(lannetworks_cache, key_val='id', value_val='name')
@@ -10236,14 +11391,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                             if service_bindings is not None:
                                 for item in service_bindings:
                                     service_endpoint_ids = item.get("service_endpoint_ids",[])
-                                    if service_ep_id in service_endpoint_ids:
-                                        service_endpoint_ids.remove(service_ep_id)
+                                    if service_endpoint_ids is not None:
+                                        if service_ep_id in service_endpoint_ids:
+                                            service_endpoint_ids.remove(service_ep_id)
 
-                                        item["service_endpoint_ids"] = service_endpoint_ids
-                                        sb["service_bindings"] = [item]
-                                        put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
-                                        if not put_sb_resp.cgx_status:
-                                            throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), put_sb_resp.cgx_content)
+                                            item["service_endpoint_ids"] = service_endpoint_ids
+                                            sb["service_bindings"] = [item]
+                                            put_sb_resp = sdk.put.servicebindingmaps(servicebindingmap_id=sb["id"], data=sb)
+                                            if not put_sb_resp.cgx_status:
+                                                throw_error("Could not unbind serviceendpoint {0} from servicebinding map {0}".format(service_ep["name"], sb["name"]), put_sb_resp.cgx_content)
 
                     del_sep_resp = sdk.delete.serviceendpoints(service_ep_id)
                     if not del_sep_resp.cgx_status:

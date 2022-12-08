@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.7.0b3
+**Version:** 1.9.0b1
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "1.7.0b3"
+__version__ = "1.9.0b1"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
@@ -102,7 +102,8 @@ ALREADY_NAGGED_DUP_KEYS = []
 
 nameable_interface_types = [
     'service_link',
-    'virtual_interface'
+    'virtual_interface',
+    'vlan'
 ]
 
 skip_interface_list = [
@@ -328,6 +329,10 @@ def get_default_ifconfig_from_model_string(model_string):
         return yaml.safe_load(ion_1200_c_na)
     elif model_string == "ion 1200-c5g-ww":
         return yaml.safe_load(ion_1200_c5g_ww)
+    elif model_string == "ion 1200-s-c5g-ww":
+        return yaml.safe_load(ion_1200_s_c5g_ww)
+    elif model_string == "ion 1200-s-c-na":
+        return yaml.safe_load(ion_1200_s_c_na)
     else:
         # model not found, return empty dict
         return {}

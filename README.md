@@ -110,6 +110,8 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
+| **1.9.0** | **b1** | Support for Cloudgenix SDK 6.1.1b1, bug fixes|
+| **1.8.0** | **b1** | Support for Cloudgenix SDK 6.0.2b1, Fix for CGCBL-1399, CGCBL-1347|
 | **1.7.0** | **b3** | Bug fixes|
 |           | **b2** | Fix for CGCBL-336, #73, #74 and CGESC-700|
 |           | **b1** | Support for CloudGenix SDK 6.0.1b1, bug fixes|
