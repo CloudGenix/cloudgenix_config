@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.9.0b1
+**Version:** 1.9.0b2
 
 **Author:** CloudGenix
 
@@ -5227,6 +5227,10 @@ def delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id
 
     for aspath_access_list_id in leftover_aspath_access_lists:
         # delete all leftover aspath_access_lists.
+        name = id2n.get(aspath_access_list_id, aspath_access_list_id)
+        if "auto" in name:
+            throw_warning("AS Path Access List {} is auto_generated. Skipping.".format(name))
+            continue
 
         output_message("   Deleting Unconfigured AS-PATH Access List {0}.".format(id2n.get(aspath_access_list_id,
                                                                                            aspath_access_list_id)))
@@ -5677,6 +5681,10 @@ def delete_routemaps(leftover_routemaps, site_id, element_id, id2n=None):
 
     for routemap_id in leftover_routemaps:
         # delete all leftover routemaps.
+        name = id2n.get(routemap_id, routemap_id)
+        if "auto" in name:
+            throw_warning("Route-map {0} is auto_generated. Skipping.".format(name))
+            continue
 
         output_message("   Deleting Unconfigured Route Map {0}.".format(id2n.get(routemap_id, routemap_id)))
         routemap_del_resp = sdk.delete.routing_routemaps(site_id, element_id, routemap_id)
