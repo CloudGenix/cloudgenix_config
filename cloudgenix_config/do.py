@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.9.0b2
+**Version:** 1.9.0b3
 
 **Author:** CloudGenix
 
@@ -1530,7 +1530,8 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     return
 
 
-def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, hubclusters_n2id, version=None):
+def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id,
+                            hubclusters_n2id, waninterfaces_n2id, version=None):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
     :param matching_element: Element object (containing ID) to work on
@@ -1598,6 +1599,17 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
                                             'interface_id', interfaces_n2id)
                     spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
                 spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
+            spoke_ha_config_track_waninterfaces = spoke_ha_config_track.get("waninterfaces")
+            if spoke_ha_config_track_waninterfaces:
+                spoke_ha_config_track_waninterfaces_template = []
+                for spoke_ha_config_track_waninterfaces_entry in spoke_ha_config_track_waninterfaces:
+                    spoke_ha_config_track_waninterfaces_entry_template = \
+                        copy.deepcopy(spoke_ha_config_track_waninterfaces_entry)
+                    name_lookup_in_template(spoke_ha_config_track_waninterfaces_entry_template,
+                                            'wan_interface_id', waninterfaces_n2id)
+                    spoke_ha_config_track_waninterfaces_template.append(
+                        spoke_ha_config_track_waninterfaces_entry_template)
+                spoke_ha_config_track_template['waninterfaces'] = spoke_ha_config_track_waninterfaces_template
             spoke_ha_config_template['track'] = spoke_ha_config_track_template
         config_element_copy['spoke_ha_config'] = spoke_ha_config_template
     else:
@@ -2010,7 +2022,7 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
             matching_element = {"id": element_item_id}
 
             # use the temp fake element to flush the Spoke HA configuration prior to unbind.
-            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, {}, version=version)
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, {}, {}, version=version)
 
             # refresh the element
             element_resp = sdk.get.elements(element_item_id)
@@ -8983,9 +8995,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
 
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
-                                        hubclusters_n2id, version=elements_version)
-
                 # START SERVICELINK
 
                 # extend interfaces_n2id with the funny_name cache, Make sure API interfaces trump funny names
@@ -10253,7 +10262,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # a second element operation AFTER the interfaces are enumerated and at the correct state (here).
 
                 # assign and configure element
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, hubclusters_n2id, version=elements_version)
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
+                                        hubclusters_n2id, waninterfaces_n2id, version=elements_version)
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
@@ -11506,10 +11516,10 @@ def go():
                                   default=None)
 
     login_group = parser.add_argument_group('Login', 'These options allow skipping of interactive login')
-    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py "
+    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py.example "
                                                    "or prompting",
                              default=None)
-    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py "
+    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py.example "
                                                        "or prompting",
                              default=None)
     login_group.add_argument("--insecure", "-I", help="Do not verify SSL certificate",

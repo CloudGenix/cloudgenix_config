@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.9.0b2
+**Version:** 1.9.0b3
 
 **Author:** CloudGenix
 
@@ -1778,6 +1778,16 @@ def _pull_config_for_single_site(site_name_id):
                                                 'interface_id', id_name_cache)
                         spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
                     spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
+                spoke_ha_config_track_waninterfaces = spoke_ha_config_track.get("waninterfaces")
+                if spoke_ha_config_track_waninterfaces:
+                    spoke_ha_config_track_waninterfaces_template = []
+                    for spoke_ha_config_track_waninterfaces_entry in spoke_ha_config_track_waninterfaces:
+                        spoke_ha_config_track_waninterfaces_entry_template = \
+                            copy.deepcopy(spoke_ha_config_track_waninterfaces_entry)
+                        name_lookup_in_template(spoke_ha_config_track_waninterfaces_entry_template,
+                                                'wan_interface_id', id_name_cache)
+                        spoke_ha_config_track_waninterfaces_template.append(spoke_ha_config_track_waninterfaces_entry_template)
+                    spoke_ha_config_track_template['waninterfaces'] = spoke_ha_config_track_waninterfaces_template
                 spoke_ha_config_template['track'] = spoke_ha_config_track_template
             element_template['spoke_ha_config'] = spoke_ha_config_template
 
@@ -2080,10 +2090,10 @@ def go():
                                   default=None)
 
     login_group = parser.add_argument_group('Login', 'These options allow skipping of interactive login')
-    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py "
+    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py.example "
                                                    "or prompting",
                              default=None)
-    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py "
+    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py.example "
                                                        "or prompting",
                              default=None)
     login_group.add_argument("--insecure", "-I", help="Do not verify SSL certificate",
