@@ -6,7 +6,7 @@
 [![Downloads](https://pepy.tech/badge/cloudgenix-config)](https://pepy.tech/project/cloudgenix-config)
 [![License: MIT](https://img.shields.io/pypi/l/cloudgenix_config.svg?color=brightgreen)](https://pypi.org/project/cloudgenix_config/)
 [![GitHub issues open](https://img.shields.io/github/issues/CloudGenix/cloudgenix_config.svg)](https://github.com/CloudGenix/cloudgenix_config/issues)
-# CloudGenix Config (Preview)
+# CloudGenix Config 
 Configuration exporting and Continuous Integration (CI) capable configuration importing for the CloudGenix Cloud Controller.
 
 #### Synopsis
