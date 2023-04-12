@@ -220,8 +220,9 @@ upgrade_path_regex = {
     "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
     "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
     "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
-    "5\.6\..*" : ["6.0..*", "6.1..*"],
-    "6\.0\..*" : ["6.1..*"],
+    "5\.6\..*" : ["6.1..*", "6.0..*"],
+    "6\.0\..*" : ["6.2..*", "6.1..*"],
+    "6\.1\..*" : ["6.2..*"]
 }
 
 downgrade_path_regex = {
@@ -235,6 +236,7 @@ downgrade_path_regex = {
     "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
     "6\.0\..*" : ["5.5..*", "5.6..*"],
     "6\.1\..*" : ["5.6..*", "6.0..*"],
+    "6\.2\..*" : ["6.0..*", "6.1..*"],
 }
 
 # Global Config Cache holders
@@ -899,10 +901,12 @@ def parse_site_config(config_site):
                                                                 sdk.put.multicastsourcesiteconfigs, default=[])
     config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
                                                                     sdk.put.hubclusters, default={})
+    config_deviceidconfigs, _ = config_lower_version_get(config_site, 'deviceidconfigs',
+                                                                    sdk.put.deviceidconfigs, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
-        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters
+        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs
 
 
 def parse_element_config(config_element):
@@ -2124,6 +2128,7 @@ def create_site(config_site, version=None):
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
+    site_template = fuzzy_pop(site_template, 'deviceidconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2182,6 +2187,7 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
+    site_template = fuzzy_pop(site_template, 'deviceidconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -3819,6 +3825,65 @@ def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, 
                         "".format(silp_name),
                         site_ipfix_localprefix_del_resp)
     return
+
+
+def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, version=None):
+    """
+    Modify deviceidconfigs
+    :param config_deviceidconfigss: deviceidconfigs config dict
+    :param deviceidconfigs_id: deviceidconfigs ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified deviceidconfigs ID
+    """
+    deviceidconfigs_config = {}
+    # make a copy of deviceidconfigs to modify
+    deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
+
+    # get current deviceidconfigs
+    deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id, deviceidconfigs_id)
+    if deviceidconfigs_resp.cgx_status:
+        deviceidconfigs_config = deviceidconfigs_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Device ID Config: ", deviceidconfigs_resp)
+
+    # extract prev_revision
+    prev_revision = deviceidconfigs_config.get("_etag")
+
+    # Check for changes:
+    deviceidconfigs_change_check = copy.deepcopy(deviceidconfigs_config)
+    deviceidconfigs_config.update(deviceidconfigs_template)
+    if not force_update and deviceidconfigs_config == deviceidconfigs_change_check:
+        # no change in config, pass.
+        deviceidconfigs_id = deviceidconfigs_change_check.get('id')
+        deviceidconfigs_name = deviceidconfigs_change_check.get('name', deviceidconfigs_id)
+        output_message(" No Change for Device ID Config {0}.".format(deviceidconfigs_name))
+        return deviceidconfigs_id
+
+    if debuglevel >= 3:
+        local_debug("Device ID Config DIFF: {0}".format(
+            find_diff(deviceidconfigs_change_check, deviceidconfigs_config)))
+
+    # Update deviceidconfigs.
+    deviceidconfigs_resp2 = sdk.put.deviceidconfigs(site_id, deviceidconfigs_id, deviceidconfigs_config,
+                                                     api_version=version)
+
+    if not deviceidconfigs_resp2.cgx_status:
+        throw_error(" Device ID Config update failed: ", deviceidconfigs_resp2)
+
+    deviceidconfigs_id = deviceidconfigs_resp.cgx_content.get('id')
+    deviceidconfigs_name = deviceidconfigs_resp.cgx_content.get('name', deviceidconfigs_id)
+
+    # extract current_revision
+    current_revision = deviceidconfigs_resp2.cgx_content.get("_etag")
+
+    if not deviceidconfigs_id:
+        throw_error("Unable to determine Device ID Config attributes (ID {0})..".format(deviceidconfigs_id))
+
+    output_message(" Updated Device ID Config {0} (Etag {1} -> {2}).".format(deviceidconfigs_name, prev_revision,
+                                                                           current_revision))
+
+    return deviceidconfigs_id
 
 
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
@@ -7729,7 +7794,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-                config_multicastsourcesiteconfigs, config_hubclusters\
+                config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs \
                 = parse_site_config(config_site)
 
             # Getting version for site resourcesinput apiversion
@@ -7755,6 +7820,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             hubclusters_version = use_sdk_yaml_version(config_site, 'hubclusters',
                                                                       sdk.put.hubclusters, default=[],
                                                                       sdk_or_yaml=apiversion)
+            deviceidconfigs_version = use_sdk_yaml_version(config_site, 'deviceidconfigs',
+                                                       sdk.put.deviceidconfigs, default=[],
+                                                       sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
                 mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
@@ -8386,6 +8454,25 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                      if entry != site_ipfix_localprefix_id]
 
             # -- End Site_ipfix_localprefixes
+
+            deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id)
+            deviceidconfigs_cache, leftover_deviceidconfigs = extract_items(
+                deviceidconfigs_resp, 'deviceidconfigs')
+
+            # iterate configs (list)
+            for config_deviceidconfigs_entry in config_deviceidconfigs:
+
+                config_deviceidconfigs_record = copy.deepcopy(config_deviceidconfigs_entry)
+                deviceidconfigs_id = None
+                if deviceidconfigs_cache:
+                    deviceidconfigs_id = deviceidconfigs_cache[0].get('id')
+
+                # Create or modify deviceidconfigs.
+                if deviceidconfigs_id is not None:
+                    # deviceidconfigs exists, modify.
+                    deviceidconfigs_id = modify_deviceidconfigs(config_deviceidconfigs_record,
+                                                                deviceidconfigs_id, site_id,
+                                                                version=deviceidconfigs_version)
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
