@@ -2228,7 +2228,7 @@ def modify_site(config_site, site_id, version=None):
             site_name = site_change_check.get('name')
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
             config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-            config_multicastsourcesiteconfigs, config_hubclusters = parse_site_config(config_site)
+            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs = parse_site_config(config_site)
 
             if not config_multicastsourcesiteconfigs:
                 output_message(" Resetting Multicast Source Site Config for the Site {0}.".format(site_name))
