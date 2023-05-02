@@ -2185,13 +2185,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2236,13 +2236,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2287,13 +2287,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2338,13 +2338,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2389,13 +2389,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2440,13 +2440,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2491,13 +2491,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2542,13 +2542,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2593,13 +2593,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2644,13 +2644,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2695,13 +2695,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2746,13 +2746,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2797,13 +2797,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2848,13 +2848,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2899,13 +2899,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -2950,13 +2950,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3001,13 +3001,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3052,13 +3052,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3103,13 +3103,13 @@ ion_5200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3157,13 +3157,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3208,13 +3208,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3259,13 +3259,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3310,13 +3310,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3361,13 +3361,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3412,13 +3412,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3463,13 +3463,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3514,13 +3514,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3565,13 +3565,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3616,13 +3616,13 @@ ion_3200 = """
             devicemgmt_policysetstack_id: null
             dhcp_relay: null
             directed_broadcast: false
-            ethernet_port: null
+            ethernet_port:
               full_duplex: false
               speed: 0
             interface_profile_id: null
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
-            ipv4_config: null
+            ipv4_config:
               dhcp_config: null
               dns_v4_config: null
               routes: null
@@ -3658,6 +3658,1284 @@ ion_3200 = """
             vlan_config: null
 """
 
+ion_9200 = """
+          '1':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: public
+            vlan_config:
+          '10':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: true
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: true
+            power_usage_threshold: 100
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '11':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: true
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: true
+            power_usage_threshold: 100
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '12':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: true
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: true
+            power_usage_threshold: 100
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '13':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '14':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '15':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '16':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '17':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '18':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '19':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '2':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: public
+            vlan_config:
+          '20':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '21':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '22':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '23':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '24':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '25':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '3':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '4':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '5':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '6':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '7':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '8':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: false
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: false
+            power_usage_threshold: 0
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+          '9':
+            admin_up: true
+            attached_lan_networks:
+            authentication_config:
+            bound_interfaces:
+            bypass_pair:
+            cellular_config:
+            description: ''
+            devicemgmt_policysetstack_id:
+            dhcp_relay:
+            directed_broadcast: false
+            ethernet_port:
+              full_duplex: false
+              speed: 0
+            interface_profile_id:
+            ipfixcollectorcontext_id:
+            ipfixfiltercontext_id:
+            ipv4_config:
+              dhcp_config:
+              dns_v4_config:
+              routes:
+              static_config:
+              type: dhcp
+            ipv6_config:
+            lldp_enabled: true
+            mac_address:
+            mtu: 1500
+            multicast_config:
+            nat_address:
+            nat_address_v6:
+            nat_pools:
+            nat_port: 0
+            nat_port_v6: 0
+            nat_zone_id:
+            network_context_id:
+            parent:
+            peer_bypasspair_wan_port_type: none
+            poe_enabled: true
+            power_usage_threshold: 100
+            pppoe_config:
+            scope: local
+            secondary_ip_configs:
+            service_link_config:
+            site_wan_interface_ids:
+            static_arp_configs:
+            sub_interface:
+            switch_port_config:
+            tags:
+            type: port
+            used_for: none
+            vlan_config:
+"""
+
 ion_1200 = """    
         '4':
           description: null
@@ -3691,7 +4969,7 @@ ion_1200 = """
           site_wan_interface_ids: null
           mac_address: null
           mtu: 1500
-          ipv4_config: null
+          ipv4_config:
           dhcp_relay: null
           ethernet_port: 
             full_duplex: false
@@ -3741,7 +5019,7 @@ ion_1200 = """
           site_wan_interface_ids: null
           mac_address: null
           mtu: 1500
-          ipv4_config: null
+          ipv4_config:
           dhcp_relay: null
           ethernet_port: 
             full_duplex: false
