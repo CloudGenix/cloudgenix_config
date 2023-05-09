@@ -1260,7 +1260,7 @@ def get_exact_version(version, image_dict):
     """
 
     for image_version in image_dict.keys():
-        if re.search(str(version), image_version):
+        if re.match(str(version), image_version):
             return image_version
     return None
 
