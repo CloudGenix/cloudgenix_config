@@ -4438,11 +4438,11 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     prev_revision = interface_config.get("_etag")
 
     config = {}
-    if interface_config.get('bypass_pair'):
+    if interface_config.get('bypass_pair') and not interface_template.get('bypass_pair'):
         config['bypass_pair'] = interface_config['bypass_pair']
-    if interface_config.get('sub_interface'):
+    if interface_config.get('sub_interface') and not interface_template.get('sub_interface'):
         config['sub_interface'] = interface_config['sub_interface']
-    if interface_config.get('pppoe_config'):
+    if interface_config.get('pppoe_config') and not interface_template.get('pppoe_config'):
         config['pppoe_config'] = interface_config['pppoe_config']
     if interface_config.get('parent'):
         config['parent'] = interface_config['parent']
@@ -6242,7 +6242,7 @@ def create_syslog(config_syslog, interfaces_n2id, syslogserverprofiles_n2id, sit
     return syslog_id
 
 
-def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id, version=None):
+def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id, reset_syslog=0, version=None):
     """
     Modify an existing Syslog
     :param config_syslog: Syslog config dict
@@ -6278,7 +6278,13 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofile
     # Check for changes:
     syslog_change_check = copy.deepcopy(syslog_config)
     syslog_config.update(syslog_template)
-    if not force_update and syslog_config == syslog_change_check:
+    if reset_syslog:
+        if syslog_config != syslog_change_check:
+            output_message("   Resetting source interface ids for syslog {0}.".format(syslog_change_check.get('name')))
+            syslog_config['source_interface_ids'] = None
+        else:
+            return 1
+    elif not force_update and syslog_config == syslog_change_check:
         # no change in config, pass.
         syslog_id = syslog_change_check.get('id')
         syslog_name = syslog_change_check.get('name')
@@ -6588,7 +6594,7 @@ def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id, ver
 
 
 def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
-                     site_id, element_id, version=None):
+                     site_id, element_id, reset_snmp=0, version=None):
     """
     Modify Existing SNMP Trap
     :param config_snmp_trap: SNMP Trap config dict
@@ -6624,7 +6630,13 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     # Check for changes:
     snmp_trap_change_check = copy.deepcopy(snmp_trap_config)
     snmp_trap_config.update(snmp_trap_template)
-    if not force_update and snmp_trap_config == snmp_trap_change_check:
+    if reset_snmp:
+        if snmp_trap_config != snmp_trap_change_check:
+            output_message("   Resetting source interface ids for SNMP Trap {0}.".format(snmp_trap_id))
+            snmp_trap_config['source_interface_ids'] = None
+        else:
+            return 1
+    elif not force_update and snmp_trap_config == snmp_trap_change_check:
         # no change in config, pass.
         snmp_trap_id = snmp_trap_change_check.get('id')
         output_message("   No Change for Snmp_trap {0}.".format(snmp_trap_id))
@@ -9011,6 +9023,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no syslog object.
                         syslog_id = None
 
+                    if syslog_id is not None:
+                        # Syslog exists, modify.
+                        syslog_id = modify_syslog(config_syslog_record, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id,
+                                                  element_id, reset_syslog=1, version=syslog_version)
+
                     # remove from delete queue
                     leftover_syslogs = [entry for entry in leftover_syslogs if entry != syslog_id]
 
@@ -9056,6 +9073,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     else:
                         # no snmp_trap object.
                         snmp_trap_id = None
+
+                    if snmp_trap_id is not None:
+                        # Snmp_trap exists, modify.
+                        snmp_trap_id = modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
+                                                        site_id, element_id, reset_snmp=1, version=snmp_traps_version)
 
                     # remove from delete queue
                     leftover_snmp_traps = [entry for entry in leftover_snmp_traps if entry != snmp_trap_id]
