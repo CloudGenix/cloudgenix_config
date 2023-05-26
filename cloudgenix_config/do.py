@@ -1535,7 +1535,7 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
 
 
 def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id,
-                            hubclusters_n2id, waninterfaces_n2id, version=None):
+                            hubclusters_n2id, waninterfaces_n2id, reset_spoke_ha=0, version=None):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
     :param matching_element: Element object (containing ID) to work on
@@ -1629,7 +1629,16 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
         elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'])
 
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
-    if not force_update and elem_template == element_change_check:
+    if reset_spoke_ha and elem_template.get('spoke_ha_config'):
+        if elem_template.get('spoke_ha_config', {}).get('source_interface') != \
+                element_change_check.get('spoke_ha_config', {}).get('source_interface') or \
+                elem_template.get('spoke_ha_config', {}).get('track', {}) != \
+                element_change_check.get('spoke_ha_config', {}).get('track', {}):
+            output_message("   Resetting Spoke HA in element {0}.".format(element_descriptive_text))
+            elem_template['spoke_ha_config'] = None
+        else:
+            return 1
+    elif not force_update and elem_template == element_change_check:
         # no change in config, pass.
         output_message("   No Change for Spoke HA in Element {0}.".format(element_descriptive_text))
         return
@@ -9098,6 +9107,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if config_app_probe:
                     application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1, version=app_probe_version)
 
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
+                                        hubclusters_n2id, waninterfaces_n2id, reset_spoke_ha=1, version=elements_version)
                 # END Aplication Probe
 
 
