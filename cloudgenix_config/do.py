@@ -1629,7 +1629,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
         elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'])
 
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
-    if reset_spoke_ha and elem_template.get('spoke_ha_config'):
+    if reset_spoke_ha and element_change_check.get('spoke_ha_config'):
         if elem_template.get('spoke_ha_config', {}).get('source_interface') != \
                 element_change_check.get('spoke_ha_config', {}).get('source_interface') or \
                 elem_template.get('spoke_ha_config', {}).get('track', {}) != \
