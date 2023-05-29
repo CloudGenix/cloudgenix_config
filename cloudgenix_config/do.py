@@ -4477,6 +4477,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                 interface_config["switch_port_config"]["native_vlan_id"] = None
                 interface_config["switch_port_config"]["voice_vlan_id"] = None
                 interface_config["switch_port_config"]["trunk_vlans"] = None
+                interface_config["switch_port_config"]["vlan_mode"] = "access"
         else:
             return 1
     elif reset_ipfix_collector_filter_context:
