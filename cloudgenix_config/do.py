@@ -9382,11 +9382,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 config_ports = get_config_interfaces_by_type(config_interfaces_defaults, 'port')
 
-                config_parent2child, \
-                config_child2parent = get_parent_child_dict(config_interfaces_defaults,
-                                                            id2n=interfaces_id2n)
-
-                print("config_parent2child in PORT: ", config_parent2child)
                 for config_interface_name, config_interface_value in config_ports.items():
 
                     local_debug("IF: {0}, PARENT2CHILD".format(config_interface_name), config_parent2child.keys())
