@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 1.9.0b2
+**Version:** 2.0.0b1
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "1.9.0b2"
+__version__ = "2.0.0b1"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
@@ -333,6 +333,16 @@ def get_default_ifconfig_from_model_string(model_string):
         return yaml.safe_load(ion_1200_s_c5g_ww)
     elif model_string == "ion 1200-s-c-na":
         return yaml.safe_load(ion_1200_s_c_na)
+    elif model_string == "ion 1200-s-c-row":
+        return yaml.safe_load(ion_1200_s_c_row)
+    elif model_string == "ion 1200-s":
+        return yaml.safe_load(ion_1200s)
+    elif model_string == "ion 5200":
+        return yaml.safe_load(ion_5200)
+    elif model_string == "ion 3200":
+        return yaml.safe_load(ion_3200)
+    elif model_string == "ion 9200":
+        return yaml.safe_load(ion_9200)
     else:
         # model not found, return empty dict
         return {}

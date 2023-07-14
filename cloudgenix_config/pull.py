@@ -2,7 +2,7 @@
 """
 Configuration EXPORT worker/script
 
-**Version:** 1.9.0b2
+**Version:** 2.0.0b1
 
 **Author:** CloudGenix
 
@@ -168,6 +168,7 @@ ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 RADII_STR = "radii"
 MULTICASTSOURCESITECONFIGS_STR = "multicastsourcesiteconfigs"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
+DEVICE_ID_CONFIGS_STR = "deviceidconfigs"
 
 # Global Config Cache holders
 sites_cache = []
@@ -619,6 +620,7 @@ def build_version_strings():
     global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
     global RADII_STR
     global MULTICASTSOURCESITECONFIGS_STR
+    global DEVICE_ID_CONFIGS_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -659,7 +661,8 @@ def build_version_strings():
         ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
         ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
         RADII_STR = add_version_to_object(sdk.get.radii, "radii")
-        MULTICASTSOURCESITECONFIGS_STR = add_version_to_object(sdk.get.radii, "multicastsourcesiteconfigs")
+        MULTICASTSOURCESITECONFIGS_STR = add_version_to_object(sdk.get.multicastsourcesiteconfigs, "multicastsourcesiteconfigs")
+        DEVICE_ID_CONFIGS_STR = add_version_to_object(sdk.get.deviceidconfigs, "deviceidconfigs")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -980,6 +983,18 @@ def _pull_config_for_single_site(site_name_id):
         site[MULTICASTSOURCESITECONFIGS_STR].append(multicastsourcesiteconfigs_template)
 
     delete_if_empty(site, MULTICASTSOURCESITECONFIGS_STR)
+
+    site[DEVICE_ID_CONFIGS_STR] = []
+    response = sdk.get.deviceidconfigs(site['id'])
+    if not response.cgx_status:
+        throw_error("Device ID Config Fetch Failed: ", response)
+    deviceidconfigs_items = response.cgx_content['items']
+    for device_config in deviceidconfigs_items:
+        device_config_template = copy.deepcopy(device_config)
+        strip_meta_attributes(device_config_template)
+        site[DEVICE_ID_CONFIGS_STR].append(device_config_template)
+
+    delete_if_empty(site, DEVICE_ID_CONFIGS_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
@@ -1778,6 +1793,16 @@ def _pull_config_for_single_site(site_name_id):
                                                 'interface_id', id_name_cache)
                         spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
                     spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
+                spoke_ha_config_track_waninterfaces = spoke_ha_config_track.get("waninterfaces")
+                if spoke_ha_config_track_waninterfaces:
+                    spoke_ha_config_track_waninterfaces_template = []
+                    for spoke_ha_config_track_waninterfaces_entry in spoke_ha_config_track_waninterfaces:
+                        spoke_ha_config_track_waninterfaces_entry_template = \
+                            copy.deepcopy(spoke_ha_config_track_waninterfaces_entry)
+                        name_lookup_in_template(spoke_ha_config_track_waninterfaces_entry_template,
+                                                'wan_interface_id', id_name_cache)
+                        spoke_ha_config_track_waninterfaces_template.append(spoke_ha_config_track_waninterfaces_entry_template)
+                    spoke_ha_config_track_template['waninterfaces'] = spoke_ha_config_track_waninterfaces_template
                 spoke_ha_config_template['track'] = spoke_ha_config_track_template
             element_template['spoke_ha_config'] = spoke_ha_config_template
 
@@ -2080,10 +2105,10 @@ def go():
                                   default=None)
 
     login_group = parser.add_argument_group('Login', 'These options allow skipping of interactive login')
-    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py "
+    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py.example "
                                                    "or prompting",
                              default=None)
-    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py "
+    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py.example "
                                                        "or prompting",
                              default=None)
     login_group.add_argument("--insecure", "-I", help="Do not verify SSL certificate",
