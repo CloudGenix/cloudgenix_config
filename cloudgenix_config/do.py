@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 1.9.0b2
+**Version:** 2.0.0b1
 
 **Author:** CloudGenix
 
@@ -220,8 +220,9 @@ upgrade_path_regex = {
     "5\.3\..*" : ["5.5..*", "5.4..*"], ### 5.3.xyz -> 5.5.3
     "5\.4\..*" : ["5.6..*", "5.5..*"], ### 5.4.xyz -> 5.6.1
     "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
-    "5\.6\..*" : ["6.0..*", "6.1..*"],
-    "6\.0\..*" : ["6.1..*"],
+    "5\.6\..*" : ["6.1..*", "6.0..*"],
+    "6\.0\..*" : ["6.2..*", "6.1..*"],
+    "6\.1\..*" : ["6.2..*"]
 }
 
 downgrade_path_regex = {
@@ -235,6 +236,7 @@ downgrade_path_regex = {
     "5\.6\..*" : ["5.4..*", "5.5..*"], ### 5.6 to 5.4.1
     "6\.0\..*" : ["5.5..*", "5.6..*"],
     "6\.1\..*" : ["5.6..*", "6.0..*"],
+    "6\.2\..*" : ["6.0..*", "6.1..*"],
 }
 
 # Global Config Cache holders
@@ -899,10 +901,12 @@ def parse_site_config(config_site):
                                                                 sdk.put.multicastsourcesiteconfigs, default=[])
     config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
                                                                     sdk.put.hubclusters, default={})
+    config_deviceidconfigs, _ = config_lower_version_get(config_site, 'deviceidconfigs',
+                                                                    sdk.put.deviceidconfigs, default=[])
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
-        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters
+        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs
 
 
 def parse_element_config(config_element):
@@ -1256,7 +1260,7 @@ def get_exact_version(version, image_dict):
     """
 
     for image_version in image_dict.keys():
-        if re.search(str(version), image_version):
+        if re.match(str(version), image_version):
             return image_version
     return None
 
@@ -1530,7 +1534,8 @@ def staged_upgrade_downgrade_element(matching_element, config_element, wait_upgr
     return
 
 
-def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id, hubclusters_n2id, version=None):
+def handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokecluster_n2id,
+                            hubclusters_n2id, waninterfaces_n2id, reset_spoke_ha=0, version=None):
     """
     Since Spoke HA config is part of the element object, we need to handle it separately.
     :param matching_element: Element object (containing ID) to work on
@@ -1598,6 +1603,17 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
                                             'interface_id', interfaces_n2id)
                     spoke_ha_config_track_interfaces_template.append(spoke_ha_config_track_interfaces_entry_template)
                 spoke_ha_config_track_template['interfaces'] = spoke_ha_config_track_interfaces_template
+            spoke_ha_config_track_waninterfaces = spoke_ha_config_track.get("waninterfaces")
+            if spoke_ha_config_track_waninterfaces:
+                spoke_ha_config_track_waninterfaces_template = []
+                for spoke_ha_config_track_waninterfaces_entry in spoke_ha_config_track_waninterfaces:
+                    spoke_ha_config_track_waninterfaces_entry_template = \
+                        copy.deepcopy(spoke_ha_config_track_waninterfaces_entry)
+                    name_lookup_in_template(spoke_ha_config_track_waninterfaces_entry_template,
+                                            'wan_interface_id', waninterfaces_n2id)
+                    spoke_ha_config_track_waninterfaces_template.append(
+                        spoke_ha_config_track_waninterfaces_entry_template)
+                spoke_ha_config_track_template['waninterfaces'] = spoke_ha_config_track_waninterfaces_template
             spoke_ha_config_template['track'] = spoke_ha_config_track_template
         config_element_copy['spoke_ha_config'] = spoke_ha_config_template
     else:
@@ -1613,7 +1629,16 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
         elem_template['cluster_id'] = hubclusters_n2id.get(elem_template['cluster_id'])
 
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
-    if not force_update and elem_template == element_change_check:
+    if spoke_ha_config and reset_spoke_ha and element_change_check.get('spoke_ha_config'):
+        if elem_template.get('spoke_ha_config', {}).get('source_interface') != \
+                element_change_check.get('spoke_ha_config', {}).get('source_interface') or \
+                elem_template.get('spoke_ha_config', {}).get('track', {}) != \
+                element_change_check.get('spoke_ha_config', {}).get('track', {}):
+            output_message("   Resetting Spoke HA in element {0}.".format(element_descriptive_text))
+            elem_template['spoke_ha_config'] = None
+        else:
+            return 1
+    elif not force_update and elem_template == element_change_check:
         # no change in config, pass.
         output_message("   No Change for Spoke HA in Element {0}.".format(element_descriptive_text))
         return
@@ -2010,7 +2035,7 @@ def unbind_elements(element_id_list, site_id, declaim=False, version=None):
             matching_element = {"id": element_item_id}
 
             # use the temp fake element to flush the Spoke HA configuration prior to unbind.
-            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, {}, version=version)
+            handle_element_spoke_ha(matching_element, site_id, elem_template, {}, {}, {}, {}, version=version)
 
             # refresh the element
             element_resp = sdk.get.elements(element_item_id)
@@ -2112,6 +2137,7 @@ def create_site(config_site, version=None):
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
+    site_template = fuzzy_pop(site_template, 'deviceidconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2170,6 +2196,7 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
+    site_template = fuzzy_pop(site_template, 'deviceidconfigs')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2210,7 +2237,7 @@ def modify_site(config_site, site_id, version=None):
             site_name = site_change_check.get('name')
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
             config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-            config_multicastsourcesiteconfigs, config_hubclusters = parse_site_config(config_site)
+            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs = parse_site_config(config_site)
 
             if not config_multicastsourcesiteconfigs:
                 output_message(" Resetting Multicast Source Site Config for the Site {0}.".format(site_name))
@@ -3809,6 +3836,65 @@ def delete_site_ipfix_localprefixes(leftover_site_ipfix_localprefixes, site_id, 
     return
 
 
+def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, version=None):
+    """
+    Modify deviceidconfigs
+    :param config_deviceidconfigss: deviceidconfigs config dict
+    :param deviceidconfigs_id: deviceidconfigs ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :return: Modified deviceidconfigs ID
+    """
+    deviceidconfigs_config = {}
+    # make a copy of deviceidconfigs to modify
+    deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
+
+    # get current deviceidconfigs
+    deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id, deviceidconfigs_id)
+    if deviceidconfigs_resp.cgx_status:
+        deviceidconfigs_config = deviceidconfigs_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Device ID Config: ", deviceidconfigs_resp)
+
+    # extract prev_revision
+    prev_revision = deviceidconfigs_config.get("_etag")
+
+    # Check for changes:
+    deviceidconfigs_change_check = copy.deepcopy(deviceidconfigs_config)
+    deviceidconfigs_config.update(deviceidconfigs_template)
+    if not force_update and deviceidconfigs_config == deviceidconfigs_change_check:
+        # no change in config, pass.
+        deviceidconfigs_id = deviceidconfigs_change_check.get('id')
+        deviceidconfigs_name = deviceidconfigs_change_check.get('name', deviceidconfigs_id)
+        output_message(" No Change for Device ID Config {0}.".format(deviceidconfigs_name))
+        return deviceidconfigs_id
+
+    if debuglevel >= 3:
+        local_debug("Device ID Config DIFF: {0}".format(
+            find_diff(deviceidconfigs_change_check, deviceidconfigs_config)))
+
+    # Update deviceidconfigs.
+    deviceidconfigs_resp2 = sdk.put.deviceidconfigs(site_id, deviceidconfigs_id, deviceidconfigs_config,
+                                                     api_version=version)
+
+    if not deviceidconfigs_resp2.cgx_status:
+        throw_error(" Device ID Config update failed: ", deviceidconfigs_resp2)
+
+    deviceidconfigs_id = deviceidconfigs_resp.cgx_content.get('id')
+    deviceidconfigs_name = deviceidconfigs_resp.cgx_content.get('name', deviceidconfigs_id)
+
+    # extract current_revision
+    current_revision = deviceidconfigs_resp2.cgx_content.get("_etag")
+
+    if not deviceidconfigs_id:
+        throw_error("Unable to determine Device ID Config attributes (ID {0})..".format(deviceidconfigs_id))
+
+    output_message(" Updated Device ID Config {0} (Etag {1} -> {2}).".format(deviceidconfigs_name, prev_revision,
+                                                                           current_revision))
+
+    return deviceidconfigs_id
+
+
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
                      api_interfaces_cache=None, interfaces_funny_n2id=None, version=None):
     """
@@ -4361,11 +4447,11 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     prev_revision = interface_config.get("_etag")
 
     config = {}
-    if interface_config.get('bypass_pair'):
+    if interface_config.get('bypass_pair') and not interface_template.get('bypass_pair'):
         config['bypass_pair'] = interface_config['bypass_pair']
-    if interface_config.get('sub_interface'):
+    if interface_config.get('sub_interface') and not interface_template.get('sub_interface'):
         config['sub_interface'] = interface_config['sub_interface']
-    if interface_config.get('pppoe_config'):
+    if interface_config.get('pppoe_config') and not interface_template.get('pppoe_config'):
         config['pppoe_config'] = interface_config['pppoe_config']
     if interface_config.get('parent'):
         config['parent'] = interface_config['parent']
@@ -4391,6 +4477,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
                 interface_config["switch_port_config"]["native_vlan_id"] = None
                 interface_config["switch_port_config"]["voice_vlan_id"] = None
                 interface_config["switch_port_config"]["trunk_vlans"] = None
+                interface_config["switch_port_config"]["vlan_mode"] = "access"
         else:
             return 1
     elif reset_ipfix_collector_filter_context:
@@ -6165,7 +6252,7 @@ def create_syslog(config_syslog, interfaces_n2id, syslogserverprofiles_n2id, sit
     return syslog_id
 
 
-def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id, version=None):
+def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id, element_id, reset_syslog=0, version=None):
     """
     Modify an existing Syslog
     :param config_syslog: Syslog config dict
@@ -6201,7 +6288,13 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofile
     # Check for changes:
     syslog_change_check = copy.deepcopy(syslog_config)
     syslog_config.update(syslog_template)
-    if not force_update and syslog_config == syslog_change_check:
+    if reset_syslog:
+        if syslog_config != syslog_change_check:
+            output_message("   Resetting source interface ids for syslog {0}.".format(syslog_change_check.get('name')))
+            syslog_config['source_interface'] = None
+        else:
+            return 1
+    elif not force_update and syslog_config == syslog_change_check:
         # no change in config, pass.
         syslog_id = syslog_change_check.get('id')
         syslog_name = syslog_change_check.get('name')
@@ -6511,7 +6604,7 @@ def create_snmp_trap(config_snmp_trap, interfaces_n2id, site_id, element_id, ver
 
 
 def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
-                     site_id, element_id, version=None):
+                     site_id, element_id, reset_snmp=0, version=None):
     """
     Modify Existing SNMP Trap
     :param config_snmp_trap: SNMP Trap config dict
@@ -6547,7 +6640,13 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     # Check for changes:
     snmp_trap_change_check = copy.deepcopy(snmp_trap_config)
     snmp_trap_config.update(snmp_trap_template)
-    if not force_update and snmp_trap_config == snmp_trap_change_check:
+    if reset_snmp:
+        if snmp_trap_config != snmp_trap_change_check:
+            output_message("   Resetting source interface ids for SNMP Trap {0}.".format(snmp_trap_id))
+            snmp_trap_config['source_interface'] = None
+        else:
+            return 1
+    elif not force_update and snmp_trap_config == snmp_trap_change_check:
         # no change in config, pass.
         snmp_trap_id = snmp_trap_change_check.get('id')
         output_message("   No Change for Snmp_trap {0}.".format(snmp_trap_id))
@@ -7717,7 +7816,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-                config_multicastsourcesiteconfigs, config_hubclusters\
+                config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs \
                 = parse_site_config(config_site)
 
             # Getting version for site resourcesinput apiversion
@@ -7743,6 +7842,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             hubclusters_version = use_sdk_yaml_version(config_site, 'hubclusters',
                                                                       sdk.put.hubclusters, default=[],
                                                                       sdk_or_yaml=apiversion)
+            deviceidconfigs_version = use_sdk_yaml_version(config_site, 'deviceidconfigs',
+                                                       sdk.put.deviceidconfigs, default=[],
+                                                       sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
                 mpg_id = multicastpeergroups_n2id.get(config_site["multicast_peer_group_id"])
@@ -8375,6 +8477,25 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Site_ipfix_localprefixes
 
+            deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id)
+            deviceidconfigs_cache, leftover_deviceidconfigs = extract_items(
+                deviceidconfigs_resp, 'deviceidconfigs')
+
+            # iterate configs (list)
+            for config_deviceidconfigs_entry in config_deviceidconfigs:
+
+                config_deviceidconfigs_record = copy.deepcopy(config_deviceidconfigs_entry)
+                deviceidconfigs_id = None
+                if deviceidconfigs_cache:
+                    deviceidconfigs_id = deviceidconfigs_cache[0].get('id')
+
+                # Create or modify deviceidconfigs.
+                if deviceidconfigs_id is not None:
+                    # deviceidconfigs exists, modify.
+                    deviceidconfigs_id = modify_deviceidconfigs(config_deviceidconfigs_record,
+                                                                deviceidconfigs_id, site_id,
+                                                                version=deviceidconfigs_version)
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -8912,6 +9033,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no syslog object.
                         syslog_id = None
 
+                    if syslog_id is not None:
+                        # Syslog exists, modify.
+                        syslog_id = modify_syslog(config_syslog_record, syslog_id, interfaces_n2id, syslogserverprofiles_n2id, site_id,
+                                                  element_id, reset_syslog=1, version=syslog_version)
+
                     # remove from delete queue
                     leftover_syslogs = [entry for entry in leftover_syslogs if entry != syslog_id]
 
@@ -8958,6 +9084,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         # no snmp_trap object.
                         snmp_trap_id = None
 
+                    if snmp_trap_id is not None:
+                        # Snmp_trap exists, modify.
+                        snmp_trap_id = modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
+                                                        site_id, element_id, reset_snmp=1, version=snmp_traps_version)
+
                     # remove from delete queue
                     leftover_snmp_traps = [entry for entry in leftover_snmp_traps if entry != snmp_trap_id]
 
@@ -8977,14 +9108,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if config_app_probe:
                     application_probe_id = modify_application_probe(config_app_probe, site_id, element_id, interfaces_n2id, reset_app_probe=1, version=app_probe_version)
 
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
+                                        hubclusters_n2id, waninterfaces_n2id, reset_spoke_ha=1, version=elements_version)
                 # END Aplication Probe
 
 
                 # Now we will delete the leftover interfaces for all interfaces type
                 # This will ensure any unused interfaces can be reused or reconfigured
-
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
-                                        hubclusters_n2id, version=elements_version)
 
                 # START SERVICELINK
 
@@ -10253,7 +10383,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # a second element operation AFTER the interfaces are enumerated and at the correct state (here).
 
                 # assign and configure element
-                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id, hubclusters_n2id, version=elements_version)
+                handle_element_spoke_ha(matching_element, site_id, config_element, interfaces_n2id, spokeclusters_n2id,
+                                        hubclusters_n2id, waninterfaces_n2id, version=elements_version)
 
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
@@ -11506,10 +11637,10 @@ def go():
                                   default=None)
 
     login_group = parser.add_argument_group('Login', 'These options allow skipping of interactive login')
-    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py "
+    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py.example "
                                                    "or prompting",
                              default=None)
-    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py "
+    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py.example "
                                                        "or prompting",
                              default=None)
     login_group.add_argument("--insecure", "-I", help="Do not verify SSL certificate",
