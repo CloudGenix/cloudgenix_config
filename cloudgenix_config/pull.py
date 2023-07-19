@@ -1739,11 +1739,11 @@ def _pull_config_for_single_site(site_name_id):
                             filter_context_id_list.append(id_name_cache.get(filter_context_id, filter_context_id))
                         if filter_context_id_list:
                             filter_context['ipfixfiltercontext_ids'] = filter_context_id_list
-
-                    for app_def_id in filter_context.get('app_def_ids', []):
-                        app_def_id_list.append(id_name_cache.get(app_def_id, app_def_id))
-                    if app_def_id_list:
-                        filter_context['app_def_ids'] = app_def_id_list
+                    if filter_context.get('app_def_ids'):
+                        for app_def_id in filter_context.get('app_def_ids', []):
+                            app_def_id_list.append(id_name_cache.get(app_def_id, app_def_id))
+                        if app_def_id_list:
+                            filter_context['app_def_ids'] = app_def_id_list
 
             strip_meta_attributes(ipfix_template, leave_name=True)
             # names used, but config doesn't index by name for this value currently.
