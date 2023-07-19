@@ -1630,7 +1630,7 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
 
     # Check for changes in cleaned config copy and cleaned template (will finally detect spoke HA changes here):
     if reset_spoke_ha:
-        if spoke_ha_config and element_change_check.get('spoke_ha_config'):
+        if element_change_check.get('spoke_ha_config') and elem_template.get('spoke_ha_config'):
             if elem_template.get('spoke_ha_config', {}).get('source_interface') != \
                     element_change_check.get('spoke_ha_config', {}).get('source_interface') or \
                     elem_template.get('spoke_ha_config', {}).get('track', {}) != \
@@ -1639,6 +1639,9 @@ def handle_element_spoke_ha(matching_element, site_id, config_element, interface
                 elem_template['spoke_ha_config'] = None
             else:
                 return 1
+        elif element_change_check.get('spoke_ha_config') and not elem_template.get('spoke_ha_config'):
+            output_message("   Resetting Spoke HA in element {0}.".format(element_descriptive_text))
+            elem_template['spoke_ha_config'] = None
         else:
             return 1
     elif not force_update and elem_template == element_change_check:
