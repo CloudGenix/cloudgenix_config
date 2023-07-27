@@ -1816,6 +1816,8 @@ def _pull_config_for_single_site(site_name_id):
         # as always, sanity check for empty element
         delete_if_empty(site[ELEMENTS_STR], checked_element_name)
 
+    delete_if_empty(site, ELEMENTS_STR)
+
     # prep for add to sites dict
     site_template = copy.deepcopy(site)
 
