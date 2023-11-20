@@ -206,6 +206,10 @@ apnprofiles_cache = []
 multicastpeergroups_cache = []
 radii_cache = []
 multicastsourcesiteconfigs_cache = []
+vrfcontexts_cache = []
+vrfcontextprofiles_cache = []
+perfmgmtpolicysetstacks_cache = []
+perfmgmtpolicysets_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -317,6 +321,10 @@ def update_global_cache():
     global multicastpeergroups_cache
     global radii_cache
     global multicastsourcesiteconfigs_cache
+    global vrfcontexts_cache
+    global vrfcontextprofiles_cache
+    global perfmgmtpolicysetstacks_cache
+    global perfmgmtpolicysets_cache
 
 
     global id_name_cache
@@ -455,6 +463,18 @@ def update_global_cache():
     multicastpeergroups_resp = sdk.get.multicastpeergroups()
     multicastpeergroups_cache, _ = extract_items(multicastpeergroups_resp, 'multicastpeergroups')
 
+    vrfcontexts_resp = sdk.get.vrfcontexts()
+    vrfcontexts_cache, _ = extract_items(vrfcontexts_resp, 'vrfcontexts')
+
+    vrfcontextprofiles_resp = sdk.get.vrfcontextprofiles()
+    vrfcontextprofiles_cache, _ = extract_items(vrfcontextprofiles_resp, 'vrfcontextprofiles')
+
+    perfmgmtpolicysets_resp = sdk.get.perfmgmtpolicysets()
+    perfmgmtpolicysets_cache, _ = extract_items(perfmgmtpolicysets_resp, 'perfmgmtpolicysets')
+
+    perfmgmtpolicysetstacks_resp = sdk.get.perfmgmtpolicysetstacks()
+    perfmgmtpolicysetstacks_cache, _ = extract_items(perfmgmtpolicysetstacks_resp, 'perfmgmtpolicysetstacks')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -555,6 +575,14 @@ def update_global_cache():
 
     # radii name
     id_name_cache.update(build_lookup_dict(radii_cache, key_val='id', value_val='name'))
+
+    id_name_cache.update(build_lookup_dict(vrfcontexts_cache, key_val='id', value_val='name'))
+
+    id_name_cache.update(build_lookup_dict(vrfcontextprofiles_cache, key_val='id', value_val='name'))
+
+    id_name_cache.update(build_lookup_dict(perfmgmtpolicysets_cache, key_val='id', value_val='name'))
+
+    id_name_cache.update(build_lookup_dict(perfmgmtpolicysetstacks_cache, key_val='id', value_val='name'))
 
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
@@ -790,6 +818,7 @@ def _pull_config_for_single_site(site_name_id):
         lannetwork_template = copy.deepcopy(lannetwork)
         name_lookup_in_template(lannetwork_template, 'network_context_id', id_name_cache)
         name_lookup_in_template(lannetwork_template, 'security_policy_set', id_name_cache)
+        name_lookup_in_template(lannetwork_template, 'vrf_context_id', id_name_cache)
         strip_meta_attributes(lannetwork_template)
         # check name for duplicates
         checked_lannetwork_name = check_name(lannetwork['name'], dup_name_dict, 'Laninterface',
@@ -870,6 +899,7 @@ def _pull_config_for_single_site(site_name_id):
     for dhcpserver in dhcpservers:
         dhcpserver_template = copy.deepcopy(dhcpserver)
         name_lookup_in_template(dhcpserver_template, 'network_context_id', id_name_cache)
+        name_lookup_in_template(dhcpserver_template, 'vrf_context_id', id_name_cache)
         strip_meta_attributes(dhcpserver_template)
         # no names, don't need duplicate check
         site[DHCP_SERVERS_STR].append(dhcpserver_template)
@@ -1210,6 +1240,7 @@ def _pull_config_for_single_site(site_name_id):
             # replace ipfix fields
             name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', id_name_cache)
             name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', id_name_cache)
+            name_lookup_in_template(interface_template, 'vrf_context_id', id_name_cache)
 
             bound_ifaces = interface.get('bound_interfaces', [])
             if bound_ifaces:
@@ -1253,6 +1284,7 @@ def _pull_config_for_single_site(site_name_id):
         staticroutes = response.cgx_content['items']
         for staticroute in staticroutes:
             staticroute_template = copy.deepcopy(staticroute)
+            name_lookup_in_template(staticroute_template, 'vrf_context_id', id_name_cache)
             nexthops = staticroute.get('nexthops')
             if nexthops and isinstance(nexthops, list):
                 nexthops_template, bps = [], ''
@@ -1326,6 +1358,7 @@ def _pull_config_for_single_site(site_name_id):
             # replace flat name
             name_lookup_in_template(bgp_peer_template, 'route_map_in_id', id_name_cache)
             name_lookup_in_template(bgp_peer_template, 'route_map_out_id', id_name_cache)
+            name_lookup_in_template(bgp_peer_template, 'vrf_context_id', id_name_cache)
             strip_meta_attributes(bgp_peer_template)
             # check for duplicate names
             checked_bgp_peer_name = check_name(bgp_peer['name'], dup_name_dict, 'BGP Peer',
@@ -1341,7 +1374,8 @@ def _pull_config_for_single_site(site_name_id):
         dup_name_dict = {}
         for routemap in routemaps_cache:
             routemap_template = copy.deepcopy(routemap)
-
+            if routemap_template.get("auto_generated"):
+                continue
             # replace complex routemap objects.
             route_map_entries_list = routemap.get('route_map_entries')
             if route_map_entries_list and isinstance(route_map_entries_list, list):
@@ -1390,6 +1424,8 @@ def _pull_config_for_single_site(site_name_id):
         dup_name_dict = {}
         for aspath_access_list in aspath_access_lists_cache:
             aspath_access_list_template = copy.deepcopy(aspath_access_list)
+            if aspath_access_list_template.get("auto_generated"):
+                continue
             # replace flat name
             # name_lookup_in_template(aspath_access_list_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(aspath_access_list_template)
@@ -1408,6 +1444,8 @@ def _pull_config_for_single_site(site_name_id):
         dup_name_dict = {}
         for routing_prefixlist in routing_prefixlists_cache:
             routing_prefixlist_template = copy.deepcopy(routing_prefixlist)
+            if routing_prefixlist_template.get("auto_generated"):
+                continue
             # replace flat name
             # name_lookup_in_template(routing_prefixlist_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(routing_prefixlist_template)
@@ -1425,6 +1463,8 @@ def _pull_config_for_single_site(site_name_id):
         dup_name_dict = {}
         for ip_community_list in ip_community_lists_cache:
             ip_community_list_template = copy.deepcopy(ip_community_list)
+            if ip_community_list_template.get("auto_generated"):
+                continue
             # replace flat name
             # name_lookup_in_template(ip_community_list_template, 'route_map_in_id', id_name_cache)
             strip_meta_attributes(ip_community_list_template)
@@ -1829,6 +1869,8 @@ def _pull_config_for_single_site(site_name_id):
     name_lookup_in_template(site_template, 'priority_policysetstack_id', id_name_cache)
     name_lookup_in_template(site_template, 'service_binding', id_name_cache)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', id_name_cache)
+    name_lookup_in_template(site_template, 'vrf_context_profile_id', id_name_cache)
+    name_lookup_in_template(site_template, 'perfmgmt_policysetstack_id', id_name_cache)
 
     strip_meta_attributes(site_template)
     # check for duplicate names

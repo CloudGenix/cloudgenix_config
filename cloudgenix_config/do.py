@@ -29,7 +29,7 @@ MIT
  * Get help and additional CloudGenix Documentation at <http://support.cloudgenix.com>
 
 """
-
+import requests
 import yaml
 import json
 import logging
@@ -276,6 +276,10 @@ multicastpeergroups_cache = []
 radii_cache = []
 multicastsourcesiteconfigs_cache = []
 hubclusters_cache = []
+vrfcontexts_cache = []
+vrfcontextprofiles_cache = []
+perfmgmtpolicysetstacks_cache = []
+perfmgmtpolicysets_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -312,6 +316,10 @@ ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
 multicastpeergroups_n2id = {}
 radii_n2id = {}
+vrfcontexts_n2id = {}
+vrfcontextprofiles_n2id = {}
+perfmgmtpolicysetstacks_n2id = {}
+perfmgmtpolicysets_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -489,6 +497,10 @@ def update_global_cache():
     global radii_cache
     global multicastsourcesiteconfigs_cache
     global hubclusters_cache
+    global vrfcontexts_cache
+    global vrfcontextprofiles_cache
+    global perfmgmtpolicysetstacks_cache
+    global perfmgmtpolicysets_cache
 
     global sites_n2id
     global elements_n2id
@@ -524,6 +536,10 @@ def update_global_cache():
     global apnprofiles_n2id
     global multicastpeergroups_n2id
     global radii_n2id
+    global vrfcontexts_n2id
+    global vrfcontextprofiles_n2id
+    global perfmgmtpolicysetstacks_n2id
+    global perfmgmtpolicysets_n2id
 
     global elements_byserial
     global machines_byserial
@@ -664,6 +680,18 @@ def update_global_cache():
     multicastpeergroups_resp = sdk.get.multicastpeergroups()
     multicastpeergroups_cache, _ = extract_items(multicastpeergroups_resp, 'multicastpeergroups')
 
+    vrfcontexts_resp = sdk.get.vrfcontexts()
+    vrfcontexts_cache, _ = extract_items(vrfcontexts_resp, 'vrfcontexts')
+
+    vrfcontextprofiles_resp = sdk.get.vrfcontextprofiles()
+    vrfcontextprofiles_cache, _ = extract_items(vrfcontextprofiles_resp, 'vrfcontextprofiles')
+
+    perfmgmtpolicysets_resp = sdk.get.perfmgmtpolicysets()
+    perfmgmtpolicysets_cache, _ = extract_items(perfmgmtpolicysets_resp, 'perfmgmtpolicysets')
+
+    perfmgmtpolicysetstacks_resp = sdk.get.perfmgmtpolicysetstacks()
+    perfmgmtpolicysetstacks_cache, _ = extract_items(perfmgmtpolicysetstacks_resp, 'perfmgmtpolicysetstacks')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -762,6 +790,14 @@ def update_global_cache():
 
     # multicastpeergroups name
     multicastpeergroups_n2id = build_lookup_dict(multicastpeergroups_cache)
+
+    vrfcontexts_n2id = build_lookup_dict(vrfcontexts_cache)
+
+    vrfcontextprofiles_n2id = build_lookup_dict(vrfcontextprofiles_cache)
+
+    perfmgmtpolicysets_n2id = build_lookup_dict(perfmgmtpolicysets_cache)
+
+    perfmgmtpolicysetstacks_n2id = build_lookup_dict(perfmgmtpolicysetstacks_cache)
 
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
@@ -2153,8 +2189,11 @@ def create_site(config_site, version=None):
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
+    name_lookup_in_template(site_template, 'vrf_context_profile_id', vrfcontextprofiles_n2id)
+    name_lookup_in_template(site_template, 'perfmgmt_policysetstack_id', perfmgmtpolicysetstacks_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
+    site_template = get_lat_long(site_template)
 
     # create site
     site_resp = sdk.post.sites(site_template, api_version=version)
@@ -2212,8 +2251,11 @@ def modify_site(config_site, site_id, version=None):
     name_lookup_in_template(site_template, 'priority_policysetstack_id', priority_policysetstack_n2id)
     name_lookup_in_template(site_template, 'nat_policysetstack_id', natpolicysetstacks_n2id)
     name_lookup_in_template(site_template, 'service_binding', servicebindingmaps_n2id)
+    name_lookup_in_template(site_template, 'vrf_context_profile_id', vrfcontextprofiles_n2id)
+    name_lookup_in_template(site_template, 'perfmgmt_policysetstack_id', perfmgmtpolicysetstacks_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
+    site_template = get_lat_long(site_template)
 
     # get current site
     site_resp = sdk.get.sites(site_id, api_version=version)
@@ -2569,6 +2611,7 @@ def create_lannetwork(config_lannetwork, lannetworks_n2id, site_id, version=None
     # perform name -> ID lookups
     name_lookup_in_template(lannetwork_template, 'security_policy_set', security_policysets_n2id)
     name_lookup_in_template(lannetwork_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(lannetwork_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("LANNETWORK TEMPLATE: " + str(json.dumps(lannetwork_template, indent=4)))
 
@@ -2609,6 +2652,7 @@ def modify_lannetwork(config_lannetwork, lannetwork_id, lannetworks_n2id, site_i
     # perform name -> ID lookups
     name_lookup_in_template(lannetwork_template, 'security_policy_set', security_policysets_n2id)
     name_lookup_in_template(lannetwork_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(lannetwork_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("LANNETWORK TEMPLATE: " + str(json.dumps(lannetwork_template, indent=4)))
 
@@ -2695,6 +2739,7 @@ def create_dhcpserver(config_dhcpserver, site_id, version=None):
 
     # replace flat names
     name_lookup_in_template(dhcpserver_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(dhcpserver_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("DHCPSERVER TEMPLATE: " + str(json.dumps(dhcpserver_template, indent=4)))
 
@@ -2729,6 +2774,7 @@ def modify_dhcpserver(config_dhcpserver, dhcpserver_id, site_id, version=None):
 
     # replace flat names
     name_lookup_in_template(dhcpserver_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(dhcpserver_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("DHCPSERVER TEMPLATE: " + str(json.dumps(dhcpserver_template, indent=4)))
 
@@ -4094,6 +4140,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
     name_lookup_in_template(interface_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(interface_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -4429,6 +4476,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     name_lookup_in_template(interface_template, 'ipfixcollectorcontext_id', ipfixcollectorcontext_n2id)
     name_lookup_in_template(interface_template, 'ipfixfiltercontext_id', ipfixfiltercontext_n2id)
     name_lookup_in_template(interface_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(interface_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # check for namable interfaces
     interface_template_name = interface_template.get('name')
@@ -4487,7 +4535,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         else:
             return 1
     elif reset_ipfix_collector_filter_context:
-        if interface_config != interface_change_check:
+        if interface_config.get('ipfixcollectorcontext_id') != interface_change_check.get('ipfixcollectorcontext_id'):
             output_message(
                 "   Resetting the IPFIXCOLLECTORCONTEXT for Interface {0}.".format(interface_change_check.get("name")))
             if interface_config.get("ipfixcollectorcontext_id"):
@@ -5031,6 +5079,7 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id,
     """
     # make a copy of staticroute to modify
     staticroute_template = copy.deepcopy(config_staticroute)
+    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # perform name -> ID lookups
     for key, value in config_staticroute.items():
@@ -5098,6 +5147,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
     staticroute_config = {}
     # make a copy of staticroute to modify
     staticroute_template = copy.deepcopy(config_staticroute)
+    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # perform name -> ID lookups
     for key, value in config_staticroute.items():
@@ -5883,6 +5933,7 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
         # replace flat names
         name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
         name_lookup_in_template(bgp_peer_template, 'route_map_out_id', routemaps_n2id)
+        name_lookup_in_template(bgp_peer_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("bgp_peer TEMPLATE: " + str(json.dumps(bgp_peer_template, indent=4)))
 
@@ -5924,6 +5975,7 @@ def modify_bgp_peer(config_bgp_peer, bgp_peer_id, bgp_peer_n2id, routemaps_n2id,
     # replace flat names
     name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
     name_lookup_in_template(bgp_peer_template, 'route_map_out_id', routemaps_n2id)
+    name_lookup_in_template(bgp_peer_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("bgp_peer TEMPLATE: " + str(json.dumps(bgp_peer_template, indent=4)))
 
@@ -7737,6 +7789,36 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
     output_message("   Updated Radii {0}.".format(radius_name))
 
     return radius_id
+
+
+def get_lat_long(site_csv_dict):
+    parameter_dict = dict()
+    for key, value in site_csv_dict.items():
+        parameter_dict[key] = value
+    address_concat = ""
+    address = parameter_dict.get('address')
+    if address:
+        if "street" in address and address['street'] is not None:
+            address_concat = str(address['street'])
+        if "street2" in address and address['street2'] is not None:
+            address_concat += ", " + str(address['street2'])
+        if "city" in address and address['city'] is not None:
+            address_concat += ", " + str(address['city'])
+        if "state" in address and address['state'] is not None:
+            address_concat += ", " + str(address['state'])
+        if "post_code" in address and address['post_code'] is not None:
+            address_concat += ", " + str(address['post_code'])
+        if "country" in address and address['country'] is not None:
+            address_concat += ", " + str(address['country'])
+        if address_concat != "":
+            address_concat = address_concat.strip()
+            map_url = f"https://www.mapquestapi.com/geocoding/v1/address?key=ejebwfz7Ewm4eAkR9sxGMiCUccasfE6W&location={address_concat}"
+            location = requests.get(url=map_url, verify=False).json()
+            latLng = location['results'][0]['locations'][0]['latLng']
+            parameter_dict['location']["latitude"] = latLng['lat']
+            parameter_dict['location']["longitude"] = latLng['lng']
+    return parameter_dict
+
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,

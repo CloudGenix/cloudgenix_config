@@ -424,6 +424,9 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
     for item in list_content:
         item_key = item.get(key_val)
         item_value = item.get(value_val)
+        if item.get("auto_generated"):
+            lookup_dict[item_key] = None
+            continue
         # print(item_key, item_value)
         if item_key and item_value is not None:
             # check if it's a duplicate key.
