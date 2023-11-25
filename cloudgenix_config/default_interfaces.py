@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT default device port configurations
 
-**Version:** 2.0.0b2
+**Version:** 2.1.0b1
 
 **Author:** CloudGenix
 
@@ -98,6 +98,8 @@ member_port = """
             nat_port_v6: 0
             ipfixcollectorcontext_id: null
             ipfixfiltercontext_id: null
+            peer_bypasspair_wan_port_type: 'none'
+            vrf_context_id: null
 """
 
 default_backwards_bypasspairs = {
