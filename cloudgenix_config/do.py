@@ -4527,7 +4527,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     interface_config.update(config)
 
     if reset_switch_port:
-        if interface_config != interface_change_check:
+        if interface_config.get('switch_port_config') != interface_change_check.get('switch_port_config'):
             output_message("   Resetting the vlan interface id for Switch port {0}.".format(interface_change_check.get("name")))
             if interface_config.get("switch_port_config"):
                 interface_config["switch_port_config"]["access_vlan_id"] = None
@@ -6350,7 +6350,7 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofile
     syslog_change_check = copy.deepcopy(syslog_config)
     syslog_config.update(syslog_template)
     if reset_syslog:
-        if syslog_config != syslog_change_check:
+        if syslog_config.get('source_interface') != syslog_change_check.get('source_interface'):
             output_message("   Resetting source interface ids for syslog {0}.".format(syslog_change_check.get('name')))
             syslog_config['source_interface'] = None
         else:
@@ -6480,7 +6480,7 @@ def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0, ve
     ntp_change_check = copy.deepcopy(ntp_config)
     ntp_config.update(ntp_template)
     if reset_ntp:
-        if ntp_config != ntp_change_check:
+        if ntp_config.get('source_interface_ids') != ntp_change_check.get('source_interface_ids'):
             output_message("   Resetting source interface ids for NTP {0}.".format(ntp_id))
             ntp_config['source_interface_ids'] = None
         else:
@@ -6702,7 +6702,7 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     snmp_trap_change_check = copy.deepcopy(snmp_trap_config)
     snmp_trap_config.update(snmp_trap_template)
     if reset_snmp:
-        if snmp_trap_config != snmp_trap_change_check:
+        if snmp_trap_config.get('source_interface') != snmp_trap_change_check.get('source_interface'):
             output_message("   Resetting source interface ids for SNMP Trap {0}.".format(snmp_trap_id))
             snmp_trap_config['source_interface'] = None
         else:
@@ -7364,7 +7364,7 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     app_probe_change_check = copy.deepcopy(app_probe_config)
     app_probe_config.update(app_probe_template)
     if reset_app_probe:
-        if app_probe_config != app_probe_change_check:
+        if app_probe_config.get('source_interface_id') != app_probe_change_check.get('source_interface_id'):
             output_message("   Resetting source interface id for Application Probe {0}.".format(app_probe_change_check.get('name')))
             app_probe_config['source_interface_id'] = None
         else:
