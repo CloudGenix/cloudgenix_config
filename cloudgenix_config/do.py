@@ -5082,7 +5082,6 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id,
     """
     # make a copy of staticroute to modify
     staticroute_template = copy.deepcopy(config_staticroute)
-    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # perform name -> ID lookups
     for key, value in config_staticroute.items():
@@ -5116,6 +5115,7 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id,
 
     # replace flat names
     name_lookup_in_template(staticroute_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
@@ -5150,7 +5150,6 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
     staticroute_config = {}
     # make a copy of staticroute to modify
     staticroute_template = copy.deepcopy(config_staticroute)
-    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # perform name -> ID lookups
     for key, value in config_staticroute.items():
@@ -5184,6 +5183,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
 
     # replace flat names
     name_lookup_in_template(staticroute_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
