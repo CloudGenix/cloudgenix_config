@@ -11206,6 +11206,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     implicit_ipfix_id = config_ipfix_record.get('id')
                     config_ipfix_name = config_ipfix_entry.get('name')
                     name_ipfix_id = ipfix_n2id.get(config_ipfix_name)
+                    # As there can be only 1 ipfix
+                    resp_ipfix_id = None
+                    if ipfix_cache:
+                        resp_ipfix_id = ipfix_cache[0].get('id')
 
                     if implicit_ipfix_id is not None:
                         ipfix_id = implicit_ipfix_id
@@ -11213,6 +11217,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     elif name_ipfix_id is not None:
                         # look up ID by name on existing interfaces.
                         ipfix_id = name_ipfix_id
+
+                    elif resp_ipfix_id is not None:
+                        ipfix_id = resp_ipfix_id
 
                     else:
                         # no dnsservice object.
