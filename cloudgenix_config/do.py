@@ -6354,7 +6354,7 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofile
             output_message("   Resetting source interface ids for syslog {0}.".format(syslog_change_check.get('name')))
             syslog_config['source_interface'] = None
         else:
-            return 1
+            return syslog_id
     elif not force_update and syslog_config == syslog_change_check:
         # no change in config, pass.
         syslog_id = syslog_change_check.get('id')
@@ -6706,7 +6706,7 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
             output_message("   Resetting source interface ids for SNMP Trap {0}.".format(snmp_trap_id))
             snmp_trap_config['source_interface'] = None
         else:
-            return 1
+            return snmp_trap_id
     elif not force_update and snmp_trap_config == snmp_trap_change_check:
         # no change in config, pass.
         snmp_trap_id = snmp_trap_change_check.get('id')
