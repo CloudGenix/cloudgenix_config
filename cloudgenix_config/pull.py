@@ -1048,7 +1048,7 @@ def _pull_config_for_single_site(site_name_id):
             strip_meta_attributes(snmpdiscoverystartnode_template)
             # names used, but config doesn't index by name for this value currently.
             site[DEVICE_ID_CONFIGS_STR][SNMPDISCOVERY_STR][snmpdiscoverystartnode_name] = snmpdiscoverystartnode_template
-            delete_if_empty(site[DEVICE_ID_CONFIGS_STR], SNMPDISCOVERY_STR)
+        delete_if_empty(site[DEVICE_ID_CONFIGS_STR], SNMPDISCOVERY_STR)
         strip_meta_attributes(device_config_template)
         site[DEVICE_ID_CONFIGS_STR].update(device_config_template)
 

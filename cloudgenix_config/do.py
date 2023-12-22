@@ -950,7 +950,7 @@ def parse_site_config(config_site):
     config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
                                                                     sdk.put.hubclusters, default={})
     config_deviceidconfigs, _ = config_lower_version_get(config_site, 'deviceidconfigs',
-                                                                    sdk.put.deviceidconfigs, default=[])
+                                                                    sdk.put.deviceidconfigs, default={})
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
@@ -1055,7 +1055,8 @@ def parse_deviceid_config(config_deviceidconfigs):
     :return: Tuple of SNMP Agent config, SNMP Trap config
     """
     local_debug("SNMP CONFIG: " + str(json.dumps(config_deviceidconfigs, indent=4)))
-
+    if type(config_deviceidconfigs) == list:
+        return []
     config_deviceid_snmpdiscovery, _ = config_lower_version_get(config_deviceidconfigs, 'snmpdiscoverystartnodes', sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default=[])
 
     return config_deviceid_snmpdiscovery
