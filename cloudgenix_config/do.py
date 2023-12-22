@@ -1056,8 +1056,8 @@ def parse_deviceid_config(config_deviceidconfigs):
     """
     local_debug("SNMP CONFIG: " + str(json.dumps(config_deviceidconfigs, indent=4)))
     if type(config_deviceidconfigs) == list:
-        return []
-    config_deviceid_snmpdiscovery, _ = config_lower_version_get(config_deviceidconfigs, 'snmpdiscoverystartnodes', sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default=[])
+        return {}
+    config_deviceid_snmpdiscovery, _ = config_lower_version_get(config_deviceidconfigs, 'snmpdiscoverystartnodes', sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default={})
 
     return config_deviceid_snmpdiscovery
 
@@ -8776,9 +8776,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 deviceidconfigs_resp, 'deviceidconfigs')
 
             # iterate configs (list)
-            for config_deviceidconfigs_entry in config_deviceidconfigs:
+            if config_deviceidconfigs:
 
-                config_deviceidconfigs_record = copy.deepcopy(config_deviceidconfigs_entry)
+                config_deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
+                if type(config_deviceidconfigs) == list:
+                    config_deviceidconfigs_record = config_deviceidconfigs_template[0]
+                else:
+                    config_deviceidconfigs_record = config_deviceidconfigs_template
+
+                config_deviceidconfigs_record = fuzzy_pop(config_deviceidconfigs_record, 'snmpdiscoverystartnodes')
                 deviceidconfigs_id = None
                 if deviceidconfigs_cache:
                     deviceidconfigs_id = deviceidconfigs_cache[0].get('id')
