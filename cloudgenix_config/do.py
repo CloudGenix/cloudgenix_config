@@ -8762,18 +8762,6 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                             time.sleep(10)
                             wait_time_elapsed += 10
 
-                # Update device mode
-                if config_element.get("device_mode") and matching_element.get("device_mode") != config_element.get("device_mode"):
-                    device_mode_data = {
-                        "action": "change_device_mode",
-                        "parameters": [config_element.get("device_mode")]
-                    }
-                    output_message(
-                        "  Updating device mode to {0} for element {1}.".format(config_element.get("device_mode"), element_descriptive_text))
-                    device_mode_resp = sdk.post.tenant_element_operations(element_id, device_mode_data)
-                    if not device_mode_resp.cgx_status:
-                        throw_error("Could not update device mode for element {0}: ".format(element_descriptive_text), device_mode_resp)
-
                 # update element and machine cache before moving on.
                 update_element_machine_cache()
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
@@ -8781,7 +8769,26 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # final element ID and model for this element:
                 element_id = matching_element.get('id')
                 element_model = matching_element.get('model_name')
+                element = matching_element
+                element_serial = element.get('serial_number')
+                element_name = element.get('name')
+                element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+                    if element_serial else "ID: {0}".format(element_id)
 
+                # Update device mode
+                if config_element.get("device_mode") and matching_element.get("device_mode") != config_element.get(
+                        "device_mode"):
+                    device_mode_data = {
+                        "action": "change_device_mode",
+                        "parameters": [config_element.get("device_mode")]
+                    }
+                    output_message(
+                        "  Updating device mode to {0} for element {1}.".format(config_element.get("device_mode"),
+                                                                                element_descriptive_text))
+                    device_mode_resp = sdk.post.tenant_element_operations(element_id, device_mode_data)
+                    if not device_mode_resp.cgx_status:
+                        throw_error("Could not update device mode for element {0}: ".format(element_descriptive_text),
+                                    device_mode_resp)
                 # remove this element from delete queue
                 leftover_elements = [entry for entry in leftover_elements if entry != element_id]
                 # -- End Elements
