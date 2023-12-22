@@ -8834,8 +8834,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # remove from delete queue
                     leftover_deviceid_snmpdiscovery = [entry for entry in leftover_deviceid_snmpdiscovery if entry != deviceid_snmpdiscovery_id]
 
-                deviceid_snmpdiscovery_id2n = build_lookup_dict(deviceid_snmpdiscovery_cache, key_val='id', value_val='name')
-                delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
+                if leftover_deviceid_snmpdiscovery:
+                    deviceid_snmpdiscovery_id2n = build_lookup_dict(deviceid_snmpdiscovery_cache, key_val='id', value_val='name')
+                    delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -11696,6 +11697,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # delete remaining ROUTEMAPS
                 routemaps_id2n = build_lookup_dict(routemaps_cache, key_val='id', value_val='name')
+                for routemap in routemaps_cache:
+                    if routemap.get("auto_generated"):
+                        routemap_id = routemap.get('id')
+                        leftover_routemaps = [entry for entry in leftover_routemaps
+                                                if entry != routemap_id]
                 delete_routemaps(leftover_routemaps, site_id, element_id, id2n=routemaps_id2n)
 
                 # delete remaining PREFIXLISTS
@@ -11711,12 +11717,22 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # delete remaining IP_COMMUNITY_LISTS
                 ip_community_lists_id2n = build_lookup_dict(ip_community_lists_cache,
                                                             key_val='id', value_val='name')
+                for ip_community_list in ip_community_lists_cache:
+                    if ip_community_list.get("auto_generated"):
+                        ip_community_list_id = ip_community_list.get('id')
+                        leftover_ip_community_lists = [entry for entry in leftover_ip_community_lists
+                                                if entry != ip_community_list_id]
                 delete_ip_community_lists(leftover_ip_community_lists, site_id, element_id,
                                           id2n=ip_community_lists_id2n)
 
                 # delete remaining as_path_access_lists
                 aspath_access_lists_id2n = build_lookup_dict(aspath_access_lists_cache,
                                                              key_val='id', value_val='name')
+                for aspath_access_list in aspath_access_lists_cache:
+                    if aspath_access_list.get("auto_generated"):
+                        aspath_access_list_id = aspath_access_list.get('id')
+                        leftover_aspath_access_lists = [entry for entry in leftover_aspath_access_lists
+                                                       if entry != aspath_access_list_id]
                 delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id,
                                            id2n=aspath_access_lists_id2n)
 
