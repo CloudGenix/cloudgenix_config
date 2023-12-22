@@ -8716,6 +8716,28 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 update_element_machine_cache()
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
+                element = matching_element
+                element_serial = element.get('serial_number')
+                element_id = element.get('id')
+                element_name = element.get('name')
+                element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+                    if element_serial else "ID: {0}".format(element_id)
+
+                # Update device mode
+                if config_element.get("device_mode") and matching_element.get("device_mode") != config_element.get(
+                        "device_mode"):
+                    device_mode_data = {
+                        "action": "change_device_mode",
+                        "parameters": [config_element.get("device_mode")]
+                    }
+                    output_message(
+                        "  Updating device mode to {0} for element {1}.".format(config_element.get("device_mode"),
+                                                                                element_descriptive_text))
+                    device_mode_resp = sdk.post.tenant_element_operations(element_id, device_mode_data)
+                    if not device_mode_resp.cgx_status:
+                        throw_error("Could not update device mode for element {0}: ".format(element_descriptive_text),
+                                    device_mode_resp)
+
                 # assign and configure element
 
                 #
@@ -8744,12 +8766,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                           wait_verify_success=timeout_state,
                                                           wait_interval=interval_timeout)
 
-
-                #
                 # Add a delay post element assignment
                 # Removing mandatory 480 seconds delay - Workaround for CGSDW-799
                 # Fix delivered in Controller version 5.5.3
-                #
+
                 wait_time_elapsed = 0
                 if wait_element_config:
                     if assign_element_flag and (wait_element_config > 0):
@@ -8769,26 +8789,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # final element ID and model for this element:
                 element_id = matching_element.get('id')
                 element_model = matching_element.get('model_name')
-                element = matching_element
-                element_serial = element.get('serial_number')
-                element_name = element.get('name')
-                element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
-                    if element_serial else "ID: {0}".format(element_id)
 
-                # Update device mode
-                if config_element.get("device_mode") and matching_element.get("device_mode") != config_element.get(
-                        "device_mode"):
-                    device_mode_data = {
-                        "action": "change_device_mode",
-                        "parameters": [config_element.get("device_mode")]
-                    }
-                    output_message(
-                        "  Updating device mode to {0} for element {1}.".format(config_element.get("device_mode"),
-                                                                                element_descriptive_text))
-                    device_mode_resp = sdk.post.tenant_element_operations(element_id, device_mode_data)
-                    if not device_mode_resp.cgx_status:
-                        throw_error("Could not update device mode for element {0}: ".format(element_descriptive_text),
-                                    device_mode_resp)
                 # remove this element from delete queue
                 leftover_elements = [entry for entry in leftover_elements if entry != element_id]
                 # -- End Elements
