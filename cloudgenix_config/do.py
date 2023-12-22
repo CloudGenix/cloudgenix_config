@@ -7800,15 +7800,15 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
             return radii_id
 
     radius_servers = radii_template.get("radius_configuration")
-    updated_radius_servers =[]
+    updated_radius_servers = []
     for radius_server in radius_servers:
         if not radius_server.get("shared_secret"):
             # When there is no change in the shared secret set the flag retain_shared_secret
             radius_server["shared_secret"] = "********"
             radius_server["retain_shared_secret"] = "True"
         updated_radius_servers.append(radius_server)
-    if updated_radius_servers:
-        radii_template["radius_configuration"] = updated_radius_servers
+    radii_template["radius_configuration"] = updated_radius_servers
+
 
     #modify radii
     radii_resp = sdk.put.radii(element_id, radii_id, radii_template)
