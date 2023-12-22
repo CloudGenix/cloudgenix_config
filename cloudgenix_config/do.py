@@ -987,12 +987,12 @@ def parse_element_config(config_element):
                                                                        sdk.put.cellular_modules_sim_security,
                                                                        default={})
     config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
-
+    config_element_deviceidconfigs, _ = config_lower_version_get(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default = [])
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
         config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
-        config_cellular_modules_sim_security, config_radii
+        config_cellular_modules_sim_security, config_radii, config_element_deviceidconfigs
 
 
 def parse_routing_config(config_routing):
@@ -4119,14 +4119,19 @@ def delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, devi
     if id2n is None:
         id2n = {}
 
+    nodes = []
+    node_names = []
     for snmpdiscovery_id in leftover_deviceid_snmpdiscovery:
         # delete all leftover.
+        node_names.append(id2n.get(snmpdiscovery_id, snmpdiscovery_id))
+        nodes.append({"id": snmpdiscovery_id})
 
-        output_message(" Deleting Unconfigured Device ID Config SNMP Discovery Start Node {0}.".format(id2n.get(snmpdiscovery_id, snmpdiscovery_id)))
-        snmpdiscovery_del_resp = sdk.delete.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, deviceid_snmpdiscovery_id)
-        if not snmpdiscovery_del_resp.cgx_status:
-            throw_error("Could not delete Device ID Config SNMP Discovery Start Node {0}: ".format(id2n.get(snmpdiscovery_id, snmpdiscovery_id)),
-                        snmpdiscovery_del_resp)
+    output_message(" Deleting Unconfigured Device ID Config SNMP Discovery Start Nodes {0}.".format(node_names))
+    data = {"start_nodes": nodes}
+    snmpdiscovery_del_resp = sdk.post.deviceidconfigs_bulkdelete_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, data)
+    if not snmpdiscovery_del_resp.cgx_status:
+        throw_error("Could not delete Device ID Config SNMP Discovery Start Nodes {0}: ".format(node_names),
+                    snmpdiscovery_del_resp)
     return
 
 
@@ -8837,7 +8842,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
                 config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
-                    = parse_element_config(config_element)
+                config_element_deviceidconfigs = parse_element_config(config_element)
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
                                                                 default={}, sdk_or_yaml=apiversion)
@@ -8872,6 +8877,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 snmp_agent_version = use_sdk_yaml_version(config_snmp, 'agent', sdk.put.snmpagents, default=[], sdk_or_yaml=apiversion)
                 element_cellular_modules_version = use_sdk_yaml_version(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default=[], sdk_or_yaml=apiversion)
                 cellular_modules_sim_security_version = use_sdk_yaml_version(config_element, 'cellular_modules_sim_security', sdk.put.cellular_modules_sim_security, default=[], sdk_or_yaml=apiversion)
+                radii_version = use_sdk_yaml_version(config_element, 'radii', sdk.put.radii, default={},
+                                                          sdk_or_yaml=apiversion)
+                element_deviceidconfigs_version = use_sdk_yaml_version(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default=[],
+                                                          sdk_or_yaml=apiversion)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
