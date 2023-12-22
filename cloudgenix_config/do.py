@@ -1300,6 +1300,71 @@ def wait_for_element_state(matching_element, state_list=None, wait_verify_succes
     return final_element
 
 
+def wait_for_device_change_mode_state(matching_element, device_mode, state_list=None, wait_verify_success=900,
+                           wait_interval=30, declaim=False):
+    """
+    Wait for Element to reach a specific state or list of states.
+    :param matching_element: Element API response for element to wait for
+    :param state_list: Optional - List of state strings, default ['ready', 'bound']
+    :param wait_verify_success: Optional - Time to wait for system to reach specific state (in seconds)
+    :param wait_interval: Optinal - Interval to check API for updated statuses during wait.
+    :param declaim: Bool, if waiting for an element that may be declaiming or deleted (element may not exist anymore.)
+    :return: Element API final response
+    """
+    if not state_list:
+        state_list = ["element_change_mode_init"]
+
+    # check status
+    element = matching_element
+    element_id = element.get('id')
+    element_serial = element.get('serial_number')
+    element_name = element.get('name')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
+    final_element = matching_element
+
+    # ensure element is "state": "ready"
+    ready = False
+    time_elapsed = 0
+    while not ready:
+        elem_resp = sdk.get.elements(element_id)
+        if not elem_resp.cgx_status:
+            # we could be waiting on a declaim. When declaim finishes, element will be non-existent, and
+            # this query will fail. Return if so.
+            if declaim:
+                # declaim is finished. return empty
+                return {}
+            else:
+                # not a declaim, there is a problem.
+                throw_error("Could not query element {0}({1}).".format(element_id, element_serial), elem_resp)
+
+        state = str(elem_resp.cgx_content.get('device_change_mode_state', ''))
+        mode = str(elem_resp.cgx_content.get('device_mode', ''))
+
+        if time_elapsed > wait_verify_success:
+            # failed waiting.
+            throw_error("Element {0} state transition took longer than {1} seconds. Exiting."
+                        "".format(element_descriptive_text, wait_verify_success))
+
+        if state not in state_list and mode != device_mode:
+            # element not ready, wait.
+            output_message("  Element {0} not yet in requested device mode: {1}."
+                           "Waited so far {2} seconds out of {3}."
+                           "".format(element_descriptive_text,
+                                     mode,
+                                     time_elapsed,
+                                     wait_verify_success))
+            time.sleep(wait_interval)
+            time_elapsed += wait_interval
+        else:
+            # element is ready.
+            ready = True
+            # update the element, as the ETAG may have changed.
+            final_element = elem_resp.cgx_content
+
+    return final_element
+
+
 def major_minor(version):
     """
     Parse a software version to get major, minor and micro version numbers.
@@ -3971,6 +4036,98 @@ def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, 
                                                                            current_revision))
 
     return deviceidconfigs_id
+
+
+def create_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_n2id, site_id, deviceidconfigs_id, version=None):
+    # make a copy of deviceidconfigs_snmodiscovery to modify
+    snmpdiscovery_template = copy.deepcopy(config_snmpdiscovery)
+
+    snmpdiscovery_resp = sdk.post.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, snmpdiscovery_template, api_version=version)
+
+    if not snmpdiscovery_resp.cgx_status:
+        throw_error("Deviceidconfigs SNMP discovery start nodes creation failed: ", snmpdiscovery_resp)
+
+    snmpdiscovery_name = snmpdiscovery_resp.cgx_content.get('name')
+    snmpdiscovery_id = snmpdiscovery_resp.cgx_content.get('id')
+
+    if not snmpdiscovery_name or not snmpdiscovery_id:
+        throw_error("Unable to determine snmpdiscovery attributes (Name: {0}, ID {1})..".format(snmpdiscovery_name,
+                                                                                               snmpdiscovery_id))
+
+    output_message(" Created Device ID Config SNMP Discovery Start Node {0} for Deviceidconfigs {1}.".format(snmpdiscovery_name, deviceidconfigs_id))
+
+    # update caches
+    deviceid_snmpdiscovery_n2id[snmpdiscovery_name] = snmpdiscovery_id
+
+    return snmpdiscovery_id
+
+
+def modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_id, deviceid_snmpdiscovery_n2id,
+                                                              site_id, deviceidconfigs_id, version=None):
+    snmpdiscovery_config = {}
+    # make a copy of deviceidconfigs_snmodiscovery to modify
+    snmpdiscovery_template = copy.deepcopy(config_snmpdiscovery)
+    # get current deviceidconfigs_snmpdiscovery
+    deviceid_snmpdiscovery_resp = sdk.get.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, deviceid_snmpdiscovery_id)
+    if deviceid_snmpdiscovery_resp.cgx_status:
+        snmpdiscovery_config = deviceid_snmpdiscovery_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Device ID Config SNMP Discovery: ", deviceid_snmpdiscovery_resp)
+
+    # extract prev_revision
+    prev_revision = snmpdiscovery_config.get("_etag")
+
+    # Check for changes:
+    snmpdiscovery_config_change_check = copy.deepcopy(snmpdiscovery_config)
+    snmpdiscovery_config.update(snmpdiscovery_template)
+    if not force_update and snmpdiscovery_config == snmpdiscovery_config_change_check:
+        # no change in config, pass.
+        deviceid_snmpdiscovery_id = snmpdiscovery_config_change_check.get('id')
+        deviceid_snmpdiscovery_name = snmpdiscovery_config_change_check.get('name', deviceid_snmpdiscovery_id)
+        output_message(" No Change for Device ID Config SNMP Discovery Start Node {0}.".format(deviceid_snmpdiscovery_name))
+        return deviceid_snmpdiscovery_id
+
+    if debuglevel >= 3:
+        local_debug("Device ID Config DIFF: {0}".format(
+            find_diff(snmpdiscovery_config_change_check, snmpdiscovery_config)))
+
+    # Update deviceidconfigs.
+    deviceid_snmpdiscovery_resp2 = sdk.put.deviceidconfigs(site_id, deviceidconfigs_id, snmpdiscovery_config,
+                                                           api_version=version)
+
+    if not deviceid_snmpdiscovery_resp2.cgx_status:
+        throw_error(" Device ID Config SNMP Discovery Start Node update failed: ", deviceid_snmpdiscovery_resp2)
+
+    deviceid_snmpdiscovery_id = deviceid_snmpdiscovery_resp2.cgx_content.get('id')
+    deviceid_snmpdiscovery_name = deviceid_snmpdiscovery_resp2.cgx_content.get('name', deviceid_snmpdiscovery_id)
+
+    # extract current_revision
+    current_revision = deviceid_snmpdiscovery_resp2.cgx_content.get("_etag")
+
+    if not deviceidconfigs_id:
+        throw_error("Unable to determine Device ID Config SNMP Discovery attributes (ID {0})..".format(deviceid_snmpdiscovery_id))
+
+    output_message(" Updated Device ID Config SNMP Discovery Start Node {0} (Etag {1} -> {2}).".format(deviceid_snmpdiscovery_name, prev_revision,
+                                                                             current_revision))
+
+    deviceid_snmpdiscovery_n2id[deviceid_snmpdiscovery_name] = deviceid_snmpdiscovery_id
+
+    return deviceid_snmpdiscovery_id
+
+
+def delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=None):
+    if id2n is None:
+        id2n = {}
+
+    for snmpdiscovery_id in leftover_deviceid_snmpdiscovery:
+        # delete all leftover.
+
+        output_message(" Deleting Unconfigured Device ID Config SNMP Discovery Start Node {0}.".format(id2n.get(snmpdiscovery_id, snmpdiscovery_id)))
+        snmpdiscovery_del_resp = sdk.delete.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, deviceid_snmpdiscovery_id)
+        if not snmpdiscovery_del_resp.cgx_status:
+            throw_error("Could not delete Device ID Config SNMP Discovery Start Node {0}: ".format(id2n.get(snmpdiscovery_id, snmpdiscovery_id)),
+                        snmpdiscovery_del_resp)
+    return
 
 
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
@@ -8601,6 +8758,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Site_ipfix_localprefixes
 
+            config_deviceid_snmpdiscovery = parse_deviceid_config(config_deviceidconfigs)
+
+            deviceid_snmpdiscovery_version = use_sdk_yaml_version(config_deviceidconfigs, 'snmpdiscoverystartnodes',
+                                                           sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default=[],
+                                                           sdk_or_yaml=apiversion)
+
             deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id)
             deviceidconfigs_cache, leftover_deviceidconfigs = extract_items(
                 deviceidconfigs_resp, 'deviceidconfigs')
@@ -8619,6 +8782,47 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     deviceidconfigs_id = modify_deviceidconfigs(config_deviceidconfigs_record,
                                                                 deviceidconfigs_id, site_id,
                                                                 version=deviceidconfigs_version)
+
+                deviceid_snmpdiscovery_response = sdk.get.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id)
+                deviceid_snmpdiscovery_cache, leftover_deviceid_snmpdiscovery = extract_items(
+                    deviceid_snmpdiscovery_response, 'snmpdiscoverystartnodes')
+                deviceid_snmpdiscovery_n2id = build_lookup_dict(deviceid_snmpdiscovery_cache)
+
+                for config_deviceid_snmpdiscovery_name, config_deviceid_snmpdiscovery_value in config_deviceid_snmpdiscovery.items():
+                    # recombine object
+                    config_snmpdiscovery = recombine_named_key_value(config_deviceid_snmpdiscovery_name,
+                                                                     config_deviceid_snmpdiscovery_value, name_key='name')
+
+                    # Determine ID.
+                    # look for implicit ID in object.
+                    implicit_snmpdiscovery_id = config_snmpdiscovery.get('id')
+                    name_snmpdiscovery_id = deviceid_snmpdiscovery_n2id.get(config_deviceid_snmpdiscovery_name)
+
+                    if implicit_snmpdiscovery_id is not None:
+                        deviceid_snmpdiscovery_id = implicit_snmpdiscovery_id
+
+                    elif name_snmpdiscovery_id is not None:
+                        # look up ID by name on existing.
+                        deviceid_snmpdiscovery_id = name_snmpdiscovery_id
+                    else:
+                        # no object.
+                        deviceid_snmpdiscovery_id = None
+
+                    # Create or modify.
+                    if deviceid_snmpdiscovery_id is not None:
+                        # deviceid_snmpdiscovery exists, modify.
+                        deviceid_snmpdiscovery_id = modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_id, deviceid_snmpdiscovery_n2id,
+                                                              site_id, deviceidconfigs_id, version=deviceid_snmpdiscovery_version)
+
+                    else:
+                        # deviceid_snmpdiscovery does not exist, create.
+                        deviceid_snmpdiscovery_id = create_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_n2id, site_id, deviceidconfigs_id, version=deviceid_snmpdiscovery_version)
+
+                    # remove from delete queue
+                    leftover_deviceid_snmpdiscovery = [entry for entry in leftover_deviceid_snmpdiscovery if entry != deviceid_snmpdiscovery_id]
+
+                deviceid_snmpdiscovery_id2n = build_lookup_dict(deviceid_snmpdiscovery_cache, key_val='id', value_val='name')
+                delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -8738,9 +8942,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         throw_error("Could not update device mode for element {0}: ".format(element_descriptive_text),
                                     device_mode_resp)
 
-                # assign and configure element
+                matching_element = wait_for_device_change_mode_state(matching_element, config_element.get("device_mode"),
+                                                                     wait_verify_success=timeout_state, wait_interval=interval_timeout)
 
-                #
+                # assign and configure element
                 # flag to determine if element will be assigned
                 # add a delay if element was just assigned
                 #
