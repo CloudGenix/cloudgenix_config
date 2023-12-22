@@ -3991,7 +3991,8 @@ def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, 
     # make a copy of deviceidconfigs to modify
     deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
 
-    name_lookup_in_template(deviceidconfigs_template, 'deviceid_profile_id', deviceidprofiles_n2id)
+    if 'deviceid_profile_id' in deviceidconfigs_template:
+        name_lookup_in_template(deviceidconfigs_template, 'deviceid_profile_id', deviceidprofiles_n2id)
 
     # get current deviceidconfigs
     deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id, deviceidconfigs_id)
@@ -11693,6 +11694,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # delete remaining PREFIXLISTS
                 prefixlists_id2n = build_lookup_dict(prefixlists_cache, key_val='id', value_val='name')
+                for prefixlist in prefixlists_cache:
+                    if prefixlist.get("auto_generated"):
+                        prefixlist_id = prefixlist.get('id')
+                        leftover_prefixlists = [entry for entry in leftover_prefixlists
+                                                if entry != prefixlist_id]
                 delete_prefixlists(leftover_prefixlists, site_id, element_id,
                                    id2n=prefixlists_id2n)
 
