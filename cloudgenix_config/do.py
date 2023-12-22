@@ -8766,7 +8766,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if config_element.get("device_mode") and matching_element.get("device_mode") != config_element.get("device_mode"):
                     device_mode_data = {
                         "action": "change_device_mode",
-                        "parameters": config_element.get("device_mode")
+                        "parameters": [config_element.get("device_mode")]
                     }
                     output_message(
                         "  Updating device mode to {0} for element {1}.".format(config_element.get("device_mode"), element_descriptive_text))
