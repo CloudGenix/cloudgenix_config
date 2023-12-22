@@ -283,6 +283,7 @@ vrfcontexts_cache = []
 vrfcontextprofiles_cache = []
 perfmgmtpolicysetstacks_cache = []
 perfmgmtpolicysets_cache = []
+deviceidprofiles_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -323,6 +324,7 @@ vrfcontexts_n2id = {}
 vrfcontextprofiles_n2id = {}
 perfmgmtpolicysetstacks_n2id = {}
 perfmgmtpolicysets_n2id = {}
+deviceidprofiles_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -504,6 +506,7 @@ def update_global_cache():
     global vrfcontextprofiles_cache
     global perfmgmtpolicysetstacks_cache
     global perfmgmtpolicysets_cache
+    global deviceidprofiles_cache
 
     global sites_n2id
     global elements_n2id
@@ -543,6 +546,7 @@ def update_global_cache():
     global vrfcontextprofiles_n2id
     global perfmgmtpolicysetstacks_n2id
     global perfmgmtpolicysets_n2id
+    global deviceidprofiles_n2id
 
     global elements_byserial
     global machines_byserial
@@ -695,6 +699,9 @@ def update_global_cache():
     perfmgmtpolicysetstacks_resp = sdk.get.perfmgmtpolicysetstacks()
     perfmgmtpolicysetstacks_cache, _ = extract_items(perfmgmtpolicysetstacks_resp, 'perfmgmtpolicysetstacks')
 
+    deviceidprofiles_resp = sdk.get.deviceidprofiles()
+    deviceidprofiles_cache, _ = extract_items(deviceidprofiles_resp, 'deviceidprofiles')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -801,6 +808,8 @@ def update_global_cache():
     perfmgmtpolicysets_n2id = build_lookup_dict(perfmgmtpolicysets_cache)
 
     perfmgmtpolicysetstacks_n2id = build_lookup_dict(perfmgmtpolicysetstacks_cache)
+
+    deviceidprofiles_n2id = build_lookup_dict(deviceidprofiles_cache)
 
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
@@ -1038,6 +1047,18 @@ def parse_snmp_config(config_snmp):
     config_snmp_agent, _ = config_lower_version_get(config_snmp, 'agent', sdk.put.snmpagents, default=[])
 
     return config_snmp_agent, config_snmp_traps
+
+def parse_deviceid_config(config_deviceidconfigs):
+    """
+    Parse SNMP level config
+    :param config_snmp: SNMP config dict
+    :return: Tuple of SNMP Agent config, SNMP Trap config
+    """
+    local_debug("SNMP CONFIG: " + str(json.dumps(config_deviceidconfigs, indent=4)))
+
+    config_deviceid_snmpdiscovery, _ = config_lower_version_get(config_deviceidconfigs, 'snmpdiscoverystartnodes', sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default=[])
+
+    return config_deviceid_snmpdiscovery
 
 
 def detect_elements(element_config):
@@ -3904,6 +3925,8 @@ def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, 
     # make a copy of deviceidconfigs to modify
     deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
 
+    name_lookup_in_template(deviceidconfigs_template, 'deviceid_profile_id', deviceidprofiles_n2id)
+
     # get current deviceidconfigs
     deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id, deviceidconfigs_id)
     if deviceidconfigs_resp.cgx_status:
@@ -4518,7 +4541,8 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         config['type'] = interface_config.get('type')
     if interface_config.get('type') == 'virtual_interface':
         config['type'] = 'virtual_interface'
-        config['bound_interfaces'] = interface_config.get('bound_interfaces')
+        if not interface_template.get('bound_interfaces'):
+            config['bound_interfaces'] = interface_config.get('bound_interfaces')
     config['name'] = interface_config.get('name')
     config['type'] = interface_config.get('type')
     # Check for changes:
@@ -7729,7 +7753,8 @@ def create_radii(config_radii, element_id, interfaces_n2id):
 
     return radius_id
 
-def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
+
+def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interfaces={}, reset_radii=0):
     """
     Modify the existing radii
     :param config_radii: radii config dict
@@ -7750,21 +7775,29 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
     else:
         throw_error("Unable to retrieve interface: ", radii_resp)
 
-
-    if radii_template.get("source_interface_id"):
-        source_interface_id = radii_template.get("source_interface_id")
-        radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
-
     # Check for changes:
     radii_config_check = copy.deepcopy(radii_config)
     radii_config.update(radii_template)
 
-    if not force_update and radii_config == radii_config_check:
-        radii_id = radii_config_check.get('id')
-        radii_name = radii_config_check.get('name')
-        radii_n2id[radii_name] = radii_id
-        output_message("   No Change for Radii {0}.".format(radii_name))
-        return radii_id
+    is_reset = False
+    if reset_radii:
+        if radii_config.get('source_interface_id') and radii_config.get('source_interface_id') not in yml_interfaces.keys():
+            output_message("   Resetting source interface ids for Radii {0}.".format(radii_config_check.get('name')))
+            radii_config['source_interface_id'] = None
+            is_reset = True
+        else:
+            return radii_id
+
+    if not is_reset:
+        if radii_template.get("source_interface_id"):
+            source_interface_id = radii_template.get("source_interface_id")
+            radii_config["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+        if not force_update and radii_config == radii_config_check:
+            radii_id = radii_config_check.get('id')
+            radii_name = radii_config_check.get('name')
+            radii_n2id[radii_name] = radii_id
+            output_message("   No Change for Radii {0}.".format(radii_name))
+            return radii_id
 
     radius_servers = radii_template.get("radius_configuration")
     updated_radius_servers =[]
@@ -9202,6 +9235,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # We cannot delete ntp. So checking if ntp is modified in config
                 # If modified, we will reset the source interface ids and later update it again
                 ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=1, version=ntp_version)
+
+                # Reset radii interface - when entire radii is removed from yml as source interface can also be removed
+                radii_resp = sdk.get.radii(element_id)
+                if not radii_resp.cgx_status:
+                    throw_error("Radii AAA get failed: ", radii_resp)
+
+                radii_cache, leftover_radii = extract_items(radii_resp, 'radii')
+
+                implicit_radii_id = None
+                # There exists only one Radius item, Fetch the radius id from the cache
+                if radii_cache:
+                    implicit_radii_id = radii_cache[0].get("id")
+
+                if implicit_radii_id and not config_radii:
+                    config_radii_record = copy.deepcopy(radii_cache[0])
+                    yml_interfaces = copy.deepcopy(config_interfaces)
+                    radii_id = modify_radii(config_radii_record, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1)
 
                 # -- End NTP config
 
