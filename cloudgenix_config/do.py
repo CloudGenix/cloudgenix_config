@@ -4819,6 +4819,43 @@ def delete_interfaces(leftover_interfaces, site_id, element_id, id2n=None):
     return
 
 
+def create_element_deviceidconfigs(config_elem_deviceidconfig_template, site_id, element_id, interfaces_n2id, version=None):
+    name_lookup_in_template(config_elem_deviceidconfig_template, 'name', interfaces_n2id)
+    name_lookup_in_template(config_elem_deviceidconfig_template,
+                            'snmp_discovery_source_interface_id', interfaces_n2id)
+
+    element_deviceidconfigs_resp = sdk.post.element_deviceidconfigs(site_id, element_id,
+                                                                    config_elem_deviceidconfig_template, api_version=version)
+
+    if not element_deviceidconfigs_resp.cgx_status:
+        throw_error("Element Deviceidconfigs  creation failed: ", element_deviceidconfigs_resp)
+
+    element_deviceidconfigs_name = element_deviceidconfigs_resp.cgx_content.get('name')
+    element_deviceidconfigs_id = element_deviceidconfigs_resp.cgx_content.get('id')
+
+    if not element_deviceidconfigs_name or not element_deviceidconfigs_id:
+        throw_error("Unable to determine snmpdiscovery attributes (Name: {0}, ID {1})..".format(element_deviceidconfigs_name,
+                                                                                                element_deviceidconfigs_id))
+
+    output_message(
+        " Created Element Device ID Config {0} for interface {1}.".format(element_deviceidconfigs_name, interfaces_n2id.get(element_deviceidconfigs_name)))
+
+    return element_deviceidconfigs_id
+
+
+def delete_element_deviceidconfigs(leftover_elem_deviceidconfigs, site_id, element_id, id2n=None):
+    if id2n is None:
+        id2n = {}
+
+    for item in leftover_elem_deviceidconfigs:
+        output_message(" Deleting Unconfigured Element Device ID Config {0}.".format(item))
+        elem_deviceidconfig_del_resp = sdk.delete.element_deviceidconfigs(site_id, element_id, item)
+        if not elem_deviceidconfig_del_resp.cgx_status:
+            throw_error("Could not delete Element Device ID Config {0}: ".format(item),
+                        elem_deviceidconfig_del_resp)
+    return
+
+
 def get_config_interfaces_by_type(config_interfaces, type_str):
     """
     Extract config entries from dict by type
@@ -7886,7 +7923,8 @@ def modify_element_cellular_module(config_element_cellular_module, element_cellu
 
     return cellular_modules_id
 
-def create_radii(config_radii, element_id, interfaces_n2id):
+
+def create_radii(config_radii, element_id, interfaces_n2id, version=None):
     """
     Create a radii
     :param config_radii: radii config dict
@@ -7902,7 +7940,7 @@ def create_radii(config_radii, element_id, interfaces_n2id):
         radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
 
     #create radii
-    radii_resp = sdk.post.radii(element_id, radii_template)
+    radii_resp = sdk.post.radii(element_id, radii_template, api_version=version)
 
     if not radii_resp.cgx_status:
         throw_error("Radii creation failed: ", radii_resp)
@@ -7918,7 +7956,7 @@ def create_radii(config_radii, element_id, interfaces_n2id):
     return radius_id
 
 
-def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interfaces={}, reset_radii=0):
+def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interfaces={}, reset_radii=0, version=None):
     """
     Modify the existing radii
     :param config_radii: radii config dict
@@ -7975,7 +8013,7 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
 
 
     #modify radii
-    radii_resp = sdk.put.radii(element_id, radii_id, radii_template)
+    radii_resp = sdk.put.radii(element_id, radii_id, radii_template, api_version=version)
 
     if not radii_resp.cgx_status:
         throw_error("Radii update failed: ", radii_resp)
@@ -9486,6 +9524,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # -- End NTP config
 
+                elem_deviceidconfigs_resp = sdk.get.element_deviceidconfigs(site_id, element_id)
+                if not elem_deviceidconfigs_resp.cgx_status:
+                    throw_error("Element Device ID Configs get failed: ", elem_deviceidconfigs_resp)
+
+                elem_deviceidconfigs_cache, leftover_elem_deviceidconfigs = extract_items(elem_deviceidconfigs_resp, 'element_deviceidconfigs')
+                
+                for elem_deviceidconfig in config_element_deviceidconfigs:
+                    elem_deviceidconfig_name = interfaces_n2id.get(elem_deviceidconfig.get('name'), elem_deviceidconfig.get('name'))
+                    elem_deviceidconfig_source_iface = interfaces_n2id.get(elem_deviceidconfig.get('snmp_discovery_source_interface_id'), elem_deviceidconfig.get('snmp_discovery_source_interface_id'))
+                    for deviceidconfig in elem_deviceidconfigs_cache:
+                        if elem_deviceidconfig_name == deviceidconfig.get("name") and \
+                                elem_deviceidconfig_source_iface == deviceidconfig.get("snmp_discovery_source_interface_id"):
+                            leftover_elem_deviceidconfigs = [entry for entry in leftover_elem_deviceidconfigs if entry != deviceidconfig.get('id')]
+                            break
+
+                delete_element_deviceidconfigs(leftover_elem_deviceidconfigs, site_id, element_id)
+                    
                 # START Aplication Probe
                 # We cannot delete application probe. So checking if app probe is modified in config
                 # If modified, we will reset the source interface id and later update it again
@@ -10631,6 +10686,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
 
+                elem_deviceidconfigs_resp = sdk.get.element_deviceidconfigs(site_id, element_id)
+                if not elem_deviceidconfigs_resp.cgx_status:
+                    throw_error("Element Device ID Configs get failed: ", elem_deviceidconfigs_resp)
+
+                elem_deviceidconfigs_cache, leftover_elem_deviceidconfigs = extract_items(elem_deviceidconfigs_resp,
+                                                                                          'element_deviceidconfigs')
+                implicit_elem_deviceidconfig_id = None
+                if elem_deviceidconfigs_cache:
+                    elem_deviceidconfig = elem_deviceidconfigs_cache[0]
+                    implicit_elem_deviceidconfig_id = elem_deviceidconfig.get('id')
+
+                for config_elem_deviceidconfig in config_element_deviceidconfigs:
+
+                    if not implicit_elem_deviceidconfig_id:
+                        config_elem_deviceidconfig_template = copy.deepcopy(config_elem_deviceidconfig)
+                        elem_deviceidconfig_id = create_element_deviceidconfigs(config_elem_deviceidconfig_template, site_id, element_id, interfaces_n2id, version=element_deviceidconfigs_version)
+
                 # -- Start Radii config
                 radii_resp = sdk.get.radii(element_id)
                 if not radii_resp.cgx_status:
@@ -10670,11 +10742,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if radii_id is not None:
                         # Radius exists, modify.
                         config_radii_record["name"] = radii_name
-                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id)
+                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id, version=radii_version)
                     else:
                         # Radius does not exist, create.
                         config_radii_record["name"] = radii_entry
-                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id)
+                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id, version=radii_version)
 
                 # -- End Radii config
 
