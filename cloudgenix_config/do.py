@@ -4047,7 +4047,7 @@ def create_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_n
     snmpdiscovery_resp = sdk.post.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, snmpdiscovery_template, api_version=version)
 
     if not snmpdiscovery_resp.cgx_status:
-        throw_error("Deviceidconfigs SNMP discovery start nodes creation failed: ", snmpdiscovery_resp)
+        throw_error("IoT SNMP discovery start nodes creation failed: ", snmpdiscovery_resp)
 
     snmpdiscovery_name = snmpdiscovery_resp.cgx_content.get('name')
     snmpdiscovery_id = snmpdiscovery_resp.cgx_content.get('id')
@@ -4056,7 +4056,7 @@ def create_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_n
         throw_error("Unable to determine snmpdiscovery attributes (Name: {0}, ID {1})..".format(snmpdiscovery_name,
                                                                                                snmpdiscovery_id))
 
-    output_message(" Created Device ID Config SNMP Discovery Start Node {0} for Deviceidconfigs {1}.".format(snmpdiscovery_name, deviceidconfigs_id))
+    output_message(" Created IoT SNMP Discovery Start Node {0} for Deviceidconfigs {1}.".format(snmpdiscovery_name, deviceidconfigs_id))
 
     # update caches
     deviceid_snmpdiscovery_n2id[snmpdiscovery_name] = snmpdiscovery_id
@@ -4086,7 +4086,7 @@ def modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_i
         # no change in config, pass.
         deviceid_snmpdiscovery_id = snmpdiscovery_config_change_check.get('id')
         deviceid_snmpdiscovery_name = snmpdiscovery_config_change_check.get('name', deviceid_snmpdiscovery_id)
-        output_message(" No Change for Device ID Config SNMP Discovery Start Node {0}.".format(deviceid_snmpdiscovery_name))
+        output_message(" No Change for IoT SNMP Discovery Start Node {0}.".format(deviceid_snmpdiscovery_name))
         return deviceid_snmpdiscovery_id
 
     if debuglevel >= 3:
@@ -4094,11 +4094,11 @@ def modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_i
             find_diff(snmpdiscovery_config_change_check, snmpdiscovery_config)))
 
     # Update deviceidconfigs.
-    deviceid_snmpdiscovery_resp2 = sdk.put.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, snmpdiscovery_config,
+    deviceid_snmpdiscovery_resp2 = sdk.put.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, deviceid_snmpdiscovery_id, snmpdiscovery_config,
                                                            api_version=version)
 
     if not deviceid_snmpdiscovery_resp2.cgx_status:
-        throw_error(" Device ID Config SNMP Discovery Start Node update failed: ", deviceid_snmpdiscovery_resp2)
+        throw_error(" IoT SNMP Discovery Start Node update failed: ", deviceid_snmpdiscovery_resp2)
 
     deviceid_snmpdiscovery_id = deviceid_snmpdiscovery_resp2.cgx_content.get('id')
     deviceid_snmpdiscovery_name = deviceid_snmpdiscovery_resp2.cgx_content.get('name', deviceid_snmpdiscovery_id)
@@ -4107,9 +4107,9 @@ def modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_i
     current_revision = deviceid_snmpdiscovery_resp2.cgx_content.get("_etag")
 
     if not deviceidconfigs_id:
-        throw_error("Unable to determine Device ID Config SNMP Discovery attributes (ID {0})..".format(deviceid_snmpdiscovery_id))
+        throw_error("Unable to determine IoT SNMP Discovery attributes (ID {0})..".format(deviceid_snmpdiscovery_id))
 
-    output_message(" Updated Device ID Config SNMP Discovery Start Node {0} (Etag {1} -> {2}).".format(deviceid_snmpdiscovery_name, prev_revision,
+    output_message(" Updated IoT SNMP Discovery Start Node {0} (Etag {1} -> {2}).".format(deviceid_snmpdiscovery_name, prev_revision,
                                                                              current_revision))
 
     deviceid_snmpdiscovery_n2id[deviceid_snmpdiscovery_name] = deviceid_snmpdiscovery_id
@@ -4128,11 +4128,11 @@ def delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, devi
         node_names.append(id2n.get(snmpdiscovery_id, snmpdiscovery_id))
         nodes.append({"id": snmpdiscovery_id})
 
-    output_message(" Deleting Unconfigured Device ID Config SNMP Discovery Start Nodes {0}.".format(node_names))
+    output_message(" Deleting Unconfigured IoT SNMP Discovery Start Nodes {0}.".format(node_names))
     data = {"start_nodes": nodes}
     snmpdiscovery_del_resp = sdk.post.deviceidconfigs_bulkdelete_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, data)
     if not snmpdiscovery_del_resp.cgx_status:
-        throw_error("Could not delete Device ID Config SNMP Discovery Start Nodes {0}: ".format(node_names),
+        throw_error("Could not delete IoT SNMP Discovery Start Nodes {0}: ".format(node_names),
                     snmpdiscovery_del_resp)
     return
 
@@ -4828,17 +4828,17 @@ def create_element_deviceidconfigs(config_elem_deviceidconfig_template, site_id,
                                                                     config_elem_deviceidconfig_template, api_version=version)
 
     if not element_deviceidconfigs_resp.cgx_status:
-        throw_error("Element Deviceidconfigs  creation failed: ", element_deviceidconfigs_resp)
+        throw_error("Element Deviceidconfigs IoT SNMP Discovery creation failed: ", element_deviceidconfigs_resp)
 
     element_deviceidconfigs_name = element_deviceidconfigs_resp.cgx_content.get('name')
     element_deviceidconfigs_id = element_deviceidconfigs_resp.cgx_content.get('id')
 
     if not element_deviceidconfigs_name or not element_deviceidconfigs_id:
-        throw_error("Unable to determine snmpdiscovery attributes (Name: {0}, ID {1})..".format(element_deviceidconfigs_name,
+        throw_error("Unable to determine IoT SNMP Discovery attributes (Name: {0}, ID {1})..".format(element_deviceidconfigs_name,
                                                                                                 element_deviceidconfigs_id))
 
     output_message(
-        " Created Element Device ID Config {0} for interface {1}.".format(element_deviceidconfigs_name, interfaces_n2id.get(element_deviceidconfigs_name)))
+        " Created Element Device ID Config IoT SNMP Discovery {0} for interface {1}.".format(element_deviceidconfigs_name, interfaces_n2id.get(element_deviceidconfigs_name)))
 
     return element_deviceidconfigs_id
 
@@ -4848,10 +4848,10 @@ def delete_element_deviceidconfigs(leftover_elem_deviceidconfigs, site_id, eleme
         id2n = {}
 
     for item in leftover_elem_deviceidconfigs:
-        output_message(" Deleting Unconfigured Element Device ID Config {0}.".format(item))
+        output_message(" Deleting Unconfigured Element Device ID Config IoT SNMP Discovery {0}.".format(item))
         elem_deviceidconfig_del_resp = sdk.delete.element_deviceidconfigs(site_id, element_id, item)
         if not elem_deviceidconfig_del_resp.cgx_status:
-            throw_error("Could not delete Element Device ID Config {0}: ".format(item),
+            throw_error("Could not delete Element Device ID Config IoT SNMP Discovery {0}: ".format(item),
                         elem_deviceidconfig_del_resp)
     return
 
