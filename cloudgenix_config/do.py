@@ -4094,7 +4094,7 @@ def modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_i
             find_diff(snmpdiscovery_config_change_check, snmpdiscovery_config)))
 
     # Update deviceidconfigs.
-    deviceid_snmpdiscovery_resp2 = sdk.put.deviceidconfigs(site_id, deviceidconfigs_id, snmpdiscovery_config,
+    deviceid_snmpdiscovery_resp2 = sdk.put.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, snmpdiscovery_config,
                                                            api_version=version)
 
     if not deviceid_snmpdiscovery_resp2.cgx_status:
