@@ -11809,7 +11809,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                            id2n=aspath_access_lists_id2n)
 
                 # Reset local as num after removing all the Bgp peers.
-                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
+                if not config_routing_bgp_global.get("local_as_num"):
+                    bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
                                                   version=routing_bgp_global_version)
 
             # ------------------
