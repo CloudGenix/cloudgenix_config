@@ -7977,23 +7977,29 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
     else:
         throw_error("Unable to retrieve interface: ", radii_resp)
 
-    # Check for changes:
-    radii_config_check = copy.deepcopy(radii_config)
-    radii_config.update(radii_template)
-
-    is_reset = False
     if reset_radii:
-        if radii_config.get('source_interface_id') and radii_config.get('source_interface_id') not in yml_interfaces.keys():
-            output_message("   Resetting source interface ids for Radii {0}.".format(radii_config_check.get('name')))
-            radii_config['source_interface_id'] = None
-            is_reset = True
+        if radii_template:
+            source_interface_id = radii_template.get("source_interface_id")
+            if interfaces_n2id.get(source_interface_id, source_interface_id) != radii_config.get('source_interface_id'):
+                radii_config.update(radii_template)
+                output_message("   Resetting source interface ids for Radii {0}.".format(radii_config.get('name')))
+                radii_config['source_interface_id'] = None
+            else:
+                return radii_id
         else:
-            return radii_id
+            if radii_config.get('source_interface_id') not in list(map(lambda x: interfaces_n2id.get(x), yml_interfaces.keys())):
+                output_message(
+                    "   Resetting source interface ids for Radii {0}.".format(radii_config.get('name')))
+                radii_config['source_interface_id'] = None
+            else:
+                return radii_id
 
-    if not is_reset:
-        if radii_config.get("source_interface_id"):
-            source_interface_id = radii_config.get("source_interface_id")
-            radii_config["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+    else:
+        # Check for changes:
+        radii_config_check = copy.deepcopy(radii_config)
+        radii_config.update(radii_template)
+        source_interface_id = radii_config.get("source_interface_id")
+        radii_config["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
         if not force_update and radii_config == radii_config_check:
             radii_id = radii_config_check.get('id')
             radii_name = radii_config_check.get('name')
@@ -8012,8 +8018,7 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
             updated_radius_servers.append(radius_server)
     radii_config["radius_configuration"] = updated_radius_servers
 
-
-    #modify radii
+    # modify radii
     radii_resp = sdk.put.radii(element_id, radii_id, radii_config, api_version=version)
 
     if not radii_resp.cgx_status:
@@ -9518,10 +9523,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if radii_cache:
                     implicit_radii_id = radii_cache[0].get("id")
 
-                if implicit_radii_id and not config_radii:
-                    config_radii_record = copy.deepcopy(radii_cache[0])
+                if implicit_radii_id:
                     yml_interfaces = copy.deepcopy(config_interfaces)
-                    radii_id = modify_radii(config_radii_record, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1)
+                    radii_id = modify_radii(config_radii, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1)
 
                 # -- End NTP config
 
