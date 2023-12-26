@@ -9519,19 +9519,22 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 if not radii_resp.cgx_status:
                     throw_error("Radii AAA get failed: ", radii_resp)
 
-                radii_cache, leftover_radii = extract_items(radii_resp, 'radii')
+                radii_cache_local, leftover_radii = extract_items(radii_resp, 'radii')
+
+                config_radii_record = {}
+                if config_radii:
+                    for radii_entry, radii_value in config_radii.items():
+                        # deepcopy to modify.
+                        config_radii_record = recombine_named_key_value(radii_entry, radii_value, name_key="name")
 
                 implicit_radii_id = None
-                implicit_radii_name = None
                 # There exists only one Radius item, Fetch the radius id from the cache
-                if radii_cache:
-                    implicit_radii_id = radii_cache[0].get("id")
-                    implicit_radii_name = radii_cache[0].get("name")
+                if radii_cache_local:
+                    implicit_radii_id = radii_cache_local[0].get("id")
 
                 if implicit_radii_id:
-                    config_radii['name'] = implicit_radii_name
                     yml_interfaces = copy.deepcopy(config_interfaces)
-                    radii_id = modify_radii(config_radii, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1, version=radii_version)
+                    radii_id = modify_radii(config_radii_record, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1, version=radii_version)
 
                 # -- End NTP config
 
