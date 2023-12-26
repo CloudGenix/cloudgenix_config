@@ -4702,8 +4702,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('parent'):
         config['parent'] = interface_config['parent']
     if interface_config.get('type') == 'subinterface' or interface_config.get('type') == 'pppoe':
-        if not interface_template.get('mtu'):
-            config['mtu'] = 0
+        config['mtu'] = 0
         if not interface_template.get('used_for'):
             config['used_for'] = interface_config.get('used_for')
         config['type'] = interface_config.get('type')
