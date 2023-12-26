@@ -3993,6 +3993,8 @@ def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, 
 
     if 'deviceid_profile_id' in deviceidconfigs_template:
         name_lookup_in_template(deviceidconfigs_template, 'deviceid_profile_id', deviceidprofiles_n2id)
+    else:
+        deviceidconfigs_template['deviceid_profile_id'] = None  # Setting to No Profile. Worakaround for CGSDW-19512
 
     # get current deviceidconfigs
     deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id, deviceidconfigs_id)
@@ -4700,8 +4702,10 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     if interface_config.get('parent'):
         config['parent'] = interface_config['parent']
     if interface_config.get('type') == 'subinterface' or interface_config.get('type') == 'pppoe':
-        config['mtu'] = 0
-        config['used_for'] = interface_config.get('used_for')
+        if not interface_template.get('mtu'):
+            config['mtu'] = 0
+        if not interface_template.get('used_for'):
+            config['used_for'] = interface_config.get('used_for')
         config['type'] = interface_config.get('type')
     if interface_config.get('type') == 'virtual_interface':
         config['type'] = 'virtual_interface'
@@ -6157,6 +6161,7 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
         local_debug('CORE-EDGE PEER FOUND: {0}'.format(bgp_peer_type))
         bgp_peer_template['route_map_in_id'] = None
         bgp_peer_template['route_map_out_id'] = None
+        name_lookup_in_template(bgp_peer_template, 'vrf_context_id', vrfcontexts_n2id)
     else:
         # replace flat names
         name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
@@ -7988,8 +7993,7 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
                 return radii_id
         else:
             if radii_config.get('source_interface_id') not in list(map(lambda x: interfaces_n2id.get(x), yml_interfaces.keys())):
-                output_message(
-                    "   Resetting source interface ids for Radii {0}.".format(radii_config.get('name')))
+                output_message("   Resetting source interface ids for Radii {0}.".format(radii_config.get('name')))
                 radii_config['source_interface_id'] = None
             else:
                 return radii_id
@@ -9525,7 +9529,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 if implicit_radii_id:
                     yml_interfaces = copy.deepcopy(config_interfaces)
-                    radii_id = modify_radii(config_radii, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1)
+                    radii_id = modify_radii(config_radii, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1, version=radii_version)
 
                 # -- End NTP config
 
