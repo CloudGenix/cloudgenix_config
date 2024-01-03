@@ -41,6 +41,12 @@ import argparse
 import re
 import base64
 
+#
+# Disable map quest warning
+#
+import urllib3
+urllib3.disable_warnings()
+
 # CloudGenix Python SDK
 try:
     import cloudgenix
