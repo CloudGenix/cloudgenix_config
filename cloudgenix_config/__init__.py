@@ -367,7 +367,9 @@ def name_lookup_in_template(template, key, lookup_dict):
 
     cur_val = template.get(key)
     n2id_result = lookup_dict.get(cur_val)
-    if n2id_result is not None:
+    if n2id_result == "auto_generated_resource":
+        template[key] = None
+    elif n2id_result is not None:
         template[key] = n2id_result
     return
 
@@ -425,7 +427,7 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
         item_key = item.get(key_val)
         item_value = item.get(value_val)
         if item.get("auto_generated"):
-            lookup_dict[item_key] = None
+            lookup_dict[item_key] = "auto_generated_resource"
             continue
         # print(item_key, item_value)
         if item_key and item_value is not None:

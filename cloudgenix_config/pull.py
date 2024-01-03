@@ -169,6 +169,8 @@ RADII_STR = "radii"
 MULTICASTSOURCESITECONFIGS_STR = "multicastsourcesiteconfigs"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 DEVICE_ID_CONFIGS_STR = "deviceidconfigs"
+SNMPDISCOVERY_STR = "snmpdiscoverystartnodes"
+ELEMENT_DEVICEIDCONFIGS_STR = "element_deviceidconfigs"
 
 # Global Config Cache holders
 sites_cache = []
@@ -210,6 +212,7 @@ vrfcontexts_cache = []
 vrfcontextprofiles_cache = []
 perfmgmtpolicysetstacks_cache = []
 perfmgmtpolicysets_cache = []
+deviceidprofiles_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -325,6 +328,7 @@ def update_global_cache():
     global vrfcontextprofiles_cache
     global perfmgmtpolicysetstacks_cache
     global perfmgmtpolicysets_cache
+    global deviceidprofiles_cache
 
 
     global id_name_cache
@@ -475,6 +479,9 @@ def update_global_cache():
     perfmgmtpolicysetstacks_resp = sdk.get.perfmgmtpolicysetstacks()
     perfmgmtpolicysetstacks_cache, _ = extract_items(perfmgmtpolicysetstacks_resp, 'perfmgmtpolicysetstacks')
 
+    deviceidprofiles_resp = sdk.get.deviceidprofiles()
+    deviceidprofiles_cache, _ = extract_items(deviceidprofiles_resp, 'deviceidprofiles')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -584,6 +591,8 @@ def update_global_cache():
 
     id_name_cache.update(build_lookup_dict(perfmgmtpolicysetstacks_cache, key_val='id', value_val='name'))
 
+    id_name_cache.update(build_lookup_dict(deviceidprofiles_cache, key_val='id', value_val='name'))
+
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
     wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
@@ -649,6 +658,8 @@ def build_version_strings():
     global RADII_STR
     global MULTICASTSOURCESITECONFIGS_STR
     global DEVICE_ID_CONFIGS_STR
+    global SNMPDISCOVERY_STR
+    global ELEMENT_DEVICEIDCONFIGS_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -691,6 +702,9 @@ def build_version_strings():
         RADII_STR = add_version_to_object(sdk.get.radii, "radii")
         MULTICASTSOURCESITECONFIGS_STR = add_version_to_object(sdk.get.multicastsourcesiteconfigs, "multicastsourcesiteconfigs")
         DEVICE_ID_CONFIGS_STR = add_version_to_object(sdk.get.deviceidconfigs, "deviceidconfigs")
+        SNMPDISCOVERY_STR = add_version_to_object(sdk.get.deviceidconfigs_snmpdiscoverystartnodes, "snmpdiscoverystartnodes")
+        ELEMENT_DEVICEIDCONFIGS_STR = add_version_to_object(sdk.get.element_deviceidconfigs, "element_deviceidconfigs")
+
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -1014,15 +1028,29 @@ def _pull_config_for_single_site(site_name_id):
 
     delete_if_empty(site, MULTICASTSOURCESITECONFIGS_STR)
 
-    site[DEVICE_ID_CONFIGS_STR] = []
+    site[DEVICE_ID_CONFIGS_STR] = {}
     response = sdk.get.deviceidconfigs(site['id'])
     if not response.cgx_status:
         throw_error("Device ID Config Fetch Failed: ", response)
     deviceidconfigs_items = response.cgx_content['items']
     for device_config in deviceidconfigs_items:
         device_config_template = copy.deepcopy(device_config)
+        if device_config_template.get('deviceid_profile_id'):
+            device_config_template['deviceid_profile_id'] = id_name_cache.get(device_config_template['deviceid_profile_id'])
+        site[DEVICE_ID_CONFIGS_STR][SNMPDISCOVERY_STR] = {}
+        response = sdk.get.deviceidconfigs_snmpdiscoverystartnodes(site['id'], device_config['id'])
+        if not response.cgx_status:
+            throw_error("Device ID Config SNMP Discovery Start Nodes Fetch Failed: ", response)
+        snmpdiscoverystartnodes_items = response.cgx_content['items']
+        for snmpdiscoverystartnode in snmpdiscoverystartnodes_items:
+            snmpdiscoverystartnode_template = copy.deepcopy(snmpdiscoverystartnode)
+            snmpdiscoverystartnode_name = snmpdiscoverystartnode_template.get('name')
+            strip_meta_attributes(snmpdiscoverystartnode_template)
+            # names used, but config doesn't index by name for this value currently.
+            site[DEVICE_ID_CONFIGS_STR][SNMPDISCOVERY_STR][snmpdiscoverystartnode_name] = snmpdiscoverystartnode_template
+        delete_if_empty(site[DEVICE_ID_CONFIGS_STR], SNMPDISCOVERY_STR)
         strip_meta_attributes(device_config_template)
-        site[DEVICE_ID_CONFIGS_STR].append(device_config_template)
+        site[DEVICE_ID_CONFIGS_STR].update(device_config_template)
 
     delete_if_empty(site, DEVICE_ID_CONFIGS_STR)
 
@@ -1789,6 +1817,23 @@ def _pull_config_for_single_site(site_name_id):
             # names used, but config doesn't index by name for this value currently.
             element[IPFIX_STR].update(ipfix_template)
         delete_if_empty(element, IPFIX_STR)
+
+        element[ELEMENT_DEVICEIDCONFIGS_STR] = []
+        response = sdk.get.element_deviceidconfigs(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Deviceidconfigs get failed: ", response)
+
+        element_deviceidconfigs = response.cgx_content['items']
+
+        for element_deviceidconfig in element_deviceidconfigs:
+            element_deviceidconfig_template = copy.deepcopy(element_deviceidconfig)
+            name_lookup_in_template(element_deviceidconfig_template, 'name', id_name_cache)
+            name_lookup_in_template(element_deviceidconfig_template, 'snmp_discovery_source_interface_id', id_name_cache)
+
+            strip_meta_attributes(element_deviceidconfig_template, leave_name=True)
+            # names used, but config doesn't index by name for this value currently.
+            element[ELEMENT_DEVICEIDCONFIGS_STR].append(element_deviceidconfig_template)
+        delete_if_empty(element, ELEMENT_DEVICEIDCONFIGS_STR)
 
         # Get toolkit
         response = sdk.get.elementaccessconfigs(element['id'])

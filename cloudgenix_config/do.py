@@ -222,7 +222,8 @@ upgrade_path_regex = {
     "5\.5\..*" : ["6.0..*", "5.6..*"], ### 5.5.xyz -> 5.6.1
     "5\.6\..*" : ["6.1..*", "6.0..*"],
     "6\.0\..*" : ["6.2..*", "6.1..*"],
-    "6\.1\..*" : ["6.2..*"]
+    "6\.1\..*" : ["6.2..*", "6.3..*"],
+    "6\.2\..*" : ["6.3..*"]
 }
 
 downgrade_path_regex = {
@@ -237,6 +238,8 @@ downgrade_path_regex = {
     "6\.0\..*" : ["5.5..*", "5.6..*"],
     "6\.1\..*" : ["5.6..*", "6.0..*"],
     "6\.2\..*" : ["6.0..*", "6.1..*"],
+    "6\.3\..*" : ["6.2..*", "6.1..*"]
+
 }
 
 # Global Config Cache holders
@@ -280,6 +283,7 @@ vrfcontexts_cache = []
 vrfcontextprofiles_cache = []
 perfmgmtpolicysetstacks_cache = []
 perfmgmtpolicysets_cache = []
+deviceidprofiles_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -320,6 +324,7 @@ vrfcontexts_n2id = {}
 vrfcontextprofiles_n2id = {}
 perfmgmtpolicysetstacks_n2id = {}
 perfmgmtpolicysets_n2id = {}
+deviceidprofiles_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -501,6 +506,7 @@ def update_global_cache():
     global vrfcontextprofiles_cache
     global perfmgmtpolicysetstacks_cache
     global perfmgmtpolicysets_cache
+    global deviceidprofiles_cache
 
     global sites_n2id
     global elements_n2id
@@ -540,6 +546,7 @@ def update_global_cache():
     global vrfcontextprofiles_n2id
     global perfmgmtpolicysetstacks_n2id
     global perfmgmtpolicysets_n2id
+    global deviceidprofiles_n2id
 
     global elements_byserial
     global machines_byserial
@@ -692,6 +699,9 @@ def update_global_cache():
     perfmgmtpolicysetstacks_resp = sdk.get.perfmgmtpolicysetstacks()
     perfmgmtpolicysetstacks_cache, _ = extract_items(perfmgmtpolicysetstacks_resp, 'perfmgmtpolicysetstacks')
 
+    deviceidprofiles_resp = sdk.get.deviceidprofiles()
+    deviceidprofiles_cache, _ = extract_items(deviceidprofiles_resp, 'deviceidprofiles')
+
     # sites name
     sites_n2id = build_lookup_dict(sites_cache)
 
@@ -798,6 +808,8 @@ def update_global_cache():
     perfmgmtpolicysets_n2id = build_lookup_dict(perfmgmtpolicysets_cache)
 
     perfmgmtpolicysetstacks_n2id = build_lookup_dict(perfmgmtpolicysetstacks_cache)
+
+    deviceidprofiles_n2id = build_lookup_dict(deviceidprofiles_cache)
 
     # element by serial
     elements_byserial = list_to_named_key_value(elements_cache, 'serial_number', pop_index=False)
@@ -938,7 +950,7 @@ def parse_site_config(config_site):
     config_hubclusters, _ = config_lower_version_get(config_site, 'hubclusters',
                                                                     sdk.put.hubclusters, default={})
     config_deviceidconfigs, _ = config_lower_version_get(config_site, 'deviceidconfigs',
-                                                                    sdk.put.deviceidconfigs, default=[])
+                                                                    sdk.put.deviceidconfigs, default={})
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
@@ -975,12 +987,12 @@ def parse_element_config(config_element):
                                                                        sdk.put.cellular_modules_sim_security,
                                                                        default={})
     config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
-
+    config_element_deviceidconfigs, _ = config_lower_version_get(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default = [])
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
         config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
-        config_cellular_modules_sim_security, config_radii
+        config_cellular_modules_sim_security, config_radii, config_element_deviceidconfigs
 
 
 def parse_routing_config(config_routing):
@@ -1035,6 +1047,19 @@ def parse_snmp_config(config_snmp):
     config_snmp_agent, _ = config_lower_version_get(config_snmp, 'agent', sdk.put.snmpagents, default=[])
 
     return config_snmp_agent, config_snmp_traps
+
+def parse_deviceid_config(config_deviceidconfigs):
+    """
+    Parse SNMP level config
+    :param config_snmp: SNMP config dict
+    :return: Tuple of SNMP Agent config, SNMP Trap config
+    """
+    local_debug("SNMP CONFIG: " + str(json.dumps(config_deviceidconfigs, indent=4)))
+    if type(config_deviceidconfigs) == list:
+        return {}
+    config_deviceid_snmpdiscovery, _ = config_lower_version_get(config_deviceidconfigs, 'snmpdiscoverystartnodes', sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default={})
+
+    return config_deviceid_snmpdiscovery
 
 
 def detect_elements(element_config):
@@ -1263,6 +1288,71 @@ def wait_for_element_state(matching_element, state_list=None, wait_verify_succes
                            "".format(element_descriptive_text,
                                      ", ".join(state_list),
                                      state,
+                                     time_elapsed,
+                                     wait_verify_success))
+            time.sleep(wait_interval)
+            time_elapsed += wait_interval
+        else:
+            # element is ready.
+            ready = True
+            # update the element, as the ETAG may have changed.
+            final_element = elem_resp.cgx_content
+
+    return final_element
+
+
+def wait_for_device_change_mode_state(matching_element, device_mode, state_list=None, wait_verify_success=900,
+                           wait_interval=30, declaim=False):
+    """
+    Wait for Element to reach a specific state or list of states.
+    :param matching_element: Element API response for element to wait for
+    :param state_list: Optional - List of state strings, default ['ready', 'bound']
+    :param wait_verify_success: Optional - Time to wait for system to reach specific state (in seconds)
+    :param wait_interval: Optinal - Interval to check API for updated statuses during wait.
+    :param declaim: Bool, if waiting for an element that may be declaiming or deleted (element may not exist anymore.)
+    :return: Element API final response
+    """
+    if not state_list:
+        state_list = ["element_change_mode_init"]
+
+    # check status
+    element = matching_element
+    element_id = element.get('id')
+    element_serial = element.get('serial_number')
+    element_name = element.get('name')
+    element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+        if element_serial else "ID: {0}".format(element_id)
+    final_element = matching_element
+
+    # ensure element is "state": "ready"
+    ready = False
+    time_elapsed = 0
+    while not ready:
+        elem_resp = sdk.get.elements(element_id)
+        if not elem_resp.cgx_status:
+            # we could be waiting on a declaim. When declaim finishes, element will be non-existent, and
+            # this query will fail. Return if so.
+            if declaim:
+                # declaim is finished. return empty
+                return {}
+            else:
+                # not a declaim, there is a problem.
+                throw_error("Could not query element {0}({1}).".format(element_id, element_serial), elem_resp)
+
+        state = str(elem_resp.cgx_content.get('device_change_mode_state', ''))
+        mode = str(elem_resp.cgx_content.get('device_mode', ''))
+
+        if time_elapsed > wait_verify_success:
+            # failed waiting.
+            throw_error("Element {0} state transition took longer than {1} seconds. Exiting."
+                        "".format(element_descriptive_text, wait_verify_success))
+
+        if state not in state_list and mode != device_mode:
+            # element not ready, wait.
+            output_message("  Element {0} not yet in requested device mode: {1}."
+                           "Waited so far {2} seconds out of {3}."
+                           "".format(element_descriptive_text,
+                                     mode,
                                      time_elapsed,
                                      wait_verify_success))
             time.sleep(wait_interval)
@@ -3901,6 +3991,11 @@ def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, 
     # make a copy of deviceidconfigs to modify
     deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
 
+    if 'deviceid_profile_id' in deviceidconfigs_template:
+        name_lookup_in_template(deviceidconfigs_template, 'deviceid_profile_id', deviceidprofiles_n2id)
+    else:
+        deviceidconfigs_template['deviceid_profile_id'] = None  # Setting to No Profile. Worakaround for CGSDW-19512
+
     # get current deviceidconfigs
     deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id, deviceidconfigs_id)
     if deviceidconfigs_resp.cgx_status:
@@ -3945,6 +4040,103 @@ def modify_deviceidconfigs(config_deviceidconfigs, deviceidconfigs_id, site_id, 
                                                                            current_revision))
 
     return deviceidconfigs_id
+
+
+def create_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_n2id, site_id, deviceidconfigs_id, version=None):
+    # make a copy of deviceidconfigs_snmodiscovery to modify
+    snmpdiscovery_template = copy.deepcopy(config_snmpdiscovery)
+
+    snmpdiscovery_resp = sdk.post.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, snmpdiscovery_template, api_version=version)
+
+    if not snmpdiscovery_resp.cgx_status:
+        throw_error("IoT SNMP discovery start nodes creation failed: ", snmpdiscovery_resp)
+
+    snmpdiscovery_name = snmpdiscovery_resp.cgx_content.get('name')
+    snmpdiscovery_id = snmpdiscovery_resp.cgx_content.get('id')
+
+    if not snmpdiscovery_name or not snmpdiscovery_id:
+        throw_error("Unable to determine snmpdiscovery attributes (Name: {0}, ID {1})..".format(snmpdiscovery_name,
+                                                                                               snmpdiscovery_id))
+
+    output_message(" Created IoT SNMP Discovery Start Node {0} for Deviceidconfigs {1}.".format(snmpdiscovery_name, deviceidconfigs_id))
+
+    # update caches
+    deviceid_snmpdiscovery_n2id[snmpdiscovery_name] = snmpdiscovery_id
+
+    return snmpdiscovery_id
+
+
+def modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_id, deviceid_snmpdiscovery_n2id,
+                                                              site_id, deviceidconfigs_id, version=None):
+    snmpdiscovery_config = {}
+    # make a copy of deviceidconfigs_snmodiscovery to modify
+    snmpdiscovery_template = copy.deepcopy(config_snmpdiscovery)
+    # get current deviceidconfigs_snmpdiscovery
+    deviceid_snmpdiscovery_resp = sdk.get.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, deviceid_snmpdiscovery_id)
+    if deviceid_snmpdiscovery_resp.cgx_status:
+        snmpdiscovery_config = deviceid_snmpdiscovery_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Device ID Config SNMP Discovery: ", deviceid_snmpdiscovery_resp)
+
+    # extract prev_revision
+    prev_revision = snmpdiscovery_config.get("_etag")
+
+    # Check for changes:
+    snmpdiscovery_config_change_check = copy.deepcopy(snmpdiscovery_config)
+    snmpdiscovery_config.update(snmpdiscovery_template)
+    if not force_update and snmpdiscovery_config == snmpdiscovery_config_change_check:
+        # no change in config, pass.
+        deviceid_snmpdiscovery_id = snmpdiscovery_config_change_check.get('id')
+        deviceid_snmpdiscovery_name = snmpdiscovery_config_change_check.get('name', deviceid_snmpdiscovery_id)
+        output_message(" No Change for IoT SNMP Discovery Start Node {0}.".format(deviceid_snmpdiscovery_name))
+        return deviceid_snmpdiscovery_id
+
+    if debuglevel >= 3:
+        local_debug("Device ID Config DIFF: {0}".format(
+            find_diff(snmpdiscovery_config_change_check, snmpdiscovery_config)))
+
+    # Update deviceidconfigs.
+    deviceid_snmpdiscovery_resp2 = sdk.put.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, deviceid_snmpdiscovery_id, snmpdiscovery_config,
+                                                           api_version=version)
+
+    if not deviceid_snmpdiscovery_resp2.cgx_status:
+        throw_error(" IoT SNMP Discovery Start Node update failed: ", deviceid_snmpdiscovery_resp2)
+
+    deviceid_snmpdiscovery_id = deviceid_snmpdiscovery_resp2.cgx_content.get('id')
+    deviceid_snmpdiscovery_name = deviceid_snmpdiscovery_resp2.cgx_content.get('name', deviceid_snmpdiscovery_id)
+
+    # extract current_revision
+    current_revision = deviceid_snmpdiscovery_resp2.cgx_content.get("_etag")
+
+    if not deviceidconfigs_id:
+        throw_error("Unable to determine IoT SNMP Discovery attributes (ID {0})..".format(deviceid_snmpdiscovery_id))
+
+    output_message(" Updated IoT SNMP Discovery Start Node {0} (Etag {1} -> {2}).".format(deviceid_snmpdiscovery_name, prev_revision,
+                                                                             current_revision))
+
+    deviceid_snmpdiscovery_n2id[deviceid_snmpdiscovery_name] = deviceid_snmpdiscovery_id
+
+    return deviceid_snmpdiscovery_id
+
+
+def delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=None):
+    if id2n is None:
+        id2n = {}
+
+    nodes = []
+    node_names = []
+    for snmpdiscovery_id in leftover_deviceid_snmpdiscovery:
+        # delete all leftover.
+        node_names.append(id2n.get(snmpdiscovery_id, snmpdiscovery_id))
+        nodes.append({"id": snmpdiscovery_id})
+
+    output_message(" Deleting Unconfigured IoT SNMP Discovery Start Nodes {0}.".format(node_names))
+    data = {"start_nodes": nodes}
+    snmpdiscovery_del_resp = sdk.post.deviceidconfigs_bulkdelete_snmpdiscoverystartnodes(site_id, deviceidconfigs_id, data)
+    if not snmpdiscovery_del_resp.cgx_status:
+        throw_error("Could not delete IoT SNMP Discovery Start Nodes {0}: ".format(node_names),
+                    snmpdiscovery_del_resp)
+    return
 
 
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
@@ -4511,11 +4703,13 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         config['parent'] = interface_config['parent']
     if interface_config.get('type') == 'subinterface' or interface_config.get('type') == 'pppoe':
         config['mtu'] = 0
-        config['used_for'] = interface_config.get('used_for')
+        if not interface_template.get('used_for'):
+            config['used_for'] = interface_config.get('used_for')
         config['type'] = interface_config.get('type')
     if interface_config.get('type') == 'virtual_interface':
         config['type'] = 'virtual_interface'
-        config['bound_interfaces'] = interface_config.get('bound_interfaces')
+        if not interface_template.get('bound_interfaces'):
+            config['bound_interfaces'] = interface_config.get('bound_interfaces')
     config['name'] = interface_config.get('name')
     config['type'] = interface_config.get('type')
     # Check for changes:
@@ -4524,7 +4718,7 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
     interface_config.update(config)
 
     if reset_switch_port:
-        if interface_config != interface_change_check:
+        if interface_config.get('switch_port_config') != interface_change_check.get('switch_port_config'):
             output_message("   Resetting the vlan interface id for Switch port {0}.".format(interface_change_check.get("name")))
             if interface_config.get("switch_port_config"):
                 interface_config["switch_port_config"]["access_vlan_id"] = None
@@ -4625,6 +4819,43 @@ def delete_interfaces(leftover_interfaces, site_id, element_id, id2n=None):
         if not interface_del_resp.cgx_status:
             throw_error("Could not delete Interface {0}: ".format(id2n.get(interface_id, interface_id)),
                         interface_del_resp)
+    return
+
+
+def create_element_deviceidconfigs(config_elem_deviceidconfig_template, site_id, element_id, interfaces_n2id, version=None):
+    name_lookup_in_template(config_elem_deviceidconfig_template, 'name', interfaces_n2id)
+    name_lookup_in_template(config_elem_deviceidconfig_template,
+                            'snmp_discovery_source_interface_id', interfaces_n2id)
+
+    element_deviceidconfigs_resp = sdk.post.element_deviceidconfigs(site_id, element_id,
+                                                                    config_elem_deviceidconfig_template, api_version=version)
+
+    if not element_deviceidconfigs_resp.cgx_status:
+        throw_error("Element Deviceidconfigs IoT SNMP Discovery creation failed: ", element_deviceidconfigs_resp)
+
+    element_deviceidconfigs_name = element_deviceidconfigs_resp.cgx_content.get('name')
+    element_deviceidconfigs_id = element_deviceidconfigs_resp.cgx_content.get('id')
+
+    if not element_deviceidconfigs_name or not element_deviceidconfigs_id:
+        throw_error("Unable to determine IoT SNMP Discovery attributes (Name: {0}, ID {1})..".format(element_deviceidconfigs_name,
+                                                                                                element_deviceidconfigs_id))
+
+    output_message(
+        " Created Element Device ID Config IoT SNMP Discovery {0} for interface {1}.".format(element_deviceidconfigs_name, interfaces_n2id.get(element_deviceidconfigs_name)))
+
+    return element_deviceidconfigs_id
+
+
+def delete_element_deviceidconfigs(leftover_elem_deviceidconfigs, site_id, element_id, id2n=None):
+    if id2n is None:
+        id2n = {}
+
+    for item in leftover_elem_deviceidconfigs:
+        output_message(" Deleting Unconfigured Element Device ID Config IoT SNMP Discovery {0}.".format(item))
+        elem_deviceidconfig_del_resp = sdk.delete.element_deviceidconfigs(site_id, element_id, item)
+        if not elem_deviceidconfig_del_resp.cgx_status:
+            throw_error("Could not delete Element Device ID Config IoT SNMP Discovery {0}: ".format(item),
+                        elem_deviceidconfig_del_resp)
     return
 
 
@@ -5079,7 +5310,6 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id,
     """
     # make a copy of staticroute to modify
     staticroute_template = copy.deepcopy(config_staticroute)
-    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # perform name -> ID lookups
     for key, value in config_staticroute.items():
@@ -5113,6 +5343,7 @@ def create_staticroute(config_staticroute, interfaces_n2id, site_id, element_id,
 
     # replace flat names
     name_lookup_in_template(staticroute_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
@@ -5147,7 +5378,6 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
     staticroute_config = {}
     # make a copy of staticroute to modify
     staticroute_template = copy.deepcopy(config_staticroute)
-    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     # perform name -> ID lookups
     for key, value in config_staticroute.items():
@@ -5181,6 +5411,7 @@ def modify_staticroute(config_staticroute, staticroute_id, interfaces_n2id,
 
     # replace flat names
     name_lookup_in_template(staticroute_template, 'network_context_id', networkcontexts_n2id)
+    name_lookup_in_template(staticroute_template, 'vrf_context_id', vrfcontexts_n2id)
 
     local_debug("STATICROUTE TEMPLATE: " + str(json.dumps(staticroute_template, indent=4)))
 
@@ -5929,6 +6160,7 @@ def create_bgp_peer(config_bgp_peer, bgp_peer_n2id, routemaps_n2id, site_id, ele
         local_debug('CORE-EDGE PEER FOUND: {0}'.format(bgp_peer_type))
         bgp_peer_template['route_map_in_id'] = None
         bgp_peer_template['route_map_out_id'] = None
+        name_lookup_in_template(bgp_peer_template, 'vrf_context_id', vrfcontexts_n2id)
     else:
         # replace flat names
         name_lookup_in_template(bgp_peer_template, 'route_map_in_id', routemaps_n2id)
@@ -6347,11 +6579,11 @@ def modify_syslog(config_syslog, syslog_id, interfaces_n2id, syslogserverprofile
     syslog_change_check = copy.deepcopy(syslog_config)
     syslog_config.update(syslog_template)
     if reset_syslog:
-        if syslog_config != syslog_change_check:
+        if syslog_config.get('source_interface') != syslog_change_check.get('source_interface'):
             output_message("   Resetting source interface ids for syslog {0}.".format(syslog_change_check.get('name')))
             syslog_config['source_interface'] = None
         else:
-            return 1
+            return syslog_id
     elif not force_update and syslog_config == syslog_change_check:
         # no change in config, pass.
         syslog_id = syslog_change_check.get('id')
@@ -6477,7 +6709,7 @@ def modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=0, ve
     ntp_change_check = copy.deepcopy(ntp_config)
     ntp_config.update(ntp_template)
     if reset_ntp:
-        if ntp_config != ntp_change_check:
+        if ntp_config.get('source_interface_ids') != ntp_change_check.get('source_interface_ids'):
             output_message("   Resetting source interface ids for NTP {0}.".format(ntp_id))
             ntp_config['source_interface_ids'] = None
         else:
@@ -6699,11 +6931,11 @@ def modify_snmp_trap(config_snmp_trap, snmp_trap_id, interfaces_n2id,
     snmp_trap_change_check = copy.deepcopy(snmp_trap_config)
     snmp_trap_config.update(snmp_trap_template)
     if reset_snmp:
-        if snmp_trap_config != snmp_trap_change_check:
+        if snmp_trap_config.get('source_interface') != snmp_trap_change_check.get('source_interface'):
             output_message("   Resetting source interface ids for SNMP Trap {0}.".format(snmp_trap_id))
             snmp_trap_config['source_interface'] = None
         else:
-            return 1
+            return snmp_trap_id
     elif not force_update and snmp_trap_config == snmp_trap_change_check:
         # no change in config, pass.
         snmp_trap_id = snmp_trap_change_check.get('id')
@@ -7361,7 +7593,7 @@ def modify_application_probe(config_app_probe, site_id, element_id, interfaces_n
     app_probe_change_check = copy.deepcopy(app_probe_config)
     app_probe_config.update(app_probe_template)
     if reset_app_probe:
-        if app_probe_config != app_probe_change_check:
+        if app_probe_config.get('source_interface_id') != app_probe_change_check.get('source_interface_id'):
             output_message("   Resetting source interface id for Application Probe {0}.".format(app_probe_change_check.get('name')))
             app_probe_config['source_interface_id'] = None
         else:
@@ -7695,7 +7927,8 @@ def modify_element_cellular_module(config_element_cellular_module, element_cellu
 
     return cellular_modules_id
 
-def create_radii(config_radii, element_id, interfaces_n2id):
+
+def create_radii(config_radii, element_id, interfaces_n2id, version=None):
     """
     Create a radii
     :param config_radii: radii config dict
@@ -7711,7 +7944,7 @@ def create_radii(config_radii, element_id, interfaces_n2id):
         radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
 
     #create radii
-    radii_resp = sdk.post.radii(element_id, radii_template)
+    radii_resp = sdk.post.radii(element_id, radii_template, api_version=version)
 
     if not radii_resp.cgx_status:
         throw_error("Radii creation failed: ", radii_resp)
@@ -7726,7 +7959,8 @@ def create_radii(config_radii, element_id, interfaces_n2id):
 
     return radius_id
 
-def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
+
+def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interfaces={}, reset_radii=0, version=None):
     """
     Modify the existing radii
     :param config_radii: radii config dict
@@ -7747,35 +7981,48 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
     else:
         throw_error("Unable to retrieve interface: ", radii_resp)
 
+    if reset_radii:
+        if radii_template:
+            source_interface_id = radii_template.get("source_interface_id")
+            if interfaces_n2id.get(source_interface_id, source_interface_id) != radii_config.get('source_interface_id'):
+                radii_config.update(radii_template)
+                output_message("   Resetting source interface ids for Radii {0}.".format(radii_config.get('name')))
+                radii_config['source_interface_id'] = None
+            else:
+                return radii_id
+        else:
+            if radii_config.get('source_interface_id') not in list(map(lambda x: interfaces_n2id.get(x), yml_interfaces.keys())):
+                output_message("   Resetting source interface ids for Radii {0}.".format(radii_config.get('name')))
+                radii_config['source_interface_id'] = None
+            else:
+                return radii_id
 
-    if radii_template.get("source_interface_id"):
-        source_interface_id = radii_template.get("source_interface_id")
-        radii_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+    else:
+        # Check for changes:
+        radii_config_check = copy.deepcopy(radii_config)
+        radii_config.update(radii_template)
+        source_interface_id = radii_config.get("source_interface_id")
+        radii_config["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+        if not force_update and radii_config == radii_config_check:
+            radii_id = radii_config_check.get('id')
+            radii_name = radii_config_check.get('name')
+            radii_n2id[radii_name] = radii_id
+            output_message("   No Change for Radii {0}.".format(radii_name))
+            return radii_id
 
-    # Check for changes:
-    radii_config_check = copy.deepcopy(radii_config)
-    radii_config.update(radii_template)
+    radius_servers = radii_config.get("radius_configuration")
+    updated_radius_servers = []
+    if radius_servers:
+        for radius_server in radius_servers:
+            if not radius_server.get("shared_secret"):
+                # When there is no change in the shared secret set the flag retain_shared_secret
+                radius_server["shared_secret"] = "********"
+                radius_server["retain_shared_secret"] = "True"
+            updated_radius_servers.append(radius_server)
+    radii_config["radius_configuration"] = updated_radius_servers
 
-    if not force_update and radii_config == radii_config_check:
-        radii_id = radii_config_check.get('id')
-        radii_name = radii_config_check.get('name')
-        radii_n2id[radii_name] = radii_id
-        output_message("   No Change for Radii {0}.".format(radii_name))
-        return radii_id
-
-    radius_servers = radii_template.get("radius_configuration")
-    updated_radius_servers =[]
-    for radius_server in radius_servers:
-        if not radius_server.get("shared_secret"):
-            # When there is no change in the shared secret set the flag retain_shared_secret
-            radius_server["shared_secret"] = "********"
-            radius_server["retain_shared_secret"] = "True"
-        updated_radius_servers.append(radius_server)
-    if updated_radius_servers:
-        radii_template["radius_configuration"] = updated_radius_servers
-
-    #modify radii
-    radii_resp = sdk.put.radii(element_id, radii_id, radii_template)
+    # modify radii
+    radii_resp = sdk.put.radii(element_id, radii_id, radii_config, api_version=version)
 
     if not radii_resp.cgx_status:
         throw_error("Radii update failed: ", radii_resp)
@@ -8565,14 +8812,26 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Site_ipfix_localprefixes
 
+            config_deviceid_snmpdiscovery = parse_deviceid_config(config_deviceidconfigs)
+
+            deviceid_snmpdiscovery_version = use_sdk_yaml_version(config_deviceidconfigs, 'snmpdiscoverystartnodes',
+                                                           sdk.put.deviceidconfigs_snmpdiscoverystartnodes, default=[],
+                                                           sdk_or_yaml=apiversion)
+
             deviceidconfigs_resp = sdk.get.deviceidconfigs(site_id)
             deviceidconfigs_cache, leftover_deviceidconfigs = extract_items(
                 deviceidconfigs_resp, 'deviceidconfigs')
 
             # iterate configs (list)
-            for config_deviceidconfigs_entry in config_deviceidconfigs:
+            if config_deviceidconfigs:
 
-                config_deviceidconfigs_record = copy.deepcopy(config_deviceidconfigs_entry)
+                config_deviceidconfigs_template = copy.deepcopy(config_deviceidconfigs)
+                if type(config_deviceidconfigs) == list:
+                    config_deviceidconfigs_record = config_deviceidconfigs_template[0]
+                else:
+                    config_deviceidconfigs_record = config_deviceidconfigs_template
+
+                config_deviceidconfigs_record = fuzzy_pop(config_deviceidconfigs_record, 'snmpdiscoverystartnodes')
                 deviceidconfigs_id = None
                 if deviceidconfigs_cache:
                     deviceidconfigs_id = deviceidconfigs_cache[0].get('id')
@@ -8583,6 +8842,48 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     deviceidconfigs_id = modify_deviceidconfigs(config_deviceidconfigs_record,
                                                                 deviceidconfigs_id, site_id,
                                                                 version=deviceidconfigs_version)
+
+                deviceid_snmpdiscovery_response = sdk.get.deviceidconfigs_snmpdiscoverystartnodes(site_id, deviceidconfigs_id)
+                deviceid_snmpdiscovery_cache, leftover_deviceid_snmpdiscovery = extract_items(
+                    deviceid_snmpdiscovery_response, 'snmpdiscoverystartnodes')
+                deviceid_snmpdiscovery_n2id = build_lookup_dict(deviceid_snmpdiscovery_cache)
+
+                for config_deviceid_snmpdiscovery_name, config_deviceid_snmpdiscovery_value in config_deviceid_snmpdiscovery.items():
+                    # recombine object
+                    config_snmpdiscovery = recombine_named_key_value(config_deviceid_snmpdiscovery_name,
+                                                                     config_deviceid_snmpdiscovery_value, name_key='name')
+
+                    # Determine ID.
+                    # look for implicit ID in object.
+                    implicit_snmpdiscovery_id = config_snmpdiscovery.get('id')
+                    name_snmpdiscovery_id = deviceid_snmpdiscovery_n2id.get(config_deviceid_snmpdiscovery_name)
+
+                    if implicit_snmpdiscovery_id is not None:
+                        deviceid_snmpdiscovery_id = implicit_snmpdiscovery_id
+
+                    elif name_snmpdiscovery_id is not None:
+                        # look up ID by name on existing.
+                        deviceid_snmpdiscovery_id = name_snmpdiscovery_id
+                    else:
+                        # no object.
+                        deviceid_snmpdiscovery_id = None
+
+                    # Create or modify.
+                    if deviceid_snmpdiscovery_id is not None:
+                        # deviceid_snmpdiscovery exists, modify.
+                        deviceid_snmpdiscovery_id = modify_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_id, deviceid_snmpdiscovery_n2id,
+                                                              site_id, deviceidconfigs_id, version=deviceid_snmpdiscovery_version)
+
+                    else:
+                        # deviceid_snmpdiscovery does not exist, create.
+                        deviceid_snmpdiscovery_id = create_deviceid_snmpdiscovery(config_snmpdiscovery, deviceid_snmpdiscovery_n2id, site_id, deviceidconfigs_id, version=deviceid_snmpdiscovery_version)
+
+                    # remove from delete queue
+                    leftover_deviceid_snmpdiscovery = [entry for entry in leftover_deviceid_snmpdiscovery if entry != deviceid_snmpdiscovery_id]
+
+                if leftover_deviceid_snmpdiscovery:
+                    deviceid_snmpdiscovery_id2n = build_lookup_dict(deviceid_snmpdiscovery_cache, key_val='id', value_val='name')
+                    delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
 
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
@@ -8597,7 +8898,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
                 config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
-                    = parse_element_config(config_element)
+                config_element_deviceidconfigs = parse_element_config(config_element)
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
                                                                 default={}, sdk_or_yaml=apiversion)
@@ -8632,6 +8933,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 snmp_agent_version = use_sdk_yaml_version(config_snmp, 'agent', sdk.put.snmpagents, default=[], sdk_or_yaml=apiversion)
                 element_cellular_modules_version = use_sdk_yaml_version(config_element, 'element_cellular_modules', sdk.put.element_cellular_modules, default=[], sdk_or_yaml=apiversion)
                 cellular_modules_sim_security_version = use_sdk_yaml_version(config_element, 'cellular_modules_sim_security', sdk.put.cellular_modules_sim_security, default=[], sdk_or_yaml=apiversion)
+                radii_version = use_sdk_yaml_version(config_element, 'radii', sdk.put.radii, default={},
+                                                          sdk_or_yaml=apiversion)
+                element_deviceidconfigs_version = use_sdk_yaml_version(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default=[],
+                                                          sdk_or_yaml=apiversion)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -8680,9 +8985,32 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 update_element_machine_cache()
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
-                # assign and configure element
+                element = matching_element
+                element_serial = element.get('serial_number')
+                element_id = element.get('id')
+                element_name = element.get('name')
+                element_descriptive_text = element_name if element_name else "Serial: {0}".format(element_serial) \
+                    if element_serial else "ID: {0}".format(element_id)
 
-                #
+                # Update device mode
+                if config_element.get("device_mode") and matching_element.get("device_mode") != config_element.get(
+                        "device_mode"):
+                    device_mode_data = {
+                        "action": "change_device_mode",
+                        "parameters": [config_element.get("device_mode")]
+                    }
+                    output_message(
+                        "  Updating device mode to {0} for element {1}.".format(config_element.get("device_mode"),
+                                                                                element_descriptive_text))
+                    device_mode_resp = sdk.post.tenant_element_operations(element_id, device_mode_data)
+                    if not device_mode_resp.cgx_status:
+                        throw_error("Could not update device mode for element {0}: ".format(element_descriptive_text),
+                                    device_mode_resp)
+
+                matching_element = wait_for_device_change_mode_state(matching_element, config_element.get("device_mode"),
+                                                                     wait_verify_success=timeout_state, wait_interval=interval_timeout)
+
+                # assign and configure element
                 # flag to determine if element will be assigned
                 # add a delay if element was just assigned
                 #
@@ -8708,12 +9036,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                           wait_verify_success=timeout_state,
                                                           wait_interval=interval_timeout)
 
-
-                #
                 # Add a delay post element assignment
                 # Removing mandatory 480 seconds delay - Workaround for CGSDW-799
                 # Fix delivered in Controller version 5.5.3
-                #
+
                 wait_time_elapsed = 0
                 if wait_element_config:
                     if assign_element_flag and (wait_element_config > 0):
@@ -9188,8 +9514,47 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # If modified, we will reset the source interface ids and later update it again
                 ntp_id = modify_ntp(config_ntp, site_id, element_id, interfaces_n2id, reset_ntp=1, version=ntp_version)
 
+                # Reset radii interface - when entire radii is removed from yml as source interface can also be removed
+                radii_resp = sdk.get.radii(element_id)
+                if not radii_resp.cgx_status:
+                    throw_error("Radii AAA get failed: ", radii_resp)
+
+                radii_cache_local, leftover_radii = extract_items(radii_resp, 'radii')
+
+                config_radii_record = {}
+                if config_radii:
+                    for radii_entry, radii_value in config_radii.items():
+                        # deepcopy to modify.
+                        config_radii_record = recombine_named_key_value(radii_entry, radii_value, name_key="name")
+
+                implicit_radii_id = None
+                # There exists only one Radius item, Fetch the radius id from the cache
+                if radii_cache_local:
+                    implicit_radii_id = radii_cache_local[0].get("id")
+
+                if implicit_radii_id:
+                    yml_interfaces = copy.deepcopy(config_interfaces)
+                    radii_id = modify_radii(config_radii_record, implicit_radii_id, element_id, interfaces_n2id, yml_interfaces=yml_interfaces, reset_radii=1, version=radii_version)
+
                 # -- End NTP config
 
+                elem_deviceidconfigs_resp = sdk.get.element_deviceidconfigs(site_id, element_id)
+                if not elem_deviceidconfigs_resp.cgx_status:
+                    throw_error("Element Device ID Configs get failed: ", elem_deviceidconfigs_resp)
+
+                elem_deviceidconfigs_cache, leftover_elem_deviceidconfigs = extract_items(elem_deviceidconfigs_resp, 'element_deviceidconfigs')
+                
+                for elem_deviceidconfig in config_element_deviceidconfigs:
+                    elem_deviceidconfig_name = interfaces_n2id.get(elem_deviceidconfig.get('name'), elem_deviceidconfig.get('name'))
+                    elem_deviceidconfig_source_iface = interfaces_n2id.get(elem_deviceidconfig.get('snmp_discovery_source_interface_id'), elem_deviceidconfig.get('snmp_discovery_source_interface_id'))
+                    for deviceidconfig in elem_deviceidconfigs_cache:
+                        if elem_deviceidconfig_name == deviceidconfig.get("name") and \
+                                elem_deviceidconfig_source_iface == deviceidconfig.get("snmp_discovery_source_interface_id"):
+                            leftover_elem_deviceidconfigs = [entry for entry in leftover_elem_deviceidconfigs if entry != deviceidconfig.get('id')]
+                            break
+
+                delete_element_deviceidconfigs(leftover_elem_deviceidconfigs, site_id, element_id)
+                    
                 # START Aplication Probe
                 # We cannot delete application probe. So checking if app probe is modified in config
                 # If modified, we will reset the source interface id and later update it again
@@ -10335,6 +10700,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 interfaces_n2id.update(interfaces_n2id_api)
                 # -- End Interfaces
 
+                elem_deviceidconfigs_resp = sdk.get.element_deviceidconfigs(site_id, element_id)
+                if not elem_deviceidconfigs_resp.cgx_status:
+                    throw_error("Element Device ID Configs get failed: ", elem_deviceidconfigs_resp)
+
+                elem_deviceidconfigs_cache, leftover_elem_deviceidconfigs = extract_items(elem_deviceidconfigs_resp,
+                                                                                          'element_deviceidconfigs')
+                implicit_elem_deviceidconfig_id = None
+                if elem_deviceidconfigs_cache:
+                    elem_deviceidconfig = elem_deviceidconfigs_cache[0]
+                    implicit_elem_deviceidconfig_id = elem_deviceidconfig.get('id')
+
+                for config_elem_deviceidconfig in config_element_deviceidconfigs:
+
+                    if not implicit_elem_deviceidconfig_id:
+                        config_elem_deviceidconfig_template = copy.deepcopy(config_elem_deviceidconfig)
+                        elem_deviceidconfig_id = create_element_deviceidconfigs(config_elem_deviceidconfig_template, site_id, element_id, interfaces_n2id, version=element_deviceidconfigs_version)
+
                 # -- Start Radii config
                 radii_resp = sdk.get.radii(element_id)
                 if not radii_resp.cgx_status:
@@ -10374,11 +10756,11 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if radii_id is not None:
                         # Radius exists, modify.
                         config_radii_record["name"] = radii_name
-                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id)
+                        radii_id = modify_radii(config_radii_record, radii_id, element_id, interfaces_n2id, version=radii_version)
                     else:
                         # Radius does not exist, create.
                         config_radii_record["name"] = radii_entry
-                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id)
+                        radii_id = create_radii(config_radii_record, element_id, interfaces_n2id, version=radii_version)
 
                 # -- End Radii config
 
@@ -11191,6 +11573,10 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     implicit_ipfix_id = config_ipfix_record.get('id')
                     config_ipfix_name = config_ipfix_entry.get('name')
                     name_ipfix_id = ipfix_n2id.get(config_ipfix_name)
+                    # As there can be only 1 ipfix
+                    resp_ipfix_id = None
+                    if ipfix_cache:
+                        resp_ipfix_id = ipfix_cache[0].get('id')
 
                     if implicit_ipfix_id is not None:
                         ipfix_id = implicit_ipfix_id
@@ -11198,6 +11584,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     elif name_ipfix_id is not None:
                         # look up ID by name on existing interfaces.
                         ipfix_id = name_ipfix_id
+
+                    elif resp_ipfix_id is not None:
+                        ipfix_id = resp_ipfix_id
 
                     else:
                         # no dnsservice object.
@@ -11394,27 +11783,48 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # delete remaining ROUTEMAPS
                 routemaps_id2n = build_lookup_dict(routemaps_cache, key_val='id', value_val='name')
+                for routemap in routemaps_cache:
+                    if routemap.get("auto_generated"):
+                        routemap_id = routemap.get('id')
+                        leftover_routemaps = [entry for entry in leftover_routemaps
+                                                if entry != routemap_id]
                 delete_routemaps(leftover_routemaps, site_id, element_id, id2n=routemaps_id2n)
 
                 # delete remaining PREFIXLISTS
                 prefixlists_id2n = build_lookup_dict(prefixlists_cache, key_val='id', value_val='name')
+                for prefixlist in prefixlists_cache:
+                    if prefixlist.get("auto_generated"):
+                        prefixlist_id = prefixlist.get('id')
+                        leftover_prefixlists = [entry for entry in leftover_prefixlists
+                                                if entry != prefixlist_id]
                 delete_prefixlists(leftover_prefixlists, site_id, element_id,
                                    id2n=prefixlists_id2n)
 
                 # delete remaining IP_COMMUNITY_LISTS
                 ip_community_lists_id2n = build_lookup_dict(ip_community_lists_cache,
                                                             key_val='id', value_val='name')
+                for ip_community_list in ip_community_lists_cache:
+                    if ip_community_list.get("auto_generated"):
+                        ip_community_list_id = ip_community_list.get('id')
+                        leftover_ip_community_lists = [entry for entry in leftover_ip_community_lists
+                                                if entry != ip_community_list_id]
                 delete_ip_community_lists(leftover_ip_community_lists, site_id, element_id,
                                           id2n=ip_community_lists_id2n)
 
                 # delete remaining as_path_access_lists
                 aspath_access_lists_id2n = build_lookup_dict(aspath_access_lists_cache,
                                                              key_val='id', value_val='name')
+                for aspath_access_list in aspath_access_lists_cache:
+                    if aspath_access_list.get("auto_generated"):
+                        aspath_access_list_id = aspath_access_list.get('id')
+                        leftover_aspath_access_lists = [entry for entry in leftover_aspath_access_lists
+                                                       if entry != aspath_access_list_id]
                 delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id,
                                            id2n=aspath_access_lists_id2n)
 
                 # Reset local as num after removing all the Bgp peers.
-                bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
+                if not config_routing_bgp_global.get("local_as_num"):
+                    bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
                                                   version=routing_bgp_global_version)
 
             # ------------------
