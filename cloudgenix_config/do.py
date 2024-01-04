@@ -2284,7 +2284,6 @@ def create_site(config_site, version=None):
     name_lookup_in_template(site_template, 'perfmgmt_policysetstack_id', perfmgmtpolicysetstacks_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
-    site_template = get_lat_long(site_template)
 
     # create site
     site_resp = sdk.post.sites(site_template, api_version=version)
@@ -2346,7 +2345,6 @@ def modify_site(config_site, site_id, version=None):
     name_lookup_in_template(site_template, 'perfmgmt_policysetstack_id', perfmgmtpolicysetstacks_n2id)
 
     local_debug("SITE TEMPLATE: " + str(json.dumps(site_template, indent=4)))
-    site_template = get_lat_long(site_template)
 
     # get current site
     site_resp = sdk.get.sites(site_id, api_version=version)
@@ -8037,35 +8035,6 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
     output_message("   Updated Radii {0}.".format(radius_name))
 
     return radius_id
-
-
-def get_lat_long(site_csv_dict):
-    parameter_dict = dict()
-    for key, value in site_csv_dict.items():
-        parameter_dict[key] = value
-    address_concat = ""
-    address = parameter_dict.get('address')
-    if address:
-        if "street" in address and address['street'] is not None:
-            address_concat = str(address['street'])
-        if "street2" in address and address['street2'] is not None:
-            address_concat += ", " + str(address['street2'])
-        if "city" in address and address['city'] is not None:
-            address_concat += ", " + str(address['city'])
-        if "state" in address and address['state'] is not None:
-            address_concat += ", " + str(address['state'])
-        if "post_code" in address and address['post_code'] is not None:
-            address_concat += ", " + str(address['post_code'])
-        if "country" in address and address['country'] is not None:
-            address_concat += ", " + str(address['country'])
-        if address_concat != "":
-            address_concat = address_concat.strip()
-            map_url = f"https://www.mapquestapi.com/geocoding/v1/address?key=ejebwfz7Ewm4eAkR9sxGMiCUccasfE6W&location={address_concat}"
-            location = requests.get(url=map_url, verify=False).json()
-            latLng = location['results'][0]['locations'][0]['latLng']
-            parameter_dict['location']["latitude"] = latLng['lat']
-            parameter_dict['location']["longitude"] = latLng['lng']
-    return parameter_dict
 
 
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
