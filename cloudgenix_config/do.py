@@ -269,6 +269,7 @@ ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
 radii_cache = []
+prismasase_connections_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -305,6 +306,7 @@ ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
 multicastpeergroups_n2id = {}
 radii_n2id = {}
+prismasase_connections_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -480,6 +482,7 @@ def update_global_cache():
     global apnprofiles_cache
     global multicastpeergroups_cache
     global radii_cache
+    global prismasase_connections_cache
 
     global sites_n2id
     global elements_n2id
@@ -515,6 +518,7 @@ def update_global_cache():
     global apnprofiles_n2id
     global multicastpeergroups_n2id
     global radii_n2id
+    global prismasase_connections_n2id
 
     global elements_byserial
     global machines_byserial
@@ -888,9 +892,12 @@ def parse_site_config(config_site):
                                                                 sdk.put.site_natlocalprefixes, default=[])
     config_site_ipfix_localprefixes, _ = config_lower_version_get(config_site, 'site_ipfix_localprefixes',
                                                                 sdk.put.site_ipfixlocalprefixes, default=[])
+    config_prismasase_connections, _ = config_lower_version_get(config_site, 'prismasase_connections',
+                                                                sdk.put.prismasase_connections, default={})
 
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+        config_prismasase_connections
 
 
 def parse_element_config(config_element):
@@ -923,7 +930,6 @@ def parse_element_config(config_element):
                                                                        sdk.put.cellular_modules_sim_security,
                                                                        default={})
     config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
-
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
@@ -1951,6 +1957,7 @@ def create_site(config_site, version=None):
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'prismasase_connections')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2008,6 +2015,7 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'spokeclusters')
     site_template = fuzzy_pop(site_template, 'site_nat_localprefixes')
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
+    site_template = fuzzy_pop(site_template, 'prismasase_connections')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -7107,6 +7115,125 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id):
 
     return radius_id
 
+def create_prismasase_connections(config_prismasase_connections, site_id, waninterfaces_n2id):
+    """
+    Create a prismasase_connections
+    :param config_prismasase_connections: prismasase_connections config dict
+    :param site_id: Site ID to use
+    :param waninterfaces_n2id: Interface name to id map
+    :return: Created Prismasase Connections ID
+    """
+    # make a copy of prismasase_connections to create
+    prismasase_connections_template = copy.deepcopy(config_prismasase_connections)
+
+    if prismasase_connections_template.get('enabled_wan_interface_ids'):
+        wan_interface_ids = []
+        for wan_interface_id in prismasase_connections_template.get('enabled_wan_interface_ids', []):
+            wan_interface_ids.append(waninterfaces_n2id.get(wan_interface_id, wan_interface_id))
+        if wan_interface_ids:
+            prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
+
+    if prismasase_connections_template.get('remote_network_groups'):
+        remote_network_groups = []
+        for remote_network_group in prismasase_connections_template.get('remote_network_groups'):
+            ipsec_tunnels = []
+            if remote_network_group.get('ipsec_tunnels'):
+                for ipsec_tunnel in remote_network_group.get('ipsec_tunnels'):
+                    if ipsec_tunnel.get('wan_interface_id'):
+                        ipsec_tunnel['wan_interface_id'] = waninterfaces_n2id.get(ipsec_tunnel.get('wan_interface_id'),
+                                                                                  ipsec_tunnel.get('wan_interface_id'))
+                        ipsec_tunnels.append(ipsec_tunnel)
+                if ipsec_tunnels:
+                    remote_network_group['ipsec_tunnels'] = ipsec_tunnels
+                    remote_network_groups.append(remote_network_group)
+
+        prismasase_connections_template['remote_network_groups'] = remote_network_groups
+
+        # create Prismasase Connections
+        prismasase_connections_resp = sdk.post.prismasase_connections(site_id, prismasase_connections_template)
+
+    if not prismasase_connections_resp.cgx_status:
+        throw_error("Prismasase Connections creation failed: ", prismasase_connections_resp)
+
+    prismasase_connections_id = prismasase_connections_resp.cgx_content.get('id')
+
+
+    if not prismasase_connections_id:
+        throw_error("Unable to determine Radii attributes (ID {0})..".format(prismasase_connections_id))
+
+    output_message("   Created Radii {0}.".format(prismasase_connections_id))
+
+    return prismasase_connections_id
+
+def modify_prismasase_connections(config_prismasase_connections, prismasase_connections_id, site_id, waninterfaces_n2id):
+    """
+    Modify the existing prismasase_connections
+    :param config_prismasase_connections: prismasase_connections config dict
+    :param prismasase_connections_id: Existing Prismasase Connections ID
+    :param site_id: Site ID to use
+    :param waninterfaces_n2id: Interface name to id map
+    :return: Returned Prismasase Connections ID
+    """
+
+    prismasase_connections_config = {}
+    # make a copy of prismasase_connections to modify
+    prismasase_connections_template = copy.deepcopy(config_prismasase_connections)
+
+    # Get current Prismasase Connections
+    prismasase_connections_resp = sdk.get.prismasase_connections(site_id, prismasase_connections_id)
+    if prismasase_connections_resp.cgx_status:
+        prismasase_connections_config = prismasase_connections_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Prismasase Connections: ", prismasase_connections_resp)
+
+    if prismasase_connections_template.get('enabled_wan_interface_ids'):
+        wan_interface_ids = []
+        for wan_interface_id in prismasase_connections_template.get('enabled_wan_interface_ids', []):
+            wan_interface_ids.append(waninterfaces_n2id.get(wan_interface_id, wan_interface_id))
+        if wan_interface_ids:
+            prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
+
+    if prismasase_connections_template.get('remote_network_groups'):
+        remote_network_groups = []
+        for remote_network_group in prismasase_connections_template.get('remote_network_groups'):
+            ipsec_tunnels = []
+            if remote_network_group.get('ipsec_tunnels'):
+                for ipsec_tunnel in remote_network_group.get('ipsec_tunnels'):
+                    if ipsec_tunnel.get('wan_interface_id'):
+                        ipsec_tunnel['wan_interface_id'] = waninterfaces_n2id.get(ipsec_tunnel.get('wan_interface_id'),
+                                                                             ipsec_tunnel.get('wan_interface_id'))
+                        ipsec_tunnels.append(ipsec_tunnel)
+                if ipsec_tunnels:
+                    remote_network_group['ipsec_tunnels'] = ipsec_tunnels
+                    remote_network_groups.append(remote_network_group)
+
+        prismasase_connections_template['remote_network_groups'] = remote_network_groups
+
+    # Check for changes:
+    prismasase_connections_config_check = copy.deepcopy(prismasase_connections_config)
+    prismasase_connections_config.update(prismasase_connections_template)
+
+    if not force_update and prismasase_connections_config == prismasase_connections_config_check:
+        prismasase_connections_id = prismasase_connections_config_check.get('id')
+        output_message("   No Change for Prismasase Connections {0}.".format(prismasase_connections_id))
+        return prismasase_connections_id
+
+    #modify Prismasase Connections
+    prismasase_connections_resp = sdk.put.prismasase_connections(site_id, prismasase_connections_id, prismasase_connections_template)
+
+    if not prismasase_connections_resp.cgx_status:
+        throw_error("Prismasase Connections update failed: ", prismasase_connections_resp)
+
+    prismasase_connections_id = prismasase_connections_resp.cgx_content.get('id')
+
+
+    if not prismasase_connections_id:
+        throw_error("Unable to determine Prismasase Connections attributes (ID {0})..".format(prismasase_connections_id))
+
+    output_message("   Updated Prismasase Connections {0}.".format(prismasase_connections_id))
+
+    return prismasase_connections_id
+
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None, wait_element_config=None, passed_apiversion='sdk'):
@@ -7190,7 +7317,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # parse site config
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
                 config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-                = parse_site_config(config_site)
+                config_prismasase_connections, = parse_site_config(config_site)
 
             # Getting version for site resourcesinput apiversion
             waninterfaces_version = use_sdk_yaml_version(config_site, 'waninterfaces', sdk.put.waninterfaces,
@@ -7673,6 +7800,41 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Site_ipfix_localprefixes
 
+            # -- Start Prismasase Connections config
+            prismasase_connections_resp = sdk.get.prismasase_connections(site_id)
+            if not prismasase_connections_resp.cgx_status:
+                throw_error("Prismasase Connections get failed: ", prismasase_connections_resp)
+
+            prismasase_connections_cache, leftover_prismasase_connections = extract_items(
+                    prismasase_connections_resp, 'prismasase_connections')
+
+            implicit_prismasase_connections_id = None
+            # There exists only one Prismasase Connections item, Fetch the prismasase_connections id from the cache
+            if prismasase_connections_cache:
+                implicit_prismasase_connections_id = prismasase_connections_cache[0].get('id')
+
+            # iterate configs (list)
+            for prismasase_connections_entry in config_prismasase_connections:
+                # deepcopy to modify.
+                config_prismasase_connections_record = copy.deepcopy(prismasase_connections_entry)
+
+                if implicit_prismasase_connections_id is not None:
+                    prismasase_connections_id = implicit_prismasase_connections_id
+                else:
+                    # no Prismasase Connections object.
+                    prismasase_connections_id = None
+
+                if prismasase_connections_id is not None:
+                    # Prismasase Connections exists, modify.
+                    prismasase_connections_id = modify_prismasase_connections(config_prismasase_connections_record,
+                                                                                  prismasase_connections_id, site_id,
+                                                                                  waninterfaces_n2id)
+                else:
+                    # Prismasase Connections does not exist, create.
+                    prismasase_connections_id = create_prismasase_connections(config_prismasase_connections_record, site_id,
+                                                                                  waninterfaces_n2id)
+
+            # -- End Prismasase Connections config
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -7685,7 +7847,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, \
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
-                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
+                config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii,\
                     = parse_element_config(config_element)
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,

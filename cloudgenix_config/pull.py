@@ -69,6 +69,7 @@ try:
 except ImportError:
     # will get caught below.
     # Get AUTH_TOKEN/X_AUTH_TOKEN from env variable, if it exists. X_AUTH_TOKEN takes priority.
+
     if "X_AUTH_TOKEN" in os.environ:
         CLOUDGENIX_AUTH_TOKEN = os.environ.get('X_AUTH_TOKEN')
     elif "AUTH_TOKEN" in os.environ:
@@ -166,6 +167,7 @@ CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
 ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
 ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 RADII_STR = "radii"
+PRISMASASE_CONNECTIONS_STR = "prismasase_connections"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 
 # Global Config Cache holders
@@ -203,6 +205,7 @@ ipfixglobalprefix_cache = []
 apnprofiles_cache = []
 multicastpeergroups_cache = []
 radii_cache = []
+prismasase_connections_cache = []
 
 id_name_cache = {}
 sites_n2id = {}
@@ -313,6 +316,7 @@ def update_global_cache():
     global apnprofiles_cache
     global multicastpeergroups_cache
     global radii_cache
+    global prismasase_connections_cache
 
 
     global id_name_cache
@@ -552,6 +556,9 @@ def update_global_cache():
     # radii name
     id_name_cache.update(build_lookup_dict(radii_cache, key_val='id', value_val='name'))
 
+    # prismasase_connections name
+    id_name_cache.update(build_lookup_dict(prismasase_connections_cache, key_val='id', value_val='name'))
+
     # WAN Networks ID to Type cache - will be used to disambiguate "Public" vs "Private" WAN Networks that have
     # the same name at the SWI level.
     wannetworks_id2type = build_lookup_dict(wannetworks_cache, key_val='id', value_val='type')
@@ -615,6 +622,7 @@ def build_version_strings():
     global ELEMENT_CELLULAR_MODULES_STR
     global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
     global RADII_STR
+    global PRISMASASE_CONNECTIONS_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -655,6 +663,7 @@ def build_version_strings():
         ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
         ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
         RADII_STR = add_version_to_object(sdk.get.radii, "radii")
+        PRISMASASE_CONNECTIONS_STR = add_version_to_object(sdk.get.prismasase_connections, "prismasase_connections")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -946,6 +955,44 @@ def _pull_config_for_single_site(site_name_id):
         site[SITE_IPFIXLOCALPREFIXES_STR].append(site_ipfix_localprefix_template)
 
     delete_if_empty(site, SITE_IPFIXLOCALPREFIXES_STR)
+
+    # Get prismasase_connections
+
+    site[PRISMASASE_CONNECTIONS_STR] = []
+    response = sdk.get.prismasase_connections(site['id'])
+    if not response.cgx_status:
+        throw_error("Prisma SASE Connections get failed: ", response)
+    prismasase_connections_items = response.cgx_content['items']
+    print("Prisma sase connections : {}".format(prismasase_connections_items))
+    for prismasase_connections in prismasase_connections_items:
+        prismasase_connections_template = copy.deepcopy(prismasase_connections)
+        if prismasase_connections.get('enabled_wan_interface_ids'):
+            wan_interface_ids = []
+            for wan_interface_id in prismasase_connections.get('enabled_wan_interface_ids', []):
+                wan_interface_ids.append(id_name_cache.get(wan_interface_id, wan_interface_id))
+            if wan_interface_ids:
+                prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
+
+        if prismasase_connections.get('remote_network_groups'):
+            remote_network_groups = []
+            for remote_network_group in prismasase_connections.get('remote_network_groups'):
+                ipsec_tunnels = []
+                if remote_network_group.get('ipsec_tunnels'):
+                    for ipsec_tunnel in remote_network_group.get('ipsec_tunnels'):
+                        if ipsec_tunnel.get('wan_interface_id'):
+                            ipsec_tunnel['wan_interface_id'] = id_name_cache.get(ipsec_tunnel.get('wan_interface_id'),
+                                                                                 ipsec_tunnel.get('wan_interface_id'))
+                            ipsec_tunnels.append(ipsec_tunnel)
+                    if ipsec_tunnels:
+                        remote_network_group['ipsec_tunnels'] = ipsec_tunnels
+                        remote_network_groups.append(remote_network_group)
+
+            prismasase_connections_template['remote_network_groups'] = remote_network_groups
+
+    strip_meta_attributes(prismasase_connections_template)
+    site[PRISMASASE_CONNECTIONS_STR].append(prismasase_connections_template)
+
+    delete_if_empty(site, PRISMASASE_CONNECTIONS_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
@@ -1438,7 +1485,6 @@ def _pull_config_for_single_site(site_name_id):
             element[RADII_STR][radii.get("name")] = (radii_template)
 
         delete_if_empty(element, RADII_STR)
-
 
         # Get syslog
         element[SYSLOG_STR] = []
