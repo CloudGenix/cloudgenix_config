@@ -21,10 +21,10 @@ configuration is designed to be run on file change, to maintain configuration st
  - Use configs as a template to deploy 10s-100s-1000s of sites.
 
 #### Requirements
-* Active CloudGenix Account
+* Active Prisma SDWAN Account
 * Python >= 2.7 or >=3.6
 * Python modules:
-    * CloudGenix Python SDK >= 5.6.1b2 - <https://github.com/CloudGenix/sdk-python>
+    * Prisma SASE Python SDK >= 6.3.1b1 - <https://github.com/CloudGenix/sdk-python>
 
 #### License
 MIT
@@ -110,7 +110,8 @@ The CloudGenix Config Utility will default to using the SDK version. An out-of-d
 #### Version
 | Version | Build | Changes |
 | ------- | ----- | ------- |
-| **2.1.0** | **b1** | Support for Cloudgenix SDK 6.3.1b1
+| **2.1.0** | **b2** | Support for Prisma SASE SDK 6.3.1b1
+|           | **b1** | Support for Cloudgenix SDK 6.3.1b1
 | **2.0.0** | **b2** | Bug fixes - CGCBL-1436, CGCBL-1925
 |           | **b1** | Support for Cloudgenix SDK 6.2.1b1, Bug fixes - CGSDW-12214, CGSDW-11898|
 | **1.9.0** | **b2** | Bug fixes - CGCBL-1251, CGCBL-1578|
