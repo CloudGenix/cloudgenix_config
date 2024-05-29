@@ -41,14 +41,14 @@ import logging
 import errno
 
 
-# CloudGenix Python SDK
+# Prisma SASE Python SDK
 try:
-    import cloudgenix
-    jdout = cloudgenix.jdout
-    jd = cloudgenix.jd
+    import prisma_sase
+    jdout = prisma_sase.jdout
+    jd = prisma_sase.jd
 except ImportError as e:
-    cloudgenix = None
-    sys.stderr.write("ERROR: 'cloudgenix' python module required. (try 'pip install cloudgenix').\n {0}\n".format(e))
+    prisma_sase = None
+    sys.stderr.write("ERROR: 'prisma_sase' python module required. (try 'pip install prisma_sase').\n {0}\n".format(e))
     sys.exit(1)
 
 # import module specific
@@ -64,26 +64,22 @@ except Exception:
 # Check config file, in cwd.
 sys.path.append(os.getcwd())
 try:
-    from cloudgenix_settings import CLOUDGENIX_AUTH_TOKEN
-
+    from prismasase_settings import PRISMASASE_CLIENT_ID, PRISMASASE_CLIENT_SECRET, PRISMASASE_TSG_ID
 except ImportError:
-    # will get caught below.
-    # Get AUTH_TOKEN/X_AUTH_TOKEN from env variable, if it exists. X_AUTH_TOKEN takes priority.
-    if "X_AUTH_TOKEN" in os.environ:
-        CLOUDGENIX_AUTH_TOKEN = os.environ.get('X_AUTH_TOKEN')
-    elif "AUTH_TOKEN" in os.environ:
-        CLOUDGENIX_AUTH_TOKEN = os.environ.get('AUTH_TOKEN')
+    if "PRISMASASE_CLIENT_ID" in os.environ:
+        PRISMASASE_CLIENT_ID = os.environ.get("PRISMASASE_CLIENT_ID")
     else:
-        # not set
-        CLOUDGENIX_AUTH_TOKEN = None
+        PRISMASASE_CLIENT_ID = None
 
-try:
-    from cloudgenix_settings import CLOUDGENIX_USER, CLOUDGENIX_PASSWORD
+    if "PRISMASASE_CLIENT_SECRET" in os.environ:
+        PRISMASASE_CLIENT_SECRET = os.environ.get("PRISMASASE_CLIENT_SECRET")
+    else:
+        PRISMASASE_CLIENT_SECRET = None
 
-except ImportError:
-    # will get caught below
-    CLOUDGENIX_USER = None
-    CLOUDGENIX_PASSWORD = None
+    if "PRISMASASE_TSG_ID" in os.environ:
+        PRISMASASE_TSG_ID = os.environ.get("PRISMASASE_TSG_ID")
+    else:
+        PRISMASASE_TSG_ID = None
 
 
 # python 2 and 3 handling
@@ -226,8 +222,6 @@ SDK_VERSION_REQUIRED = '5.6.1b2'  # Version when these fields were introduced in
 CONFIG_VERSION_REQUIRED = '1.6.0b2'
 # Define constructor globally for now.
 sdk = None
-jd = cloudgenix.jd
-
 # Set logging to use function name
 logger = logging.getLogger(__name__)
 
@@ -257,9 +251,9 @@ def dump_version():
     except NameError:
         cloudgenix_config_ver = "Unknown"
     try:
-        cloudgenix_ver = cloudgenix.version
+        prisma_sase_ver = prisma_sase.version
     except NameError:
-        cloudgenix_ver = "Unknown"
+        prisma_sase_ver = "Unknown"
     try:
         json_ver = json.__version__
     except NameError:
@@ -277,7 +271,7 @@ def dump_version():
     output += "**PROGRAM VERSIONS**, "
     output += "Python version: {0}, ".format(python_ver)
     output += "'cloudgenix_config' version: {0}, ".format(cloudgenix_config_ver)
-    output += "'cloudgenix' version: {0}, ".format(cloudgenix_ver)
+    output += "'prisma_sase' version: {0}, ".format(prisma_sase_ver)
     output += "'json' version: {0}, ".format(json_ver)
     output += "'yaml' version: {0}, ".format(yaml_ver)
     output += "'logging' version: {0}, ".format(logging_ver)
@@ -1978,7 +1972,7 @@ def pull_config_sites(sites, output_filename, output_multi=None, passed_sdk=None
     SITES = sites_cache
     CONFIG[SITES_STR] = {}
 
-    sdk_version = cloudgenix.version
+    sdk_version = prisma_sase.version
     if 'v' in sdk_version:
         sdk_version.replace('v', '')
     config_version = import_cloudgenix_config_version
@@ -2190,16 +2184,10 @@ def go():
     # Allow Controller modification and debug level sets.
     controller_group = parser.add_argument_group('API', 'These options change how this program connects to the API.')
     controller_group.add_argument("--controller", "-C",
-                                  help="Controller URI, ex. https://api.elcapitan.cloudgenix.com",
+                                  help="Controller URI, ex. https://api.sase.paloaltonetworks.com",
                                   default=None)
 
     login_group = parser.add_argument_group('Login', 'These options allow skipping of interactive login')
-    login_group.add_argument("--email", "-E", help="Use this email as User Name instead of cloudgenix_settings.py.example "
-                                                   "or prompting",
-                             default=None)
-    login_group.add_argument("--password", "-PW", help="Use this Password instead of cloudgenix_settings.py.example "
-                                                       "or prompting",
-                             default=None)
     login_group.add_argument("--insecure", "-I", help="Do not verify SSL certificate",
                              action='store_true',
                              default=False)
@@ -2227,13 +2215,13 @@ def go():
 
     # Build SDK Constructor
     if args['controller'] and args['insecure']:
-        sdk = cloudgenix.API(controller=args['controller'], ssl_verify=False)
+        sdk = prisma_sase.API(controller=args['controller'], ssl_verify=False)
     elif args['controller']:
-        sdk = cloudgenix.API(controller=args['controller'])
+        sdk = prisma_sase.API(controller=args['controller'])
     elif args['insecure']:
-        sdk = cloudgenix.API(ssl_verify=False)
+        sdk = prisma_sase.API(ssl_verify=False)
     else:
-        sdk = cloudgenix.API()
+        sdk = prisma_sase.API()
 
     # check for region ignore
     if args['ignore_region']:
@@ -2243,36 +2231,14 @@ def go():
         sdk.set_debug(int(args['debug']))
 
     # login logic. Use cmdline if set, use AUTH_TOKEN next, finally user/pass from config file, then prompt.
-    # figure out user
-    if args["email"]:
-        user_email = args["email"]
-    elif CLOUDGENIX_USER:
-        user_email = CLOUDGENIX_USER
-    else:
-        user_email = None
-
-    # figure out password
-    if args["password"]:
-        user_password = args["password"]
-    elif CLOUDGENIX_PASSWORD:
-        user_password = CLOUDGENIX_PASSWORD
-    else:
-        user_password = None
 
     # check for token
-    if CLOUDGENIX_AUTH_TOKEN and not args["email"] and not args["password"]:
-        sdk.interactive.use_token(CLOUDGENIX_AUTH_TOKEN)
+    if (PRISMASASE_CLIENT_ID and PRISMASASE_CLIENT_SECRET and PRISMASASE_TSG_ID):
+        sdk.interactive.login_secret(client_id=PRISMASASE_CLIENT_ID,
+                                     client_secret=PRISMASASE_CLIENT_SECRET,
+                                     tsg_id=PRISMASASE_TSG_ID)
         if sdk.tenant_id is None:
-            throw_error("AUTH_TOKEN login failure, please check token.")
-
-    else:
-        while sdk.tenant_id is None:
-            sdk.interactive.login(user_email, user_password)
-            # clear after one failed login, force relogin.
-            if not sdk.tenant_id:
-                user_email = None
-                user_password = None
-
+            throw_error("Service Account login failure, please service account.")
     # pull the specified sites config
     pull_config_sites(args['sites'], filename, output_multi=multi_output, normalize=normalize,
                       no_header=args['no_header'])

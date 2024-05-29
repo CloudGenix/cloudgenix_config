@@ -34,8 +34,17 @@ import sys
 import re
 import inspect
 
-# CloudGenix SDK should have been checked present by other imports.
-from cloudgenix import jdout, jdout_detailed
+# Prisma SASE Python SDK should have been checked present by other imports.
+try:
+    import prisma_sase
+    jdout = prisma_sase.jdout
+    jd = prisma_sase.jd
+    jdout_detailed = prisma_sase.jd_detailed
+except ImportError as e:
+    prisma_sase = None
+    sys.stderr.write("ERROR: 'prisma_sase' python module required. (try 'pip install prisma_sase').\n {0}\n".format(e))
+    sys.exit(1)
+
 
 from .default_interfaces import *
 
