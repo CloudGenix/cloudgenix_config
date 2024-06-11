@@ -7659,13 +7659,15 @@ def create_ipfix(config_ipfix, site_id, element_id, ipfixprofile_n2id, ipfixcoll
             name_lookup_in_template(filter_context, 'dst_prefixes_id', ipfix_prefix_id)
 
             filter_context_id_list, app_def_id_list = [], []
-            for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
-                filter_context_id_list.append(ipfixfiltercontext_n2id.get(filter_context_id, filter_context_id))
+            if filter_context.get('ipfixfiltercontext_ids'):
+                for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
+                    filter_context_id_list.append(ipfixfiltercontext_n2id.get(filter_context_id, filter_context_id))
             if filter_context_id_list:
                 filter_context['ipfixfiltercontext_ids'] = filter_context_id_list
 
-            for app_def_id in filter_context.get('app_def_ids', []):
-                app_def_id_list.append(appdefs_n2id.get(app_def_id, app_def_id))
+            if filter_context.get('app_def_ids'):
+                for app_def_id in filter_context.get('app_def_ids', []):
+                    app_def_id_list.append(appdefs_n2id.get(app_def_id, app_def_id))
             if app_def_id_list:
                 filter_context['app_def_ids'] = app_def_id_list
     # create ipfix
@@ -7717,13 +7719,15 @@ def modify_ipfix(config_ipfix, ipfix_id, site_id, element_id, ipfixprofile_n2id,
             name_lookup_in_template(filter_context, 'dst_prefixes_id', ipfix_prefix_id)
 
             filter_context_id_list, app_def_id_list = [], []
-            for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
-                filter_context_id_list.append(ipfixfiltercontext_n2id.get(filter_context_id, filter_context_id))
+            if filter_context.get('ipfixfiltercontext_ids'):
+                for filter_context_id in filter_context.get('ipfixfiltercontext_ids', []):
+                    filter_context_id_list.append(ipfixfiltercontext_n2id.get(filter_context_id, filter_context_id))
             if filter_context_id_list:
                 filter_context['ipfixfiltercontext_ids'] = filter_context_id_list
 
-            for app_def_id in filter_context.get('app_def_ids', []):
-                app_def_id_list.append(appdefs_n2id.get(app_def_id, app_def_id))
+            if filter_context.get('app_def_ids'):
+                for app_def_id in filter_context.get('app_def_ids', []):
+                    app_def_id_list.append(appdefs_n2id.get(app_def_id, app_def_id))
             if app_def_id_list:
                 filter_context['app_def_ids'] = app_def_id_list
 
