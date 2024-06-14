@@ -11150,13 +11150,14 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     if implicit_bgp_peer_id is not None:
                         bgp_peer_id = implicit_bgp_peer_id
 
+                    elif name_bgp_peer_id is not None:
+                        # look up ID by name on existing bgp_peers.
+                        bgp_peer_id = name_bgp_peer_id
+
                     elif peer_ip_bgp_peer_id is not None:
                         # look up ID by peer IP on existing bgp_peers.
                         bgp_peer_id = peer_ip_bgp_peer_id
 
-                    elif name_bgp_peer_id is not None:
-                        # look up ID by name on existing bgp_peers.
-                        bgp_peer_id = name_bgp_peer_id
                     else:
                         # no bgp_peer object.
                         bgp_peer_id = None
