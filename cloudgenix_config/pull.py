@@ -1067,38 +1067,38 @@ def _pull_config_for_single_site(site_name_id):
 
     # Get prismasase_connections
 
-    site[PRISMASASE_CONNECTIONS_STR] = {}
-    response = sdk.get.prismasase_connections(site['id'])
-    if not response.cgx_status:
-        throw_warning("Prisma SASE Connections get failed: ", response)
-    prismasase_connections_items = response.cgx_content.get('items', [])
-
-    for prismasase_connections in prismasase_connections_items:
-
-        location_name = prismasase_connections.get('prismaaccess_edge_location')[0]
-        prismasase_connections_template = copy.deepcopy(prismasase_connections)
-        if prismasase_connections.get('enabled_wan_interface_ids'):
-            wan_interface_ids = []
-            for wan_interface_id in prismasase_connections.get('enabled_wan_interface_ids', []):
-                wan_interface_ids.append(id_name_cache.get(wan_interface_id, wan_interface_id))
-            if wan_interface_ids:
-                prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
-
-        if prismasase_connections_template.get('remote_network_groups'):
-            for remote_network_group in prismasase_connections_template.get('remote_network_groups'):
-                remote_network_group.pop('ipsec_tunnels', '')
-                remote_network_group['name'] = None
-
-        if prismasase_connections.get('routing_configs'):
-            if prismasase_connections.get('routing_configs').get('bgp_secret'):
-                prismasase_connections_template['routing_configs']['bgp_secret'] = None
-
-        prismasase_connections_template.pop('ipsec_tunnel_configs', '')
-        prismasase_connections_template.pop('prismaaccess_edge_location', '')
-        strip_meta_attributes(prismasase_connections_template)
-        site[PRISMASASE_CONNECTIONS_STR][location_name] = prismasase_connections_template
-
-    delete_if_empty(site, PRISMASASE_CONNECTIONS_STR)
+    # site[PRISMASASE_CONNECTIONS_STR] = {}
+    # response = sdk.get.prismasase_connections(site['id'])
+    # if not response.cgx_status:
+    #     throw_warning("Prisma SASE Connections get failed: ", response)
+    # prismasase_connections_items = response.cgx_content.get('items', [])
+    #
+    # for prismasase_connections in prismasase_connections_items:
+    #
+    #     location_name = prismasase_connections.get('prismaaccess_edge_location')[0]
+    #     prismasase_connections_template = copy.deepcopy(prismasase_connections)
+    #     if prismasase_connections.get('enabled_wan_interface_ids'):
+    #         wan_interface_ids = []
+    #         for wan_interface_id in prismasase_connections.get('enabled_wan_interface_ids', []):
+    #             wan_interface_ids.append(id_name_cache.get(wan_interface_id, wan_interface_id))
+    #         if wan_interface_ids:
+    #             prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
+    #
+    #     if prismasase_connections_template.get('remote_network_groups'):
+    #         for remote_network_group in prismasase_connections_template.get('remote_network_groups'):
+    #             remote_network_group.pop('ipsec_tunnels', '')
+    #             remote_network_group['name'] = None
+    #
+    #     if prismasase_connections.get('routing_configs'):
+    #         if prismasase_connections.get('routing_configs').get('bgp_secret'):
+    #             prismasase_connections_template['routing_configs']['bgp_secret'] = None
+    #
+    #     prismasase_connections_template.pop('ipsec_tunnel_configs', '')
+    #     prismasase_connections_template.pop('prismaaccess_edge_location', '')
+    #     strip_meta_attributes(prismasase_connections_template)
+    #     site[PRISMASASE_CONNECTIONS_STR][location_name] = prismasase_connections_template
+    #
+    # delete_if_empty(site, PRISMASASE_CONNECTIONS_STR)
 
     # Get Elements
     site[ELEMENTS_STR] = {}
