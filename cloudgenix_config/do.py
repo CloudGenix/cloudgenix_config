@@ -8076,14 +8076,17 @@ def create_ospfconfig(config_ospfconfig, site_id, element_id, interfaces_n2id, r
     """
     Create a ospfconfig
     :param config_ospfconfig: ospfconfig config dict
+    :param site_id: Site ID to use
     :param element_id: Element ID to use
     :param interfaces_n2id: Interface name to id map
+    :param routemap_n2id: Routemap name to id map
     :return: Created ospfconfig ID
     """
     # make a copy of ospfconfig to modify
     ospfconfig_template = copy.deepcopy(config_ospfconfig)
     name_lookup_in_template(ospfconfig_template, 'prefix_adv_route_map_id', routemap_n2id)
     name_lookup_in_template(ospfconfig_template, 'redistribute_route_map_id', routemap_n2id)
+    name_lookup_in_template(ospfconfig_template, 'vrf_context_id', vrfcontexts_n2id)
     if ospfconfig_template.get('interfaces'):
         for interface in ospfconfig_template.get('interfaces'):
             name_lookup_in_template(interface, 'interface_id', interfaces_n2id)
@@ -8103,8 +8106,10 @@ def modify_ospfconfig(config_ospfconfig, ospfconfig_id, site_id, element_id, int
     Modify the existing ospfconfig
     :param config_ospfconfig: ospfconfig config dict
     :param ospfconfig_id: Existing Ospfconfig ID
+    :param site_id: Site ID to use
     :param element_id: Element ID to use
     :param interfaces_n2id: Interface name to id map
+    :param routemap_n2id: Routemap name to id map
     :return: Returned ospfconfig ID
     """
     ospfconfig_config = {}
@@ -8112,6 +8117,7 @@ def modify_ospfconfig(config_ospfconfig, ospfconfig_id, site_id, element_id, int
     ospfconfig_template = copy.deepcopy(config_ospfconfig)
     name_lookup_in_template(ospfconfig_template, 'prefix_adv_route_map_id', routemap_n2id)
     name_lookup_in_template(ospfconfig_template, 'redistribute_route_map_id', routemap_n2id)
+    name_lookup_in_template(ospfconfig_template, 'vrf_context_id', vrfcontexts_n2id)
     if ospfconfig_template.get('interfaces'):
         for interface in ospfconfig_template.get('interfaces'):
             name_lookup_in_template(interface, 'interface_id', interfaces_n2id)
@@ -11559,10 +11565,13 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 ospfconfig_resp = sdk.get.ospfconfigs(site_id, element_id)
                 if not ospfconfig_resp.cgx_status:
                     throw_error("Ospfconfig get failed: ", ospfconfig_resp)
+
                 ospfconfig_cache, leftover_ospfconfigs = extract_items(ospfconfig_resp, 'ospfconfig')
+
                 # build lookup cache
                 ospfconfig_n2id = build_lookup_dict(ospfconfig_cache)
                 ospfconfig_id2n = build_lookup_dict(ospfconfig_cache, key_val="id", value_val="name")
+
                 # iterate configs (dict)
                 for ospfconfig_entry, ospfconfig_value in config_ospfconfig.items():
                     # deepcopy to modify.
