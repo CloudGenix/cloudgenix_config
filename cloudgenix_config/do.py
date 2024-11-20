@@ -9176,36 +9176,36 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
 
             # -- Start Prismasase Connections config
-            prismasase_connections_resp = sdk.get.prismasase_connections(site_id)
-            if not prismasase_connections_resp.cgx_status:
-                throw_error("Prismasase Connections get failed: ", prismasase_connections_resp)
-
-            prismasase_connections_cache, leftover_prismasase_connections = extract_items(
-                prismasase_connections_resp, 'prismasase_connections')
-
-            prismasase_connection_n2id = build_lookup_dict_for_prisma_sase(prismasase_connections_cache,
-                                                                     key_val='is_active')
-
-            for name,prismasase_connections_entry in config_prismasase_connections.items():
-                # deepcopy to modify.
-                config_prismasase_connections_record = {}
-                config_prismasase_connections_record['prismaaccess_edge_location'] = [name]
-                config_prismasase_connections_record.update(prismasase_connections_entry)
-                #there will be only two entry present in config_prismasase_connections_record
-                is_active = config_prismasase_connections_record.get("is_active")
-
-                prismasase_connections_id = prismasase_connection_n2id.get(str(is_active))
-                if prismasase_connections_id is not None:
-                    # Prismasase Connections exists, modify.
-                    prismasase_connections_id = modify_prismasase_connections(
-                        config_prismasase_connections_record,
-                        prismasase_connections_id, site_id,
-                        waninterfaces_n2id)
-                else:
-                    # Prismasase Connections does not exist, create.
-                    prismasase_connections_id = create_prismasase_connections(
-                        config_prismasase_connections_record, site_id,
-                        waninterfaces_n2id)
+            # prismasase_connections_resp = sdk.get.prismasase_connections(site_id)
+            # if not prismasase_connections_resp.cgx_status:
+            #     throw_error("Prismasase Connections get failed: ", prismasase_connections_resp)
+            #
+            # prismasase_connections_cache, leftover_prismasase_connections = extract_items(
+            #     prismasase_connections_resp, 'prismasase_connections')
+            #
+            # prismasase_connection_n2id = build_lookup_dict_for_prisma_sase(prismasase_connections_cache,
+            #                                                          key_val='is_active')
+            #
+            # for name,prismasase_connections_entry in config_prismasase_connections.items():
+            #     # deepcopy to modify.
+            #     config_prismasase_connections_record = {}
+            #     config_prismasase_connections_record['prismaaccess_edge_location'] = [name]
+            #     config_prismasase_connections_record.update(prismasase_connections_entry)
+            #     #there will be only two entry present in config_prismasase_connections_record
+            #     is_active = config_prismasase_connections_record.get("is_active")
+            #
+            #     prismasase_connections_id = prismasase_connection_n2id.get(str(is_active))
+            #     if prismasase_connections_id is not None:
+            #         # Prismasase Connections exists, modify.
+            #         prismasase_connections_id = modify_prismasase_connections(
+            #             config_prismasase_connections_record,
+            #             prismasase_connections_id, site_id,
+            #             waninterfaces_n2id)
+            #     else:
+            #         # Prismasase Connections does not exist, create.
+            #         prismasase_connections_id = create_prismasase_connections(
+            #             config_prismasase_connections_record, site_id,
+            #             waninterfaces_n2id)
 
             # -- End Prismasase Connections config
 
