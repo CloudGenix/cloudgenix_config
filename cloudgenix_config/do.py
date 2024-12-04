@@ -1001,7 +1001,7 @@ def parse_element_config(config_element):
                                                                        default={})
     config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
     config_element_deviceidconfigs, _ = config_lower_version_get(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default = [])
-    config_tacacs, _ = config_lower_version_get(config_element, 'tacacs', sdk.put.tacacs_plus_servers, default = {})
+    config_tacacs, _ = config_lower_version_get(config_element, 'tacacs_plus_servers', sdk.put.tacacs_plus_servers, default = {})
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
@@ -9618,7 +9618,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                           sdk_or_yaml=apiversion)
                 element_deviceidconfigs_version = use_sdk_yaml_version(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default=[],
                                                           sdk_or_yaml=apiversion)
-                tacacs_version = use_sdk_yaml_version(config_element, 'tacacs', sdk.put.tacacs_plus_servers, default={},
+                tacacs_version = use_sdk_yaml_version(config_element, 'tacacs_plus_servers', sdk.put.tacacs_plus_servers, default={},
                                                      sdk_or_yaml=apiversion)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)

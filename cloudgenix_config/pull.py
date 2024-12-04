@@ -166,7 +166,7 @@ CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
 ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
 ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 RADII_STR = "radii"
-TACACS_STR = "tacacs"
+TACACS_STR = "tacacs_plus_servers"
 MULTICASTSOURCESITECONFIGS_STR = "multicastsourcesiteconfigs"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 DEVICE_ID_CONFIGS_STR = "deviceidconfigs"
@@ -715,7 +715,7 @@ def build_version_strings():
         ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
         ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
         RADII_STR = add_version_to_object(sdk.get.radii, "radii")
-        TACACS_STR = add_version_to_object(sdk.get.tacacs_plus_servers, "tacacs")
+        TACACS_STR = add_version_to_object(sdk.get.tacacs_plus_servers, "tacacs_plus_servers")
         MULTICASTSOURCESITECONFIGS_STR = add_version_to_object(sdk.get.multicastsourcesiteconfigs, "multicastsourcesiteconfigs")
         DEVICE_ID_CONFIGS_STR = add_version_to_object(sdk.get.deviceidconfigs, "deviceidconfigs")
         SNMPDISCOVERY_STR = add_version_to_object(sdk.get.deviceidconfigs_snmpdiscoverystartnodes, "snmpdiscoverystartnodes")
@@ -1253,7 +1253,7 @@ def _pull_config_for_single_site(site_name_id):
                         continue
                 elif interface_id in bp_parent_id_list:
                     continue
-                elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
+                elif if_type not in ('virtual_interface', 'bypasspair', 'port', 'port_channel'):
                     continue
             elif FORCE_PARENTS:
                 if element.get('model_name') == 'ion 9000':
