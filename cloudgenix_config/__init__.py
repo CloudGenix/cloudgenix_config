@@ -2,7 +2,7 @@
 """
 Configuration IMPORT/EXPORT common functions
 
-**Version:** 2.1.0b1
+**Version:** 2.1.0b2
 
 **Author:** CloudGenix
 
@@ -49,7 +49,7 @@ else:
 
 
 # Version for reference
-__version__ = "2.1.0b1"
+__version__ = "2.1.0b2"
 version = __version__
 
 __author__ = "CloudGenix Developer Support <developers@cloudgenix.com>"
@@ -426,9 +426,7 @@ def build_lookup_dict(list_content, key_val='name', value_val='id', force_nag=Fa
     for item in list_content:
         item_key = item.get(key_val)
         item_value = item.get(value_val)
-        if item.get("auto_generated"):
-            lookup_dict[item_key] = "auto_generated_resource"
-            continue
+
         # print(item_key, item_value)
         if item_key and item_value is not None:
             # check if it's a duplicate key.
