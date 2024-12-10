@@ -2,7 +2,7 @@
 """
 Configuration IMPORT worker/script
 
-**Version:** 2.1.0b1
+**Version:** 2.1.0b2
 
 **Author:** CloudGenix
 
@@ -171,7 +171,8 @@ element_put_items = [
     "switch_config",
     "device_profile_id",
     "main_power_usage_threshold",
-    "led_config"
+    "led_config",
+    "port_channel_config"
 ]
 
 createable_interface_types = [
@@ -181,7 +182,8 @@ createable_interface_types = [
     'service_link',
     'bypasspair',
     'virtual_interface',
-    'vlan'
+    'vlan',
+    'port_channel'
 ]
 
 bypasspair_child_names = [
@@ -327,6 +329,7 @@ ipfixglobalprefix_n2id = {}
 apnprofiles_n2id = {}
 multicastpeergroups_n2id = {}
 radii_n2id = {}
+tacacs_plus_servers_n2id = {}
 vrfcontexts_n2id = {}
 vrfcontextprofiles_n2id = {}
 perfmgmtpolicysetstacks_n2id = {}
@@ -566,6 +569,7 @@ def update_global_cache():
     global apnprofiles_n2id
     global multicastpeergroups_n2id
     global radii_n2id
+    global tacacs_plus_servers_n2id
     global vrfcontexts_n2id
     global vrfcontextprofiles_n2id
     global perfmgmtpolicysetstacks_n2id
@@ -978,13 +982,23 @@ def parse_site_config(config_site):
                                                                     sdk.put.hubclusters, default={})
     config_deviceidconfigs, _ = config_lower_version_get(config_site, 'deviceidconfigs',
                                                                     sdk.put.deviceidconfigs, default={})
+
     config_prismasase_connections, _ = config_lower_version_get(config_site, 'prismasase_connections',
                                                                 sdk.put.prismasase_connections, default={})
 
+    config_prefixdistributionspokelists, _ = config_lower_version_get(config_site, 'prefixdistributionspokelists',
+                                                                    sdk.put.prefixdistributionspokelists, default=[])
+    config_pathprefixdistributionfilters, _ = config_lower_version_get(config_site, 'pathprefixdistributionfilters',
+                                                                    sdk.put.pathprefixdistributionfilters, default={})
+    config_pathprefixdistributionfilterassociation, _ = config_lower_version_get(config_site, 'pathprefixdistributionfilterassociation',
+                                                                    sdk.put.pathprefixdistributionfilterassociation, default=[])
+
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-           config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
-           config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, \
-           config_prismasase_connections
+        config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
+        config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, \
+        config_prismasase_connections, config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
+        config_pathprefixdistributionfilterassociation
+
 
 
 def parse_element_config(config_element):
@@ -1018,16 +1032,19 @@ def parse_element_config(config_element):
                                                                        default={})
     config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
     config_element_deviceidconfigs, _ = config_lower_version_get(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default = [])
+
     config_ospfconfig, _ = config_lower_version_get(config_element, 'ospfconfigs', sdk.put.ospfconfigs, default={})
     config_ospfglobalconfig, _ = config_lower_version_get(config_element, 'ospfglobalconfigs',
                                                           sdk.put.ospfglobalconfigs, default=[])
+
+    config_tacacs, _ = config_lower_version_get(config_element, 'tacacs_plus_servers', sdk.put.tacacs_plus_servers, default = {})
+
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
         config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
         config_cellular_modules_sim_security, config_radii, config_element_deviceidconfigs, \
-        config_ospfconfig, config_ospfglobalconfig
-
+        config_ospfconfig, config_ospfglobalconfig, config_tacacs
 
 def parse_routing_config(config_routing):
     """
@@ -2367,6 +2384,10 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
     site_template = fuzzy_pop(site_template, 'deviceidconfigs')
     site_template = fuzzy_pop(site_template, 'prismasase_connections')
+    site_template = fuzzy_pop(site_template, 'pathprefixdistributionfilters')
+    site_template = fuzzy_pop(site_template, 'pathprefixdistributionfilterassociation')
+    site_template = fuzzy_pop(site_template, 'prefixdistributionspokelist')
+
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2408,9 +2429,10 @@ def modify_site(config_site, site_id, version=None):
             site_id = site_change_check.get('id')
             site_name = site_change_check.get('name')
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \    
             config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs,\
-            config_prismasase_connections = parse_site_config(config_site)
+            config_prismasase_connections, config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
+            config_pathprefixdistributionfilterassociation = parse_site_config(config_site)
 
             if not config_multicastsourcesiteconfigs:
                 output_message(" Resetting Multicast Source Site Config for the Site {0}.".format(site_name))
@@ -4174,6 +4196,358 @@ def delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, devi
     return
 
 
+def create_pathprefixdistributionfilters(config_pathprefixdistributionfilters, site_id, version=None):
+    """
+    Create a Pathprefixdistributionfilters
+    :param config_pathprefixdistributionfilters: pathprefixdistributionfilters config dict
+    :param site_id: Site ID to use
+    :return: Created pathprefixdistributionfilters ID
+    """
+    # make a copy of pathprefixdistributionfilters to modify
+    pathprefixdistributionfilters_template = copy.deepcopy(config_pathprefixdistributionfilters)
+
+    if pathprefixdistributionfilters_template.get("path_prefix_filter_list"):
+        for path_prefix_filter in pathprefixdistributionfilters_template.get("path_prefix_filter_list"):
+            name_lookup_in_template(path_prefix_filter, 'vrf_context_id', vrfcontexts_n2id)
+
+    # create pathprefixdistributionfilters
+    pathprefixdistributionfilters_resp = sdk.post.pathprefixdistributionfilters(site_id, pathprefixdistributionfilters_template, api_version=version)
+
+    if not pathprefixdistributionfilters_resp.cgx_status:
+        throw_error("Pathprefixdistributionfilters creation failed: ", pathprefixdistributionfilters_resp)
+
+    pathprefixdistributionfilters_id = pathprefixdistributionfilters_resp.cgx_content.get('id')
+    pathprefixdistributionfilters_name = pathprefixdistributionfilters_resp.cgx_content.get('name', pathprefixdistributionfilters_id)
+
+    if not pathprefixdistributionfilters_id:
+        throw_error("Unable to determine Pathprefixdistributionfilters attributes (ID {0})..".format(pathprefixdistributionfilters_id))
+
+    output_message("    Created Pathprefixdistributionfilters {0}.".format(pathprefixdistributionfilters_name))
+
+    return pathprefixdistributionfilters_id
+
+
+def modify_pathprefixdistributionfilters(config_pathprefixdistributionfilters, pathprefixdistributionfilters_id, site_id, version=None):
+    """
+    Modify the existing pathprefixdistributionfilters
+    :param config_pathprefixdistributionfilters: pathprefixdistributionfilters config dict
+    :param pathprefixdistributionfilters_id: Existing Pathprefixdistributionfilters ID
+    :param site_id: Site ID to use
+    :return: Returned pathprefixdistributionfilters ID
+    """
+
+    pathprefixdistributionfilters_config = {}
+    # make a copy of pathprefixdistributionfilters to modify
+    pathprefixdistributionfilters_template = copy.deepcopy(config_pathprefixdistributionfilters)
+
+    # Get current Pathprefixdistributionfilters
+    pathprefixdistributionfilters_resp = sdk.get.pathprefixdistributionfilters(site_id, pathprefixdistributionfilters_id)
+    if pathprefixdistributionfilters_resp.cgx_status:
+        pathprefixdistributionfilters_config = pathprefixdistributionfilters_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Pathprefixdistributionfilters: ", pathprefixdistributionfilters_resp)
+
+    # Check for changes:
+    pathprefixdistributionfilters_config_check = copy.deepcopy(pathprefixdistributionfilters_config)
+    pathprefixdistributionfilters_config.update(pathprefixdistributionfilters_template)
+    if pathprefixdistributionfilters_config.get("path_prefix_filter_list"):
+        for path_prefix_filter in pathprefixdistributionfilters_config.get("path_prefix_filter_list"):
+            name_lookup_in_template(path_prefix_filter, 'vrf_context_id', vrfcontexts_n2id)
+    if pathprefixdistributionfilters_config == pathprefixdistributionfilters_config_check:
+        pathprefixdistributionfilters_id = pathprefixdistributionfilters_config_check.get('id')
+        pathprefixdistributionfilters_name = pathprefixdistributionfilters_config_check.get('name')
+
+        output_message("   No Change for Pathprefixdistributionfilters {0}.".format(pathprefixdistributionfilters_name))
+        return pathprefixdistributionfilters_id
+
+    # modify pathprefixdistributionfilters
+    pathprefixdistributionfilters_resp = sdk.put.pathprefixdistributionfilters(site_id, pathprefixdistributionfilters_id, pathprefixdistributionfilters_config, api_version=version)
+
+    if not pathprefixdistributionfilters_resp.cgx_status:
+        throw_error("Pathprefixdistributionfilters update failed: ", pathprefixdistributionfilters_resp)
+
+    pathprefixdistributionfilters_id = pathprefixdistributionfilters_resp.cgx_content.get('id')
+    pathprefixdistributionfilters_name = pathprefixdistributionfilters_resp.cgx_content.get('name', pathprefixdistributionfilters_id)
+
+    if not pathprefixdistributionfilters_id:
+        throw_error("Unable to determine Pathprefixdistributionfilters attributes (ID {0})..".format(pathprefixdistributionfilters_id))
+
+    output_message("   Updated Pathprefixdistributionfilters {0}.".format(pathprefixdistributionfilters_name))
+
+    return pathprefixdistributionfilters_id
+
+
+def delete_pathprefixdistributionfilters(leftover_pathprefixdistributionfilters, site_id, id2n):
+    """
+    Delete a list of pathprefixdistributionfilters
+    :param leftover_pathprefixdistributionfilters: List of pathprefixdistributionfilters IDs
+    :param site_id: Site ID to use
+    :id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    for pathprefixdistributionfilter_id in leftover_pathprefixdistributionfilters:
+        # delete all leftover pathprefixdistributionfilters.
+
+        output_message("   Deleting Pathprefixdistributionfilters {0}.".format(id2n.get(pathprefixdistributionfilter_id, pathprefixdistributionfilter_id)))
+        pathprefixdistributionfilters_del_resp = sdk.delete.pathprefixdistributionfilters(site_id, pathprefixdistributionfilter_id)
+        if not pathprefixdistributionfilters_del_resp.cgx_status:
+            throw_error("Could not delete Pathprefixdistributionfilters {0}: ".format(id2n.get(pathprefixdistributionfilter_id, pathprefixdistributionfilter_id)),
+                        pathprefixdistributionfilters_del_resp)
+
+    return
+
+
+def create_pathprefixdistributionfilterassociation(config_pathprefixdistributionfilterassociation, site_id, path_prefix_distribution_filter_n2id, version=None):
+    """
+    Create a Pathprefixdistributionfilterassociation
+    :param config_pathprefixdistributionfilterassociation: pathprefixdistributionfilterassociation config dict
+    :param site_id: Site ID to use
+    :return: Created pathprefixdistributionfilterassociation ID
+    """
+    # make a copy of pathprefixdistributionfilterassociation to modify
+    pathprefixdistributionfilterassociation_template = copy.deepcopy(config_pathprefixdistributionfilterassociation)
+
+    if pathprefixdistributionfilterassociation_template.get("path_prefix_distribution_filter_id"):
+       name_lookup_in_template(pathprefixdistributionfilterassociation_template, 'path_prefix_distribution_filter_id', path_prefix_distribution_filter_n2id)
+
+    if pathprefixdistributionfilterassociation_template.get('peer_site_ids'):
+        peer_site_name_id_list = []
+        for peer_site_id in pathprefixdistributionfilterassociation_template.get('peer_site_ids'):
+            peer_site_name_id_list.append(sites_n2id.get(peer_site_id, peer_site_id))
+        pathprefixdistributionfilterassociation_template['peer_site_ids'] = peer_site_name_id_list
+
+    # create pathprefixdistributionfilterassociation
+    pathprefixdistributionfilterassociation_resp = sdk.post.pathprefixdistributionfilterassociation(site_id,
+                                                                                pathprefixdistributionfilterassociation_template,
+                                                                                api_version=version)
+
+    if not pathprefixdistributionfilterassociation_resp.cgx_status:
+        throw_error("Pathprefixdistributionfilterassociation creation failed: ", pathprefixdistributionfilterassociation_resp)
+
+    pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_resp.cgx_content.get('id')
+    pathprefixdistributionfilterassociation_name = pathprefixdistributionfilterassociation_resp.cgx_content.get('name',
+                                                                                            pathprefixdistributionfilterassociation_id)
+
+    if not pathprefixdistributionfilterassociation_id:
+        throw_error("Unable to determine Pathprefixdistributionfilterassociation attributes (ID {0})..".format(
+            pathprefixdistributionfilterassociation_id))
+
+    output_message("    Created Pathprefixdistributionfilterassociation {0}.".format(pathprefixdistributionfilterassociation_id))
+
+    return pathprefixdistributionfilterassociation_id
+
+def modify_pathprefixdistributionfilterassociation(config_pathprefixdistributionfilterassociation, pathprefixdistributionfilterassociation_id, site_id, path_prefix_distribution_filter_n2id, version=None, check_modified=0):
+    """
+    Modify the existing pathprefixdistributionfilterassociation
+    :param config_pathprefixdistributionfilterassociation: pathprefixdistributionfilterassociation config dict
+    :param pathprefixdistributionfilterassociation_id: Existing Pathprefixdistributionfilterassociation ID
+    :param site_id: Site ID to use
+    :return: Returned pathprefixdistributionfilterassociation ID
+    """
+
+    pathprefixdistributionfilterassociation_config = {}
+    # make a copy of pathprefixdistributionfilterassociation to modify
+    pathprefixdistributionfilterassociation_template = copy.deepcopy(config_pathprefixdistributionfilterassociation)
+
+    # Get current Pathprefixdistributionfilterassociation
+    pathprefixdistributionfilterassociation_resp = sdk.get.pathprefixdistributionfilterassociation(site_id,
+                                                                               pathprefixdistributionfilterassociation_id)
+    if pathprefixdistributionfilterassociation_resp.cgx_status:
+        pathprefixdistributionfilterassociation_config = pathprefixdistributionfilterassociation_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Pathprefixdistributionfilterassociation: ", pathprefixdistributionfilterassociation_resp)
+
+    # Check for changes:
+    pathprefixdistributionfilterassociation_config_check = copy.deepcopy(pathprefixdistributionfilterassociation_config)
+    pathprefixdistributionfilterassociation_config.update(pathprefixdistributionfilterassociation_template)
+
+    if pathprefixdistributionfilterassociation_config.get("path_prefix_distribution_filter_id"):
+       name_lookup_in_template(pathprefixdistributionfilterassociation_config, 'path_prefix_distribution_filter_id', path_prefix_distribution_filter_n2id)
+
+    if pathprefixdistributionfilterassociation_config.get('peer_site_ids'):
+        peer_site_name_id_list = []
+        for peer_site_id in pathprefixdistributionfilterassociation_config.get('peer_site_ids'):
+            peer_site_name_id_list.append(sites_n2id.get(peer_site_id, peer_site_id))
+        pathprefixdistributionfilterassociation_config['peer_site_ids'] = peer_site_name_id_list
+
+    if check_modified:
+        if pathprefixdistributionfilterassociation_config.get('peer_site_ids') != pathprefixdistributionfilterassociation_config_check.get('peer_site_ids'):
+            #print("There is a diff in peersite ids {} {}".format(pathprefixdistributionfilterassociation_config.get('peer_site_ids'), pathprefixdistributionfilterassociation_config_check.get('peer_site_ids')))
+            return 1
+        else:
+            return 0
+
+
+    if pathprefixdistributionfilterassociation_config == pathprefixdistributionfilterassociation_config_check:
+        pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_config_check.get('id')
+        pathprefixdistributionfilterassociation_name = pathprefixdistributionfilterassociation_config_check.get('name')
+
+        output_message("   No Change for Pathprefixdistributionfilterassociation {0}.".format(pathprefixdistributionfilterassociation_id))
+        return pathprefixdistributionfilterassociation_id
+
+    # modify pathprefixdistributionfilterassociation
+    pathprefixdistributionfilterassociation_resp = sdk.put.pathprefixdistributionfilterassociation(site_id,
+                                                                               pathprefixdistributionfilterassociation_id,
+                                                                               pathprefixdistributionfilterassociation_config,
+                                                                               api_version=version)
+
+    if not pathprefixdistributionfilterassociation_resp.cgx_status:
+        throw_error("Pathprefixdistributionfilterassociation update failed: ", pathprefixdistributionfilterassociation_resp)
+
+    pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_resp.cgx_content.get('id')
+    pathprefixdistributionfilterassociation_name = pathprefixdistributionfilterassociation_resp.cgx_content.get('name',
+                                                                                            pathprefixdistributionfilterassociation_id)
+
+    if not pathprefixdistributionfilterassociation_id:
+        throw_error("Unable to determine Pathprefixdistributionfilterassociation attributes (ID {0})..".format(
+            pathprefixdistributionfilterassociation_id))
+
+    output_message("   Updated Pathprefixdistributionfilterassociation {0}.".format(pathprefixdistributionfilterassociation_id))
+
+    return pathprefixdistributionfilterassociation_id
+
+def delete_pathprefixdistributionfilterassociation(leftover_pathprefixdistributionfilterassociation, site_id, id2n=None):
+    """
+    Delete a list of pathprefixdistributionfilterassociation
+    :param leftover_pathprefixdistributionfilterassociation: List of pathprefixdistributionfilterassociation IDs
+    :param site_id: Site ID to use
+    :id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    for pathprefixdistributionfilterassociation_id in leftover_pathprefixdistributionfilterassociation:
+        # delete all leftover pathprefixdistributionfilterassociation.
+
+        output_message("   Deleting Pathprefixdistributionfilterassociation {0}.".format(
+            id2n.get(pathprefixdistributionfilterassociation_id, pathprefixdistributionfilterassociation_id)))
+        pathprefixdistributionfilterassociation_del_resp = sdk.delete.pathprefixdistributionfilterassociation(site_id,
+                                                                                          pathprefixdistributionfilterassociation_id)
+        if not pathprefixdistributionfilterassociation_del_resp.cgx_status:
+            throw_error("Could not delete Pathprefixdistributionfilterassociation {0}: ".format(
+                id2n.get(pathprefixdistributionfilterassociation_id, pathprefixdistributionfilterassociation_id)),
+                        pathprefixdistributionfilterassociation_del_resp)
+
+    return
+
+def create_prefixdistributionspokelists(config_prefixdistributionspokelists, site_id, version=None):
+    """
+    Create a Prefixdistributionspokelists
+    :param config_prefixdistributionspokelists: prefixdistributionspokelists config dict
+    :param site_id: Site ID to use
+    :return: Created prefixdistributionspokelists ID
+    """
+    # make a copy of Prefixdistributionspokelists to modify
+    prefixdistributionspokelists_template = copy.deepcopy(config_prefixdistributionspokelists)
+
+    if prefixdistributionspokelists_template.get('spoke_site_ids'):
+        spoke_site_name_id_list = []
+        for spoke_site_id in prefixdistributionspokelists_template.get('spoke_site_ids'):
+            spoke_site_name_id_list.append(sites_n2id.get(spoke_site_id, spoke_site_id))
+        prefixdistributionspokelists_template['spoke_site_ids'] = spoke_site_name_id_list
+
+    # create prefixdistributionspokelists
+    prefixdistributionspokelists_resp = sdk.post.prefixdistributionspokelists(site_id,
+                                                                                prefixdistributionspokelists_template,
+                                                                                api_version=version)
+
+    if not prefixdistributionspokelists_resp.cgx_status:
+        throw_error("Prefixdistributionspokelists creation failed: ", prefixdistributionspokelists_resp)
+
+    prefixdistributionspokelists_id = prefixdistributionspokelists_resp.cgx_content.get('id')
+
+
+    if not prefixdistributionspokelists_id:
+        throw_error("Unable to determine Prefixdistributionspokelists attributes (ID {0})..".format(
+            prefixdistributionspokelists_id))
+
+    output_message("    Created Pathprefixdistributionfilters {0}.".format(prefixdistributionspokelists_id))
+
+    return prefixdistributionspokelists_id
+
+def modify_prefixdistributionspokelists(config_prefixdistributionspokelists, prefixdistributionspokelists_id, site_id, version=None):
+    """
+    Modify the existing prefixdistributionspokelists
+    :param config_prefixdistributionspokelists: prefixdistributionspokelists config dict
+    :param prefixdistributionspokelists_id: Existing prefixdistributionspokelists ID
+    :param site_id: Site ID to use
+    :return: Returned prefixdistributionspokelists ID
+    """
+
+    prefixdistributionspokelists_config = {}
+
+    # make a copy of prefixdistributionspokelists to modify
+    prefixdistributionspokelists_template = copy.deepcopy(config_prefixdistributionspokelists)
+
+    # Get current Pathprefixdistributionfilterassociation
+    prefixdistributionspokelists_resp = sdk.get.prefixdistributionspokelists(site_id, prefixdistributionspokelists_id)
+
+    if prefixdistributionspokelists_resp.cgx_status:
+        prefixdistributionspokelists_config = prefixdistributionspokelists_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Prefixdistributionspokelists: ", prefixdistributionspokelists_resp)
+
+    # Check for changes:
+    prefixdistributionspokelists_config_check = copy.deepcopy(prefixdistributionspokelists_config)
+    prefixdistributionspokelists_config.update(prefixdistributionspokelists_template)
+
+    if prefixdistributionspokelists_config.get('spoke_site_ids'):
+        spoke_site_name_id_list = []
+        for spoke_site_id in prefixdistributionspokelists_config.get('spoke_site_ids'):
+            spoke_site_name_id_list.append(sites_n2id.get(spoke_site_id, spoke_site_id))
+        prefixdistributionspokelists_config['spoke_site_ids'] = spoke_site_name_id_list
+
+    if prefixdistributionspokelists_config == prefixdistributionspokelists_config_check:
+        prefixdistributionspokelists_id = prefixdistributionspokelists_config_check.get('id')
+        prefixdistributionspokelists_name = prefixdistributionspokelists_config_check.get('name')
+
+        output_message("   No Change for Prefixdistributionspokelists {0}.".format(prefixdistributionspokelists_id))
+
+        return prefixdistributionspokelists_id
+
+    # modify pathprefixdistributionfilterassociation
+    prefixdistributionspokelists_resp = sdk.put.prefixdistributionspokelists(site_id, prefixdistributionspokelists_id,
+                                                prefixdistributionspokelists_config, api_version=version)
+
+    if not prefixdistributionspokelists_resp.cgx_status:
+        throw_error("Prefixdistributionspokelists update failed: ",
+                    prefixdistributionspokelists_resp)
+
+    prefixdistributionspokelists_id = prefixdistributionspokelists_resp.cgx_content.get('id')
+
+    if not prefixdistributionspokelists_id:
+        throw_error("Unable to determine Prefixdistributionspokelists attributes (ID {0})..".format(
+            prefixdistributionspokelists_id))
+
+    output_message("   Updated Prefixdistributionspokelists {0}.".format(prefixdistributionspokelists_id))
+
+    return prefixdistributionspokelists_id
+
+def delete_prefixdistributionspokelists(leftover_prefixdistributionspokelists, site_id, id2n):
+    """
+    Delete a list of prefixdistributionspokelists
+    :param leftover_prefixdistributionspokelists: List of prefixdistributionspokelists IDs
+    :param site_id: Site ID to use
+    :id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    for prefixdistributionspokelists_id in leftover_prefixdistributionspokelists:
+        # delete all leftover prefixdistributionspokelists.
+
+        output_message("   Deleting Prefixdistributionspokelists {0}.".format(
+            id2n.get(prefixdistributionspokelists_id, prefixdistributionspokelists_id)))
+
+        prefixdistributionspokelists_del_resp = sdk.delete.prefixdistributionspokelists(site_id, prefixdistributionspokelists_id)
+
+        if not prefixdistributionspokelists_del_resp.cgx_status:
+
+            throw_error("Could not delete refixdistributionspokelists {0}: ".format(
+                id2n.get(prefixdistributionspokelists_id, prefixdistributionspokelists_id)),
+                prefixdistributionspokelists_del_resp)
+
+    return
+
+
+
+
 def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lannetworks_n2id, site_id, element_id,
                      api_interfaces_cache=None, interfaces_funny_n2id=None, version=None):
     """
@@ -4435,11 +4809,11 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 # if this is the first subif to use a parent if, we need to force update the cache at the end.
                 update_api_interfaces_cache = True
 
-    elif config_interface_type == "virtual_interface":
+    elif config_interface_type in ["virtual_interface", "port_channel"]:
         # Checking for member interfaces
         config_bound_interfaces = interface_template.get('bound_interfaces', None)
         if config_bound_interfaces is None:
-            throw_error("No member interfaces on virtual interface (Name: {0})..".format(interface_template_name))
+            throw_error("No member interfaces on {0} (Name: {1})..".format(config_interface_type, interface_template_name))
         else:
             bound_iface_list = []
             for bound_iface in config_bound_interfaces:
@@ -4457,7 +4831,7 @@ def create_interface(config_interface, interfaces_n2id, waninterfaces_n2id, lann
                 # Other checks not done as the errors are thrown appropriately by controller backend
                 member_interface_type = member_interface_config.get('type')
                 if member_interface_type in createable_interface_types:
-                    throw_error("Member interface {0} cannot be of type {1} for a virtual interface {2}".format(bound_iface, member_interface_type, interface_template_name))
+                    throw_error("Member interface {0} cannot be of type {1} for a {2} {3}".format(bound_iface, member_interface_type, config_interface_type, interface_template_name))
                 else:
                     default_template = get_member_default_config()
                     output_message("   Setting member interface {0} to default.".format(bound_iface))
@@ -4741,8 +5115,8 @@ def modify_interface(config_interface, interface_id, interfaces_n2id, waninterfa
         if not interface_template.get('used_for'):
             config['used_for'] = interface_config.get('used_for')
         config['type'] = interface_config.get('type')
-    if interface_config.get('type') == 'virtual_interface':
-        config['type'] = 'virtual_interface'
+    if interface_config.get('type') in ['virtual_interface', 'port_channel']:
+        config['type'] = interface_config.get('type')
         if not interface_template.get('bound_interfaces'):
             config['bound_interfaces'] = interface_config.get('bound_interfaces')
     config['name'] = interface_config.get('name')
@@ -5213,6 +5587,25 @@ def get_parent_child_dict(config_interfaces, id2n=None):
                 if mem_iface_name in used_parent_name_list:
                     # used multiple times.
                     throw_error("Virtual Interface {0} is using a port that is a parent of another interface:"
+                                "".format(config_interfaces_name),
+                                config_interfaces_value)
+
+                # no duplicates, update parent map (virtual interface many parent, one child).
+                parent_if_map[mem_iface_name] = [config_interfaces_name]
+                mem_iface_list.append(mem_iface_name)
+                used_parent_name_list.append(mem_iface_name)
+            child_if_map[config_interfaces_name] = mem_iface_list
+
+        elif config_interfaces_type == 'port_channel':
+            member_interfaces = config_interfaces_value.get('bound_interfaces', None)
+            if member_interfaces is None:
+                throw_error("No member interfaces on port channel (Name: {0})..".format(config_interfaces_name), config_interfaces_value)
+            mem_iface_list = []
+            for mem_iface in member_interfaces:
+                mem_iface_name = id2n.get(mem_iface, mem_iface)
+                if mem_iface_name in used_parent_name_list:
+                    # used multiple times.
+                    throw_error("Port Channel {0} is using a port that is a parent of another interface:"
                                 "".format(config_interfaces_name),
                                 config_interfaces_value)
 
@@ -8363,6 +8756,116 @@ def modify_prismasase_connections(config_prismasase_connections, prismasase_conn
 
     return prismasase_connections_id
 
+def create_tacacs(config_tacacs, site_id, element_id, interfaces_n2id, tacacsplusprofile_n2id, version=None):
+    """
+    Create a Tacacs
+    :param config_tacacs: tacacs config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :param tacacsplusprofile_n2id: Tacacs Profile name to id map
+    :return: Created tacacs ID
+    """
+    # make a copy of tacacs to modify
+    tacacs_template = copy.deepcopy(config_tacacs)
+
+    if tacacs_template.get("source_interface_id"):
+        source_interface_id = tacacs_template.get("source_interface_id")
+        tacacs_template["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+
+    tacacs_profile_id = tacacs_template.get("tacacs_plus_profile_id")
+    tacacs_template["tacacs_plus_profile_id"] = tacacsplusprofile_n2id.get(tacacs_profile_id, tacacs_profile_id)
+
+    #create tacacs
+    tacacs_resp = sdk.post.tacacs_plus_servers(site_id, element_id, tacacs_template, api_version=version)
+
+    if not tacacs_resp.cgx_status:
+        throw_error("Tacacs creation failed: ", tacacs_resp)
+
+    tacacs_id = tacacs_resp.cgx_content.get('id')
+    tacacs_name = tacacs_resp.cgx_content.get('name', tacacs_id)
+
+    if not tacacs_id:
+        throw_error("Unable to determine Tacacs attributes (ID {0})..".format(tacacs_id))
+
+    output_message("    Created Tacacs {0}.".format(tacacs_name))
+
+    return tacacs_id
+
+
+def modify_tacacs(config_tacacs, tacacs_id, site_id, element_id, interfaces_n2id, tacacsplusprofile_n2id, version=None):
+    """
+    Modify the existing tacacs
+    :param config_tacacs: tacacs config dict
+    :param tacacs_id: Existing Tacacs ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :param tacacsplusprofile_n2id: Tacacs Profile name to id map
+    :return: Returned tacacs ID
+    """
+
+    tacacs_config = {}
+    # make a copy of tacacs to modify
+    tacacs_template = copy.deepcopy(config_tacacs)
+
+    # Get current Tacacs
+    tacacs_resp = sdk.get.tacacs_plus_servers(site_id, element_id, tacacs_id)
+    if tacacs_resp.cgx_status:
+        tacacs_config = tacacs_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Tacacs: ", tacacs_resp)
+
+    # Check for changes:
+    tacacs_config_check = copy.deepcopy(tacacs_config)
+    tacacs_config.update(tacacs_template)
+    source_interface_id = tacacs_config.get("source_interface_id")
+    tacacs_config["source_interface_id"] = interfaces_n2id.get(source_interface_id, source_interface_id)
+    tacacs_profile_id = tacacs_config.get("tacacs_plus_profile_id")
+    tacacs_config["tacacs_plus_profile_id"] = tacacsplusprofile_n2id.get(tacacs_profile_id, tacacs_profile_id)
+    if tacacs_config == tacacs_config_check:
+        tacacs_id = tacacs_config_check.get('id')
+        tacacs_name = tacacs_config_check.get('name')
+        tacacs_plus_servers_n2id[tacacs_name] = tacacs_id
+        output_message("   No Change for Tacacs {0}.".format(tacacs_name))
+        return tacacs_id
+
+    # modify tacacs
+    tacacs_resp = sdk.put.tacacs_plus_servers(site_id, element_id, tacacs_id, tacacs_config, api_version=version)
+
+    if not tacacs_resp.cgx_status:
+        throw_error("Tacacs update failed: ", tacacs_resp)
+
+    tacacs_id = tacacs_resp.cgx_content.get('id')
+    tacacs_name = tacacs_resp.cgx_content.get('name', tacacs_id)
+
+    if not tacacs_id:
+        throw_error("Unable to determine Tacacs attributes (ID {0})..".format(tacacs_id))
+
+    output_message("   Updated Tacacs {0}.".format(tacacs_name))
+
+    return tacacs_id
+
+def delete_tacacs(leftover_tacacs_plus_servers, site_id, element_id, id2n):
+    """
+    Delete a list of tacacs
+    :param leftover_tacacs_plus_servers: List of tacacs IDs
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :id2n: Optional - ID to Name lookup dict
+    :return: None
+    """
+    for tacacs_id in leftover_tacacs_plus_servers:
+        # delete all leftover tacacs_plus_servers.
+
+        output_message("   Deleting Tacacs Plus Server {0}.".format(id2n.get(tacacs_id, tacacs_id)))
+        tacacs_del_resp = sdk.delete.tacacs_plus_servers(site_id, element_id, tacacs_id)
+        if not tacacs_del_resp.cgx_status:
+            throw_error("Could not delete Tacacs Plus Server {0}: ".format(id2n.get(tacacs_id, tacacs_id)),
+                        tacacs_del_resp)
+    return
+
+
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None, wait_element_config=None, passed_apiversion='sdk'):
@@ -8445,10 +8948,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
-            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
+
             config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, \
-            config_prismasase_connections = parse_site_config(config_site)
+            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, config_prismasase_connections, \
+            config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
+            config_pathprefixdistributionfilterassociation = parse_site_config(config_site)
+
 
             # Getting version for site resourcesinput apiversion
             waninterfaces_version = use_sdk_yaml_version(config_site, 'waninterfaces', sdk.put.waninterfaces,
@@ -8475,6 +8980,19 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                                       sdk_or_yaml=apiversion)
             deviceidconfigs_version = use_sdk_yaml_version(config_site, 'deviceidconfigs',
                                                        sdk.put.deviceidconfigs, default=[],
+                                                       sdk_or_yaml=apiversion)
+
+            pathprefixdistributionfilters_version = use_sdk_yaml_version(config_site, 'pathprefixdistributionfilters',
+                                                       sdk.put.pathprefixdistributionfilters, default={},
+                                                       sdk_or_yaml=apiversion)
+
+            pathprefixdistributionfilterassociation_version = use_sdk_yaml_version(config_site, 'pathprefixdistributionfilterassociation',
+                                                                         sdk.put.pathprefixdistributionfilterassociation,
+                                                                         default=[],
+                                                                         sdk_or_yaml=apiversion)
+
+            prefixdistributionspokelists_version = use_sdk_yaml_version(config_site, 'prefixdistributionspokelists',
+                                                       sdk.put.prefixdistributionspokelists, default=[],
                                                        sdk_or_yaml=apiversion)
 
             if "multicast_peer_group_id" in config_site and config_site["multicast_peer_group_id"]:
@@ -9181,6 +9699,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     deviceid_snmpdiscovery_id2n = build_lookup_dict(deviceid_snmpdiscovery_cache, key_val='id', value_val='name')
                     delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
 
+
             # -- Start Prismasase Connections config
             # prismasase_connections_resp = sdk.get.prismasase_connections(site_id)
             # if not prismasase_connections_resp.cgx_status:
@@ -9215,6 +9734,208 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Prismasase Connections config
 
+            # -- Start Pathprefixdistributionfilters -- #
+
+            pathprefixdistributionfilters_resp = sdk.get.pathprefixdistributionfilters(site_id)
+            pathprefixdistributionfilters_cache, leftover_pathprefixdistributionfilters = extract_items(pathprefixdistributionfilters_resp, 'pathprefixdistributionfilters')
+
+            pathprefixdistributionfilters_n2id = build_lookup_dict(pathprefixdistributionfilters_cache)
+            # Iterate the config (dict)
+            for pathprefixdistributionfilters_entry, pathprefixdistributionfilters_value in config_pathprefixdistributionfilters.items():
+
+                # recombine object
+                config_pathprefixdistributionfilters_object = recombine_named_key_value(pathprefixdistributionfilters_entry,
+                                                                                        pathprefixdistributionfilters_value,
+                                                                                        name_key='name')
+                # Look for implicit id in the object.
+                implicit_pathprefixdistributionfilters_id = config_pathprefixdistributionfilters_object.get('id')
+
+                # Determine pathprefixdistributionfilters_id.
+                name_pathprefixdistributionfilters_id = pathprefixdistributionfilters_n2id.get(pathprefixdistributionfilters_entry)
+
+                if implicit_pathprefixdistributionfilters_id is not None:
+                    pathprefixdistributionfilters_id = implicit_pathprefixdistributionfilters_id
+                elif name_pathprefixdistributionfilters_id is not None:
+                    pathprefixdistributionfilters_id = name_pathprefixdistributionfilters_id
+                else:
+                    pathprefixdistributionfilters_id = None
+
+                if pathprefixdistributionfilters_id is not None:
+                    pathprefixdistributionfilters_id = modify_pathprefixdistributionfilters(config_pathprefixdistributionfilters_object,
+                                                                                            pathprefixdistributionfilters_id, site_id,
+                                                                                            pathprefixdistributionfilters_version)
+                else:
+                    pathprefixdistributionfilters_id = create_pathprefixdistributionfilters(config_pathprefixdistributionfilters_object, site_id,
+                                                                                            pathprefixdistributionfilters_version)
+
+                # Remove from delete queue.
+                leftover_pathprefixdistributionfilters = [entry for entry in leftover_pathprefixdistributionfilters if
+                                                             entry != pathprefixdistributionfilters_id]
+
+            # -- End Pathprefixdistributionfilters -- #
+
+            # -- Start Pathprefixdistributionfilterassociation -- #
+            pathprefixdistributionfilterassociation_resp = sdk.get.pathprefixdistributionfilterassociation(site_id)
+            pathprefixdistributionfilterassociation_cache, leftover_pathprefixdistributionfilterassociation = extract_items(pathprefixdistributionfilterassociation_resp, )
+
+            pathprefixdistributionfilters_resp = sdk.get.pathprefixdistributionfilters(site_id)
+            pathprefixdistributionfilters_cache, _ = extract_items(pathprefixdistributionfilters_resp, 'pathprefixdistributionfilters')
+
+            pathprefixdistributionfilters_n2id = build_lookup_dict(pathprefixdistributionfilters_cache)
+            pathprefixdistributionfilterassociation_n2id = build_lookup_dict(pathprefixdistributionfilterassociation_cache)
+
+            pathprefixdistributionfilterassociation_p2id = build_lookup_dict(pathprefixdistributionfilterassociation_cache,
+                                                                             key_val = 'path_prefix_distribution_filter_id')
+
+            del_modified_peer_sites = []
+            # Iterate the config (list)
+            for pathprefixdistributionfilterassociation_entry in config_pathprefixdistributionfilterassociation:
+
+                # deepcopy to modify.
+                config_pathprefixdistributionfilterassociation_record = copy.deepcopy(pathprefixdistributionfilterassociation_entry)
+
+                # Look for implicit id in the object.
+                implicit_pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_entry.get('id')
+                pathprefixdistributionfilterassociation_name = pathprefixdistributionfilterassociation_entry.get('name')
+
+                name_pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_n2id.get(pathprefixdistributionfilterassociation_name)
+
+                pathprefixdistributionfilter_name = config_pathprefixdistributionfilterassociation_record.get('path_prefix_distribution_filter_id')
+                pathprefixdistributionfilter_id = pathprefixdistributionfilters_n2id.get(pathprefixdistributionfilter_name,
+                                                                                         pathprefixdistributionfilter_name)
+
+                p_pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_p2id.get(pathprefixdistributionfilter_id)
+
+
+                if implicit_pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = implicit_pathprefixdistributionfilterassociation_id
+
+                elif p_pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = p_pathprefixdistributionfilterassociation_id
+
+                elif name_pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = name_pathprefixdistributionfilterassociation_id
+
+                else:
+                    pathprefixdistributionfilterassociation_id = None
+
+                if pathprefixdistributionfilterassociation_id is not None:
+                    check_modified_peer_sites = modify_pathprefixdistributionfilterassociation(
+                                                                config_pathprefixdistributionfilterassociation_record,
+                                                                pathprefixdistributionfilterassociation_id, site_id,
+                                                                pathprefixdistributionfilters_n2id,
+                                                                pathprefixdistributionfilterassociation_version,
+                                                                check_modified=1)
+                    if check_modified_peer_sites:
+                        # Peer Site Id cannot be reset. Hence Deleting the association in case of swapping the peer sites.
+                        del_modified_peer_sites.append(pathprefixdistributionfilterassociation_id)
+
+                leftover_pathprefixdistributionfilterassociation = [entry for entry in leftover_pathprefixdistributionfilterassociation if entry != pathprefixdistributionfilterassociation_id]
+
+            delete_pathprefixdistributionfilterassociation(leftover_pathprefixdistributionfilterassociation, site_id, id2n = pathprefixdistributionfilterassociation_n2id)
+            delete_pathprefixdistributionfilterassociation(del_modified_peer_sites, site_id, id2n = pathprefixdistributionfilterassociation_n2id)
+
+            pathprefixdistributionfilterassociation_resp = sdk.get.pathprefixdistributionfilterassociation(site_id)
+            pathprefixdistributionfilterassociation_cache, leftover_pathprefixdistributionfilterassociation = extract_items(
+                pathprefixdistributionfilterassociation_resp, )
+
+            pathprefixdistributionfilters_resp = sdk.get.pathprefixdistributionfilters(site_id)
+            pathprefixdistributionfilters_cache, _ = extract_items(pathprefixdistributionfilters_resp,
+                                                                   'pathprefixdistributionfilters')
+
+            pathprefixdistributionfilters_n2id = build_lookup_dict(pathprefixdistributionfilters_cache)
+            pathprefixdistributionfilterassociation_n2id = build_lookup_dict(
+                pathprefixdistributionfilterassociation_cache)
+
+            pathprefixdistributionfilterassociation_p2id = build_lookup_dict(
+                pathprefixdistributionfilterassociation_cache,
+                key_val='path_prefix_distribution_filter_id')
+
+            # Iterate the config (list)
+            for pathprefixdistributionfilterassociation_entry in config_pathprefixdistributionfilterassociation:
+
+                # deepcopy to modify.
+                config_pathprefixdistributionfilterassociation_record = copy.deepcopy(
+                    pathprefixdistributionfilterassociation_entry)
+
+                # Look for implicit id in the object.
+                implicit_pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_entry.get(
+                    'id')
+                pathprefixdistributionfilterassociation_name = pathprefixdistributionfilterassociation_entry.get(
+                    'name')
+
+                name_pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_n2id.get(
+                    pathprefixdistributionfilterassociation_name)
+
+                pathprefixdistributionfilter_name = config_pathprefixdistributionfilterassociation_record.get(
+                    'path_prefix_distribution_filter_id')
+                pathprefixdistributionfilter_id = pathprefixdistributionfilters_n2id.get(
+                    pathprefixdistributionfilter_name,
+                    pathprefixdistributionfilter_name)
+                p_pathprefixdistributionfilterassociation_id = pathprefixdistributionfilterassociation_p2id.get(pathprefixdistributionfilter_id)
+
+                if implicit_pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = implicit_pathprefixdistributionfilterassociation_id
+
+                elif p_pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = p_pathprefixdistributionfilterassociation_id
+
+                elif name_pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = name_pathprefixdistributionfilterassociation_id
+
+                else:
+                    pathprefixdistributionfilterassociation_id = None
+
+                # Create or Modify Pathprefixdistributionfilterassociation
+                if pathprefixdistributionfilterassociation_id is not None:
+                    pathprefixdistributionfilterassociation_id = modify_pathprefixdistributionfilterassociation(
+                        config_pathprefixdistributionfilterassociation_record,
+                        pathprefixdistributionfilterassociation_id, site_id,
+                        pathprefixdistributionfilters_n2id,
+                        pathprefixdistributionfilterassociation_version)
+                else:
+                    pathprefixdistributionfilterassociation_id = create_pathprefixdistributionfilterassociation(
+                        config_pathprefixdistributionfilterassociation_record,
+                        site_id, pathprefixdistributionfilters_n2id,
+                        pathprefixdistributionfilterassociation_version)
+
+
+            # -- End Pathprefixdistributionfilterassociation -- #
+
+            # -- Start Prefixdistributionspokelists -- #
+            prefixdistributionspokelists_resp = sdk.get.prefixdistributionspokelists(site_id)
+            prefixdistributionspokelists_cache, leftover_prefixdistributionspokelists = extract_items(prefixdistributionspokelists_resp, 'prefixdistributionspokelists')
+
+            implicit_prefixdistributionspokelists_id = None
+            # There exists only one Prefixdistributionspokelists item, Fetch the prefixdistributionspokelists id from the cache
+            if prefixdistributionspokelists_cache:
+                implicit_prefixdistributionspokelists_id = prefixdistributionspokelists_cache[0].get('id')
+
+            # Iterate the config (list)
+            for prefixdistributionspokelists_entry in config_prefixdistributionspokelists:
+
+                #deepcopy to modify.
+                config_prefixdistributionspokelists_record = copy.deepcopy(prefixdistributionspokelists_entry)
+                if implicit_prefixdistributionspokelists_id is not None:
+                    prefixdistributionspokelists_id = implicit_prefixdistributionspokelists_id
+                else:
+                    prefixdistributionspokelists_id = None
+
+                if prefixdistributionspokelists_id is not None :
+                    # Prefixdistributionspokelists already exists, modify.
+                    prefixdistributionspokelists_id = modify_prefixdistributionspokelists(config_prefixdistributionspokelists_record,
+                                                                                          prefixdistributionspokelists_id, site_id,
+                                                                                          prefixdistributionspokelists_version)
+                else:
+                    prefixdistributionspokelists_id = create_prefixdistributionspokelists(config_prefixdistributionspokelists_record,
+                                                                                          site_id, prefixdistributionspokelists_version)
+
+                # Remove from delete queue.
+                leftover_prefixdistributionspokelists = [entry for entry in leftover_prefixdistributionspokelists if entry != prefixdistributionspokelists_id]
+
+            # -- End Prefixdistributionspokelists -- #
+
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -9228,8 +9949,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
                 config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
-                config_element_deviceidconfigs, \
-                config_ospfconfig, config_ospfglobalconfig  = parse_element_config(config_element)
+                config_element_deviceidconfigs, config_ospfconfig, config_ospfglobalconfig, \
+                config_tacacs  = parse_element_config(config_element)
+                
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
                                                                 default={}, sdk_or_yaml=apiversion)
@@ -9268,6 +9990,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                           sdk_or_yaml=apiversion)
                 element_deviceidconfigs_version = use_sdk_yaml_version(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default=[],
                                                           sdk_or_yaml=apiversion)
+                tacacs_version = use_sdk_yaml_version(config_element, 'tacacs_plus_servers', sdk.put.tacacs_plus_servers, default={},
+                                                     sdk_or_yaml=apiversion)
 
                 config_serial, matching_element, matching_machine, matching_model = detect_elements(config_element)
 
@@ -10408,6 +11132,50 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
                 # END VLAN
 
+                # START PORT CHANNEL
+                config_port_channel_interfaces = get_config_interfaces_by_type(config_interfaces_defaults, 'port_channel')
+                leftover_port_channel_interfaces = get_api_interfaces_name_by_type(interfaces_cache, 'port_channel',
+                                                                           key_name='id')
+
+                for config_interface_name, config_interface_value in config_port_channel_interfaces.items():
+
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    #  Reset IPFIXcollectorcontext, IPFIXFILTERCONTEXT.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        new_interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                            waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                            element_id, interfaces_funny_n2id=interfaces_funny_n2id,
+                                                            version=interfaces_version,
+                                                            reset_ipfix_collector_filter_context=1)
+
+                    # remove from delete queue before configuring port_channel
+                    leftover_port_channel_interfaces = [entry for entry in leftover_port_channel_interfaces if
+                                                entry != interface_id]
+
+                # cleanup - delete unused vlan interfaces, modified vlan  interfaces
+                delete_interfaces(leftover_port_channel_interfaces, site_id, element_id, id2n=interfaces_id2n)
+
+                # END PORT CHANNEL
+
                 # update Interface caches before continuing.
                 interfaces_resp = sdk.get.interfaces(site_id, element_id)
                 interfaces_cache, leftover_interfaces = extract_items(interfaces_resp, 'interfaces')
@@ -10580,6 +11348,46 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     # no need for delete queue, as already deleted.
 
                 # END Virtual Interfaces
+
+                # START PORT CHANNEL
+
+                config_port_channels = get_config_interfaces_by_type(config_interfaces_defaults, 'port_channel')
+                for config_interface_name, config_interface_value in config_port_channels.items():
+                    local_debug("DO PORT CHANNEL: {0}".format(config_interface_name), config_interface_value)
+                    # recombine object
+                    config_interface = recombine_named_key_value(config_interface_name, config_interface_value,
+                                                                 name_key='name')
+                    # Determine interface ID.
+                    # look for implicit ID in object.
+                    implicit_interface_id = config_interface.get('id')
+                    name_interface_id = interfaces_n2id.get(config_interface_name)
+
+                    if implicit_interface_id is not None:
+                        interface_id = implicit_interface_id
+
+                    elif name_interface_id is not None:
+                        # look up ID by name on existing interfaces.
+                        interface_id = name_interface_id
+                    else:
+                        # no interface object.
+                        interface_id = None
+
+                    # Create or modify interface.
+                    if interface_id is not None:
+                        # Interface exists, modify.
+                        interface_id = modify_interface(config_interface, interface_id, interfaces_n2id,
+                                                        waninterfaces_n2id, lannetworks_n2id, site_id,
+                                                        element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+                    else:
+                        # Interface does not exist, create.
+                        interface_id = create_interface(config_interface, interfaces_n2id, waninterfaces_n2id,
+                                                        lannetworks_n2id, site_id, element_id,
+                                                        interfaces_funny_n2id=interfaces_funny_n2id,
+                                                        version=interfaces_version)
+
+                # END PORT CHANNEL
 
                 # Start Bypasspair
 
@@ -11028,6 +11836,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                         version=interfaces_version)
 
                 # END SWITCH PORT
+
                 # ------------------
 
                 # Moved INTERFACE cleanup above create/edit
@@ -11108,6 +11917,54 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                         radii_id = create_radii(config_radii_record, element_id, interfaces_n2id, version=radii_version)
 
                 # -- End Radii config
+
+                # -- Start Tacacs config
+                tacacs_plus_servers_resp = sdk.get.tacacs_plus_servers(site_id, element_id)
+                tacacs_plus_servers_cache, leftover_tacacs_plus_servers = extract_items(tacacs_plus_servers_resp, 'tacacs_plus_servers')
+
+                tacacsplusprofile_resp = sdk.get.tacacs_plus_profiles()
+                tacacsplusprofile_cache, _ = extract_items(tacacsplusprofile_resp, 'tacacsplusprofiles')
+
+                # build lookup cache.
+                tacacs_plus_servers_n2id = build_lookup_dict(tacacs_plus_servers_cache)
+                tacacsplusprofile_n2id = build_lookup_dict(tacacsplusprofile_cache)
+
+                # iterate configs (dict)
+                for tacacs_entry, tacacs_value in config_tacacs.items():
+
+                    # recombine object
+                    config_tacacs_object = recombine_named_key_value(tacacs_entry,
+                                                                         tacacs_value,
+                                                                         name_key='name')
+                    # deepcopy to modify.
+                    config_tacacs_record = copy.deepcopy(config_tacacs_object)
+
+                    # look for implicit ID in object.
+                    implicit_tacacs_id = config_tacacs_object.get('id')
+                    # Determine tacacs ID.
+                    name_tacacs_id = tacacs_plus_servers_n2id.get(tacacs_entry)
+
+                    if implicit_tacacs_id is not None:
+                        tacacs_id = implicit_tacacs_id
+                    elif name_tacacs_id is not None:
+                        # look up ID by name on existing tacacs.
+                        tacacs_id = name_tacacs_id
+                    else:
+                        # No Tacacs.
+                        tacacs_id = None
+
+                    if tacacs_id is not None:
+                        # Tacacs exits, Modify
+                        tacacs_id = modify_tacacs(config_tacacs_record, tacacs_id, site_id, element_id, interfaces_n2id,
+                                                  tacacsplusprofile_n2id, version=tacacs_version)
+                    else:
+                        tacacs_id = create_tacacs(config_tacacs_record, site_id, element_id, interfaces_n2id,
+                                                  tacacsplusprofile_n2id, version=tacacs_version)
+
+                    # Remove from delete queue
+                    leftover_tacacs_plus_servers = [entry for entry in leftover_tacacs_plus_servers if entry != tacacs_id]
+
+                # -- End Tacacs config
 
                 # START Cellular Modules
 
@@ -12235,6 +13092,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     bgp_global_id = modify_bgp_global(config_routing_bgp_global, site_id, element_id,
                                                   version=routing_bgp_global_version)
 
+                # delete Tacacs
+                tacacs_id2n = build_lookup_dict(tacacs_plus_servers_cache, key_val='id', value_val='name')
+                delete_tacacs(leftover_tacacs_plus_servers, site_id, element_id, tacacs_id2n)
             # ------------------
             # BEGIN SITE CLEANUP.
 
@@ -12286,6 +13146,23 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             # cleanup - delete unused Waninterfaces
             waninterfaces_id2n = build_lookup_dict(waninterfaces_cache, key_val='id', value_val='name')
             delete_waninterfaces(leftover_waninterfaces, site_id, id2n=waninterfaces_id2n)
+
+            # cleanup - delete unused pathprefixdistributionfilters
+            pathprefixdistributionfilters_id2n = build_lookup_dict(pathprefixdistributionfilters_cache, key_val='id', value_val='name')
+            delete_pathprefixdistributionfilters(leftover_pathprefixdistributionfilters, site_id, id2n=pathprefixdistributionfilters_id2n)
+
+            # cleanup - delete unused pathprefixdistributionfilterassociation
+            # pathprefixdistributionfilterassociation_id2n = build_lookup_dict(pathprefixdistributionfilterassociation_cache,
+            #                                                                  key_val='id', value_val='name')
+            # delete_pathprefixdistributionfilterassociation(leftover_pathprefixdistributionfilterassociation, site_id,
+            #                                      id2n=pathprefixdistributionfilterassociation_id2n)
+
+            # cleanup - delete unused prefixdistributionspokelists
+            prefixdistributionspokelists_id2n = build_lookup_dict(prefixdistributionspokelists_cache, key_val='id',
+                                                                   value_val='name')
+            delete_prefixdistributionspokelists(leftover_prefixdistributionspokelists, site_id,
+                                                 id2n=prefixdistributionspokelists_id2n)
+
 
             # set site state
             set_site_state(config_site, site_id, version=sites_version)
