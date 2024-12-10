@@ -142,6 +142,9 @@ CONFIG_VERSION_REQUIRED = '1.6.0b2'
 DEFAULT_WAIT_MAX_TIME = 600  # seconds
 DEFAULT_WAIT_INTERVAL = 10  # seconds
 DEFAULT_ELEM_CONFIG_INTERVAL = 0 # seconds
+interface_tags_skiplst = {'AUTO_PA_SDWAN_MANAGED'}
+skip_bgp_tags = { 'AUTO_PA_SDWAN_MANAGED'}
+
 
 # Handle cloudblade calls
 FROM_CLOUDBLADE = 0
@@ -287,6 +290,9 @@ vrfcontextprofiles_cache = []
 perfmgmtpolicysetstacks_cache = []
 perfmgmtpolicysets_cache = []
 deviceidprofiles_cache = []
+ospfconfig_cache = []
+ospfglobalconfig_cache = []
+prismasase_connections_cache = []
 
 # Most items need Name to ID maps.
 sites_n2id = {}
@@ -329,6 +335,9 @@ vrfcontextprofiles_n2id = {}
 perfmgmtpolicysetstacks_n2id = {}
 perfmgmtpolicysets_n2id = {}
 deviceidprofiles_n2id = {}
+ospfconfig_n2id = {}
+ospfglobalconfig_n2id = {}
+prismasase_connections_n2id = {}
 
 
 # Machines/elements need serial to ID mappings
@@ -339,7 +348,7 @@ machines_byserial = {}
 securityzones_id2n = {}
 natlocalprefixes_id2n = {}
 ipfixlocalprefix_id2n = {}
-
+interfaces_id2tag = {}
 # global configurable items
 timeout_offline = DEFAULT_WAIT_MAX_TIME
 timeout_claim = DEFAULT_WAIT_MAX_TIME
@@ -465,6 +474,17 @@ def output_message(message, resp=None, cr=True):
             sys.stdout.write(output2)
     return
 
+def mapping_id2tag_interface(interface_resp):
+    global interfaces_id2tag
+    items = interface_resp.cgx_content.get('items')
+    for item in items:
+        _tags = item.get('tags')
+        if _tags:
+            #_tags are case-sensitive.
+            _tags = set([tag for tag in _tags])
+        else:
+            _tags = set()
+        interfaces_id2tag[item['id']] = _tags
 
 def update_global_cache():
     """
@@ -511,6 +531,9 @@ def update_global_cache():
     global perfmgmtpolicysetstacks_cache
     global perfmgmtpolicysets_cache
     global deviceidprofiles_cache
+    global ospfconfig_cache
+    global ospfglobalconfig_cache
+    global prismasase_connections_cache
 
     global sites_n2id
     global elements_n2id
@@ -552,6 +575,9 @@ def update_global_cache():
     global perfmgmtpolicysetstacks_n2id
     global perfmgmtpolicysets_n2id
     global deviceidprofiles_n2id
+    global ospfconfig_n2id
+    global ospfglobalconfig_n2id
+    global prismasase_connections_n2id
 
     global elements_byserial
     global machines_byserial
@@ -956,6 +982,10 @@ def parse_site_config(config_site):
                                                                     sdk.put.hubclusters, default={})
     config_deviceidconfigs, _ = config_lower_version_get(config_site, 'deviceidconfigs',
                                                                     sdk.put.deviceidconfigs, default={})
+
+    config_prismasase_connections, _ = config_lower_version_get(config_site, 'prismasase_connections',
+                                                                sdk.put.prismasase_connections, default={})
+
     config_prefixdistributionspokelists, _ = config_lower_version_get(config_site, 'prefixdistributionspokelists',
                                                                     sdk.put.prefixdistributionspokelists, default=[])
     config_pathprefixdistributionfilters, _ = config_lower_version_get(config_site, 'pathprefixdistributionfilters',
@@ -966,8 +996,9 @@ def parse_site_config(config_site):
     return config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
         config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, \
         config_site_ipfix_localprefixes, config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, \
-        config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
+        config_prismasase_connections, config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
         config_pathprefixdistributionfilterassociation
+
 
 
 def parse_element_config(config_element):
@@ -1001,13 +1032,19 @@ def parse_element_config(config_element):
                                                                        default={})
     config_radii, _ = config_lower_version_get(config_element, 'radii', sdk.put.radii, default = {})
     config_element_deviceidconfigs, _ = config_lower_version_get(config_element, 'element_deviceidconfigs', sdk.put.element_deviceidconfigs, default = [])
+
+    config_ospfconfig, _ = config_lower_version_get(config_element, 'ospfconfigs', sdk.put.ospfconfigs, default={})
+    config_ospfglobalconfig, _ = config_lower_version_get(config_element, 'ospfglobalconfigs',
+                                                          sdk.put.ospfglobalconfigs, default=[])
+
     config_tacacs, _ = config_lower_version_get(config_element, 'tacacs_plus_servers', sdk.put.tacacs_plus_servers, default = {})
+
 
     return config_interfaces, config_routing, config_syslog, config_ntp, config_snmp, config_toolkit, \
         config_element_extensions, config_element_security_zones, config_dnsservices, config_app_probe, \
         config_ipfix, config_multicastglobalconfigs, config_multicastrps, config_element_cellular_modules, \
-        config_cellular_modules_sim_security, config_radii, config_element_deviceidconfigs, config_tacacs
-
+        config_cellular_modules_sim_security, config_radii, config_element_deviceidconfigs, \
+        config_ospfconfig, config_ospfglobalconfig, config_tacacs
 
 def parse_routing_config(config_routing):
     """
@@ -2284,6 +2321,7 @@ def create_site(config_site, version=None):
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
     site_template = fuzzy_pop(site_template, 'deviceidconfigs')
+    site_template = fuzzy_pop(site_template, 'prismasase_connections')
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2345,9 +2383,11 @@ def modify_site(config_site, site_id, version=None):
     site_template = fuzzy_pop(site_template, 'site_ipfix_localprefixes')
     site_template = fuzzy_pop(site_template, 'multicastsourcesiteconfigs')
     site_template = fuzzy_pop(site_template, 'deviceidconfigs')
+    site_template = fuzzy_pop(site_template, 'prismasase_connections')
     site_template = fuzzy_pop(site_template, 'pathprefixdistributionfilters')
     site_template = fuzzy_pop(site_template, 'pathprefixdistributionfilterassociation')
     site_template = fuzzy_pop(site_template, 'prefixdistributionspokelist')
+
 
     # perform name -> ID lookups
     name_lookup_in_template(site_template, 'policy_set_id', policysets_n2id)
@@ -2389,9 +2429,9 @@ def modify_site(config_site, site_id, version=None):
             site_id = site_change_check.get('id')
             site_name = site_change_check.get('name')
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, \
-            config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
+            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \    
+            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs,\
+            config_prismasase_connections, config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
             config_pathprefixdistributionfilterassociation = parse_site_config(config_site)
 
             if not config_multicastsourcesiteconfigs:
@@ -8425,6 +8465,297 @@ def modify_radii(config_radii, radii_id, element_id, interfaces_n2id, yml_interf
 
     return radius_id
 
+def create_ospfconfig(config_ospfconfig, site_id, element_id, interfaces_n2id, routemap_n2id):
+    """
+    Create a ospfconfig
+    :param config_ospfconfig: ospfconfig config dict
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :param routemap_n2id: Routemap name to id map
+    :return: Created ospfconfig ID
+    """
+    # make a copy of ospfconfig to modify
+    ospfconfig_template = copy.deepcopy(config_ospfconfig)
+    name_lookup_in_template(ospfconfig_template, 'prefix_adv_route_map_id', routemap_n2id)
+    name_lookup_in_template(ospfconfig_template, 'redistribute_route_map_id', routemap_n2id)
+    name_lookup_in_template(ospfconfig_template, 'vrf_context_id', vrfcontexts_n2id)
+    if ospfconfig_template.get('interfaces'):
+        for interface in ospfconfig_template.get('interfaces'):
+            name_lookup_in_template(interface, 'interface_id', interfaces_n2id)
+    #create ospfconfig
+    ospfconfig_resp = sdk.post.ospfconfigs(site_id, element_id, ospfconfig_template)
+    if not ospfconfig_resp.cgx_status:
+        throw_error("Ospfconfig creation failed: ", ospfconfig_resp)
+    ospfconfig_id = ospfconfig_resp.cgx_content.get('id')
+    ospfconfig_name = ospfconfig_resp.cgx_content.get('name', ospfconfig_id)
+    if not ospfconfig_id:
+        throw_error("Unable to determine Ospfconfig attributes (ID {0})..".format(ospfconfig_id))
+    output_message("   Created ospfconfig {0}.".format(ospfconfig_name))
+    return ospfconfig_id
+
+def modify_ospfconfig(config_ospfconfig, ospfconfig_id, site_id, element_id, interfaces_n2id, routemap_n2id):
+    """
+    Modify the existing ospfconfig
+    :param config_ospfconfig: ospfconfig config dict
+    :param ospfconfig_id: Existing Ospfconfig ID
+    :param site_id: Site ID to use
+    :param element_id: Element ID to use
+    :param interfaces_n2id: Interface name to id map
+    :param routemap_n2id: Routemap name to id map
+    :return: Returned ospfconfig ID
+    """
+    ospfconfig_config = {}
+    # make a copy of ospfconfig to modify
+    ospfconfig_template = copy.deepcopy(config_ospfconfig)
+    name_lookup_in_template(ospfconfig_template, 'prefix_adv_route_map_id', routemap_n2id)
+    name_lookup_in_template(ospfconfig_template, 'redistribute_route_map_id', routemap_n2id)
+    name_lookup_in_template(ospfconfig_template, 'vrf_context_id', vrfcontexts_n2id)
+    if ospfconfig_template.get('interfaces'):
+        for interface in ospfconfig_template.get('interfaces'):
+            name_lookup_in_template(interface, 'interface_id', interfaces_n2id)
+    # Get current Ospfconfig
+    ospfconfig_resp = sdk.get.ospfconfigs(site_id, element_id, ospfconfig_id)
+    if ospfconfig_resp.cgx_status:
+        ospfconfig_config = ospfconfig_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve ospfconfig: ", ospfconfig_resp)
+    # Check for changes:
+    ospfconfig_config_check = copy.deepcopy(ospfconfig_config)
+    ospfconfig_config.update(ospfconfig_template)
+    if not force_update and ospfconfig_config == ospfconfig_config_check:
+        ospfconfig_id = ospfconfig_config_check.get('id')
+        ospfconfig_name = ospfconfig_config_check.get('name')
+        ospfconfig_n2id[ospfconfig_name] = ospfconfig_id
+        output_message("   No Change for Ospfconfig {0}.".format(ospfconfig_name))
+        return ospfconfig_id
+    #modify ospfconfig
+    ospfconfig_resp = sdk.put.ospfconfigs(site_id, element_id, ospfconfig_id, ospfconfig_config)
+    if not ospfconfig_resp.cgx_status:
+        throw_error("Ospfconfig update failed: ", ospfconfig_resp)
+    ospfconfig_id = ospfconfig_resp.cgx_content.get('id')
+    ospfconfig_name = ospfconfig_resp.cgx_content.get('name', ospfconfig_id)
+    if not ospfconfig_id:
+        throw_error("Unable to determine Ospfconfig attributes (ID {0})..".format(ospfconfig_id))
+    output_message("   Updated Ospfconfig {0}.".format(ospfconfig_name))
+    return ospfconfig_id
+
+def delete_ospfconfig(leftover_ospfconfigs, site_id, element_id, id2n=None):
+        """
+        Delete a list of OspfConfig
+        :param leftover_ospfconfigs: list of OspfConfig IDs
+        :param site_id: Site ID to use
+        :param element_id: Element ID to use
+        :param id2n: Optional - ID to Name lookup dict
+        :return: None
+        """
+        # ensure id2n is empty dict if not set.
+        if id2n is None:
+            id2n = {}
+        for ospfconfig_id in leftover_ospfconfigs:
+            # delete all leftover OspfConfig.
+            output_message("   Deleting Unconfigured OspfConfig {0}.".format(id2n.get(ospfconfig_id, ospfconfig_id)))
+            ospfconfig_del_resp = sdk.delete.ospfconfigs(site_id, element_id, ospfconfig_id)
+            if not ospfconfig_del_resp.cgx_status:
+                throw_error("Could not delete OspfConfig {0}: ".format(id2n.get(ospfconfig_id, ospfconfig_id)),
+                            ospfconfig_del_resp)
+        return
+
+def modify_ospfglobalconfig(config_ospfglobalconfig, site_id, element_id):
+    """
+    Modify the existing ospfglobalconfig
+    :param config_ospfglobalconfig: ospfglobalconfig config list
+    :param element_id: Element ID to use
+    :return: Returned ospfglobalconfig ID
+    """
+    ospfglobalconfig_config = {}
+    # make a copy of ospfglobalconfig to modify
+    ospfglobalconfig_template = copy.deepcopy(config_ospfglobalconfig[0])
+    # Get current Ospfconfig
+    ospfglobalconfig_resp = sdk.get.ospfglobalconfigs(site_id, element_id)
+    if ospfglobalconfig_resp.cgx_status:
+        ospfglobalconfig_configs, _ = extract_items(ospfglobalconfig_resp, 'ospfglobalconfigs')
+        ospfglobalconfig_config = ospfglobalconfig_configs[0]
+    else:
+        throw_error("Unable to retrieve ospfglobalconfig: ", ospfglobalconfig_resp)
+    ospfglobalconfig_id = ospfglobalconfig_config.get('id')
+    # Check for changes:
+    ospfglobalconfig_check = copy.deepcopy(ospfglobalconfig_config)
+    ospfglobalconfig_config.update(ospfglobalconfig_template)
+    if not force_update and ospfglobalconfig_config == ospfglobalconfig_check:
+        ospfglobalconfig_id = ospfglobalconfig_check.get('id')
+        output_message("   No Change for Ospfglobalconfig {0}.".format(ospfglobalconfig_id))
+        return ospfglobalconfig_id
+    #modify ospfglobalconfig
+    ospfglobalconfig_resp = sdk.put.ospfglobalconfigs(site_id, element_id, ospfglobalconfig_id, ospfglobalconfig_config)
+    if not ospfglobalconfig_resp.cgx_status:
+        throw_error("Ospfglobalconfig update failed: ", ospfglobalconfig_resp)
+    ospfglobalconfig_id = ospfglobalconfig_resp.cgx_content.get('id')
+    if not ospfglobalconfig_id:
+        throw_error("Unable to determine Ospfglobalconfig attributes (ID {0})..".format(ospfglobalconfig_id))
+    output_message("   Updated Ospfglobalconfig {0}.".format(ospfglobalconfig_id))
+    return ospfglobalconfig_id
+
+def preprocess_prismasase_connection_payload(template,waninterfaces_n2id):
+
+    conf_ipsec_tunnel = {
+        "ipsec_tunnel_configs": {
+                "anti_replay": False,
+                "copy_tos": False,
+                "tunnel_monitoring": True,
+                "enable_gre_encapsulation": False,
+                }
+    }
+    template.update(conf_ipsec_tunnel)
+
+    if template.get('remote_network_groups'):
+        if isinstance(template.get('remote_network_groups'),list):
+
+            for remote_network_template in template.get('remote_network_groups'):
+                if remote_network_template.get('ipsec_tunnels'):
+                    for ipsec_tunnel_config in remote_network_template['ipsec_tunnels']:
+                        if ipsec_tunnel_config.get('wan_interface_id'):
+                            ipsec_tunnel_config['wan_interface_id'] = waninterfaces_n2id.get(
+                            ipsec_tunnel_config['wan_interface_id'], ipsec_tunnel_config['wan_interface_id'])
+                else:
+                    remote_network_template['ipsec_tunnels'] = None
+
+
+
+    if template.get('enabled_wan_interface_ids'):
+        wan_interface_ids = []
+        for wan_interface_id in template.get('enabled_wan_interface_ids', []):
+            wan_interface_ids.append(waninterfaces_n2id.get(wan_interface_id, wan_interface_id))
+        if wan_interface_ids:
+            template['enabled_wan_interface_ids'] = wan_interface_ids
+
+    return template
+
+def create_prismasase_connections(config_prismasase_connections,site_id,
+                                  waninterfaces_n2id):
+    """
+    Create a prismasase_connections
+    :param config_prismasase_connections: prismasase_connections config dict
+    :param site_id: Site ID to use
+    :param waninterfaces_n2id: Interface name to id map
+    :return: Created Prismasase Connections ID
+    """
+    # make a copy of prismasase_connections to create
+    prismasase_connections_template = copy.deepcopy(config_prismasase_connections)
+
+    prismasase_connections_template = preprocess_prismasase_connection_payload(prismasase_connections_template,waninterfaces_n2id)
+    # create Prismasase Connections
+    prismasase_connections_resp = sdk.post.prismasase_connections(site_id, prismasase_connections_template)
+
+
+    if not prismasase_connections_resp.cgx_status:
+        throw_error("Prismasase Connections creation failed: ", prismasase_connections_resp)
+
+    prismasase_connections_id = prismasase_connections_resp.cgx_content.get('id')
+
+    if not prismasase_connections_id:
+        throw_error("Unable to determine Prismasase Connections attributes (ID {0})..".format(prismasase_connections_id))
+
+    output_message("   Created Prismasase Connections {0}.".format(prismasase_connections_id))
+
+    return prismasase_connections_id
+
+def modified_payload(template_config, api_config):
+    # Convert the list of enabled WAN interface IDs to a set
+    template_enabled_wan_interface_ids = set(template_config.get('enabled_wan_interface_ids', []))
+    template_routing_config = template_config.get('routing_configs', {})
+    template_remote_network_groups = template_config.get('remote_network_groups', [])
+    api_remote_network_groups = api_config.get('remote_network_groups', [])
+
+    # Create a dictionary of available WAN interfaces from the API configuration
+    available_wan_interfaces = {}
+    for group in api_remote_network_groups:
+        ipsec_tunnels = group.get('ipsec_tunnels', [])
+        for tunnel in ipsec_tunnels:
+            wan_interface_id = tunnel.get('wan_interface_id')
+            if wan_interface_id:
+                available_wan_interfaces[wan_interface_id] = tunnel
+
+    api_wan_interface_ids = set(available_wan_interfaces.keys())
+    new_wan_interface_ids = template_enabled_wan_interface_ids - api_wan_interface_ids
+    existing_wan_interface_ids = api_wan_interface_ids & template_enabled_wan_interface_ids
+    ipsec_tunnel_template = {
+        "name": None,
+        "routing_configs": template_routing_config
+    }
+
+    new_ipsec_tunnels = []
+    for wan_interface_id in new_wan_interface_ids:
+        new_tunnel = ipsec_tunnel_template.copy()
+        new_tunnel["wan_interface_id"] = wan_interface_id
+        new_ipsec_tunnels.append(new_tunnel)
+
+    for wan_interface_id in existing_wan_interface_ids:
+        new_ipsec_tunnels.append(available_wan_interfaces[wan_interface_id])
+
+    template_config['ipsec_tunnel_configs'] = api_config.get('ipsec_tunnel_configs', [])
+
+    # for remote_network_group in template_remote_network_groups:
+    #     remote_network_group['ipsec_tunnels'] = new_ipsec_tunnels
+
+    # There can be multiple remote networks group but only first one will be used.
+    if template_remote_network_groups:
+        template_remote_network_group = template_remote_network_groups[0]
+        template_remote_network_group['ipsec_tunnels'] = new_ipsec_tunnels
+
+def modify_prismasase_connections(config_prismasase_connections, prismasase_connections_id, site_id,
+                                  waninterfaces_n2id):
+    """
+    Modify the existing prismasase_connections
+    :param config_prismasase_connections: prismasase_connections config dict
+    :param prismasase_connections_id: Existing Prismasase Connections ID
+    :param site_id: Site ID to use
+    :param waninterfaces_n2id: Interface name to id map
+    :return: Returned Prismasase Connections ID
+    """
+
+    prismasase_connections_config = {}
+    # make a copy of prismasase_connections to modify
+    prismasase_connections_template = copy.deepcopy(config_prismasase_connections,waninterfaces_n2id)
+
+    # Get current Prismasase Connections
+    prismasase_connections_resp = sdk.get.prismasase_connections(site_id, prismasase_connections_id)
+    if prismasase_connections_resp.cgx_status:
+        prismasase_connections_config = prismasase_connections_resp.cgx_content
+    else:
+        throw_error("Unable to retrieve Prismasase Connections: ", prismasase_connections_resp)
+
+    prismasase_connections_template = preprocess_prismasase_connection_payload(prismasase_connections_template,
+                                                                               waninterfaces_n2id)
+
+    # Check for changes:
+    prismasase_connections_config_check = copy.deepcopy(prismasase_connections_config)
+    prismasase_connections_config.update(prismasase_connections_template)
+
+    modified_payload(prismasase_connections_config,prismasase_connections_config_check)
+
+
+    if not force_update and prismasase_connections_config == prismasase_connections_config_check:
+        prismasase_connections_id = prismasase_connections_config_check.get('id')
+        output_message("   No Change for Prismasase Connections {0}.".format(prismasase_connections_id))
+        return prismasase_connections_id
+    # modify Prismasase Connections
+    prismasase_connections_resp = sdk.put.prismasase_connections(site_id, prismasase_connections_id,
+                                                                 prismasase_connections_config)
+
+    if not prismasase_connections_resp.cgx_status:
+        throw_error("Prismasase Connections update failed: ", prismasase_connections_resp)
+
+    prismasase_connections_id = prismasase_connections_resp.cgx_content.get('id')
+
+    if not prismasase_connections_id:
+        throw_error(
+            "Unable to determine Prismasase Connections attributes (ID {0})..".format(prismasase_connections_id))
+
+    output_message("   Updated Prismasase Connections {0}.".format(prismasase_connections_id))
+
+    return prismasase_connections_id
+
 def create_tacacs(config_tacacs, site_id, element_id, interfaces_n2id, tacacsplusprofile_n2id, version=None):
     """
     Create a Tacacs
@@ -8534,6 +8865,7 @@ def delete_tacacs(leftover_tacacs_plus_servers, site_id, element_id, id2n):
                         tacacs_del_resp)
     return
 
+
 def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeout_offline=None,
             passed_timeout_claim=None, passed_timeout_upgrade=None, passed_timeout_state=None, passed_wait_upgrade=None,
             passed_interval_timeout=None, passed_force_update=None, wait_element_config=None, passed_apiversion='sdk'):
@@ -8616,10 +8948,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
-            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-                config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
-                config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, config_prefixdistributionspokelists, \
-                config_pathprefixdistributionfilters, config_pathprefixdistributionfilterassociation = parse_site_config(config_site)
+
+            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, config_prismasase_connections, \
+            config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
+            config_pathprefixdistributionfilterassociation = parse_site_config(config_site)
+
 
             # Getting version for site resourcesinput apiversion
             waninterfaces_version = use_sdk_yaml_version(config_site, 'waninterfaces', sdk.put.waninterfaces,
@@ -9365,6 +9699,41 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     deviceid_snmpdiscovery_id2n = build_lookup_dict(deviceid_snmpdiscovery_cache, key_val='id', value_val='name')
                     delete_deviceid_snmpdiscovery(leftover_deviceid_snmpdiscovery, site_id, deviceidconfigs_id, id2n=deviceid_snmpdiscovery_id2n)
 
+
+            # -- Start Prismasase Connections config
+            # prismasase_connections_resp = sdk.get.prismasase_connections(site_id)
+            # if not prismasase_connections_resp.cgx_status:
+            #     throw_error("Prismasase Connections get failed: ", prismasase_connections_resp)
+            #
+            # prismasase_connections_cache, leftover_prismasase_connections = extract_items(
+            #     prismasase_connections_resp, 'prismasase_connections')
+            #
+            # prismasase_connection_n2id = build_lookup_dict_for_prisma_sase(prismasase_connections_cache,
+            #                                                          key_val='is_active')
+            #
+            # for name,prismasase_connections_entry in config_prismasase_connections.items():
+            #     # deepcopy to modify.
+            #     config_prismasase_connections_record = {}
+            #     config_prismasase_connections_record['prismaaccess_edge_location'] = [name]
+            #     config_prismasase_connections_record.update(prismasase_connections_entry)
+            #     #there will be only two entry present in config_prismasase_connections_record
+            #     is_active = config_prismasase_connections_record.get("is_active")
+            #
+            #     prismasase_connections_id = prismasase_connection_n2id.get(str(is_active))
+            #     if prismasase_connections_id is not None:
+            #         # Prismasase Connections exists, modify.
+            #         prismasase_connections_id = modify_prismasase_connections(
+            #             config_prismasase_connections_record,
+            #             prismasase_connections_id, site_id,
+            #             waninterfaces_n2id)
+            #     else:
+            #         # Prismasase Connections does not exist, create.
+            #         prismasase_connections_id = create_prismasase_connections(
+            #             config_prismasase_connections_record, site_id,
+            #             waninterfaces_n2id)
+
+            # -- End Prismasase Connections config
+
             # -- Start Pathprefixdistributionfilters -- #
 
             pathprefixdistributionfilters_resp = sdk.get.pathprefixdistributionfilters(site_id)
@@ -9566,6 +9935,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
 
             # -- End Prefixdistributionspokelists -- #
 
+
             # -- Start Elements - Iterate loop.
             # Get all elements assigned to this site from the global element cache.
             leftover_elements = [entry.get('id') for entry in elements_cache if entry.get('site_id') == site_id]
@@ -9579,7 +9949,9 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_toolkit, config_element_extensions, config_element_security_zones, \
                 config_dnsservices, config_app_probe, config_ipfix, config_multicastglobalconfigs, \
                 config_multicastrps, config_element_cellular_modules, config_cellular_modules_sim_security, config_radii, \
-                config_element_deviceidconfigs, config_tacacs = parse_element_config(config_element)
+                config_element_deviceidconfigs, config_ospfconfig, config_ospfglobalconfig, \
+                config_tacacs  = parse_element_config(config_element)
+                
 
                 interfaces_version = use_sdk_yaml_version(config_element, 'interfaces', sdk.put.interfaces,
                                                                 default={}, sdk_or_yaml=apiversion)
@@ -9756,6 +10128,8 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # unable to be used (incorrect subif or port name). This table keeps that info, and lets it
                 # be used if it doesn't conflict with actual interface names.
                 interfaces_funny_n2id = {}
+
+                mapping_id2tag_interface(interfaces_resp)
 
                 # START LOOPBACKS ADD: need to handle base interfaces (bypass members) first. Get the looback IF deltas.
                 config_loopback_add, api_loopback_del, \
@@ -10262,6 +10636,18 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 config_servicelinks = get_config_interfaces_by_type(config_interfaces_defaults, 'service_link')
                 leftover_servicelinks = get_api_interfaces_name_by_type(interfaces_cache, 'service_link', key_name='id')
 
+                lst = []
+
+                for interface in leftover_servicelinks:
+                    if interface in interfaces_id2tag:
+
+                        sl_tags = interfaces_id2tag[interface]
+                        if not sl_tags:
+                            lst.append(interface)
+                        if sl_tags and not sl_tags.intersection(interface_tags_skiplst):
+                            lst.append(interface)
+
+                leftover_servicelinks = lst
                 for config_interface_name, config_interface_value in config_servicelinks.items():
 
                     # recombine object
@@ -11969,6 +12355,15 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                 # build lookup cache based on peer IP as well.
                 bgp_peers_p2id = build_lookup_dict(bgp_peers_cache, key_val='peer_ip')
 
+                for bgp_peer in bgp_peers_cache:
+                    tags = bgp_peer.get('tags')
+                    if tags:
+                        tags = set(tags)
+                    else:
+                        tags = set()
+                    if tags.intersection(skip_bgp_tags):
+                        leftover_bgp_peers = [entry for entry in leftover_bgp_peers
+                                              if entry != bgp_peer.get('id')]
                 # iterate configs
                 for config_bgp_peer_name, config_bgp_peer_value in \
                         config_routing_bgp_peers.items():
@@ -12018,6 +12413,54 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                     leftover_bgp_peers = [entry for entry in leftover_bgp_peers
                                           if entry != bgp_peer_id]
                 # END BGP PEERS
+
+                # -- Start Ospf Global Configs
+                ospfglobalconfig_id = modify_ospfglobalconfig(config_ospfglobalconfig, site_id, element_id)
+                # END Ospf Global Configs
+
+                # -- Start Ospf config
+                ospfconfig_resp = sdk.get.ospfconfigs(site_id, element_id)
+                if not ospfconfig_resp.cgx_status:
+                    throw_error("Ospfconfig get failed: ", ospfconfig_resp)
+
+                ospfconfig_cache, leftover_ospfconfigs = extract_items(ospfconfig_resp, 'ospfconfig')
+
+                # build lookup cache
+                ospfconfig_n2id = build_lookup_dict(ospfconfig_cache)
+                ospfconfig_id2n = build_lookup_dict(ospfconfig_cache, key_val="id", value_val="name")
+
+                # iterate configs (dict)
+                for ospfconfig_entry, ospfconfig_value in config_ospfconfig.items():
+                    # deepcopy to modify.
+                    config_ospfconfig_record = copy.deepcopy(ospfconfig_value)
+                    # recombine object
+                    config_ospfconfig_object = recombine_named_key_value(ospfconfig_entry,
+                                                                         ospfconfig_value,
+                                                                         name_key='name')
+                    # look for implicit ID in object.
+                    implicit_ospfconfig_id = config_ospfconfig_object.get('id')
+                    # Determine ospfconfig ID.
+                    name_ospfconfig_id = ospfconfig_n2id.get(ospfconfig_entry)
+                    if implicit_ospfconfig_id is not None:
+                        ospfconfig_id = implicit_ospfconfig_id
+                    elif name_ospfconfig_id is not None:
+                        # look up ID by name on existing interfaces.
+                        ospfconfig_id = name_ospfconfig_id
+                    else:
+                        # no radii object.
+                        ospfconfig_id = None
+                    if ospfconfig_id is not None:
+                        # Ospfconfig exists, modify.
+                        ospfconfig_id = modify_ospfconfig(config_ospfconfig_record, ospfconfig_id, site_id,
+                                                          element_id, interfaces_n2id, routemaps_n2id)
+                    else:
+                        # Ospfconfig does not exist, create.
+                        config_ospfconfig_record["name"] = ospfconfig_entry
+                        ospfconfig_id = create_ospfconfig(config_ospfconfig_record, site_id, element_id,
+                                                          interfaces_n2id, routemaps_n2id)
+                    # remove from delete queue
+                    leftover_ospfconfigs = [entry for entry in leftover_ospfconfigs if entry != ospfconfig_id]
+                # -- End Ospfconfig config
 
                 # START STATIC ROUTING
                 staticroutes_resp = sdk.get.staticroutes(site_id, element_id)
@@ -12637,6 +13080,12 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
                                                        if entry != aspath_access_list_id]
                 delete_aspath_access_lists(leftover_aspath_access_lists, site_id, element_id,
                                            id2n=aspath_access_lists_id2n)
+
+                # No deletes for Ospf Global Configs
+
+                # delete remaining Ospf Configs
+                ospfconfig_id2n = build_lookup_dict(ospfconfig_cache, key_val='id', value_val='name')
+                delete_ospfconfig(leftover_ospfconfigs, site_id, element_id, id2n=ospfconfig_id2n)
 
                 # Reset local as num after removing all the Bgp peers.
                 if not config_routing_bgp_global.get("local_as_num"):

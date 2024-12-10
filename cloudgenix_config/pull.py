@@ -85,7 +85,8 @@ except ImportError:
     CLOUDGENIX_USER = None
     CLOUDGENIX_PASSWORD = None
 
-
+interface_tags_skiplst = { 'AUTO_PA_SDWAN_MANAGED'}
+skip_bgp_tags = { 'AUTO_PA_SDWAN_MANAGED'}
 # python 2 and 3 handling
 if sys.version_info < (3,):
     text_type = unicode
@@ -172,9 +173,13 @@ MULTICASTSOURCESITECONFIGS_STR = "multicastsourcesiteconfigs"
 DEVICE_ID_CONFIGS_STR = "deviceidconfigs"
 SNMPDISCOVERY_STR = "snmpdiscoverystartnodes"
 ELEMENT_DEVICEIDCONFIGS_STR = "element_deviceidconfigs"
+OSPFCONFIGS_STR = "ospfconfigs"
+OSPFGLOBALCONFIGS_STR = "ospfglobalconfigs"
+PRISMASASE_CONNECTIONS_STR = "prismasase_connections"
 PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR = "pathprefixdistributionfilterassociation"
 PATHPREFIXDISTRIBUTIONFILTERS_STR = "pathprefixdistributionfilters"
 PREFIXDISTRIBUTIONSPOKELISTS_STR = "prefixdistributionspokelists"
+
 
 # Global Config Cache holders
 sites_cache = []
@@ -217,7 +222,9 @@ vrfcontextprofiles_cache = []
 perfmgmtpolicysetstacks_cache = []
 perfmgmtpolicysets_cache = []
 deviceidprofiles_cache = []
+prismasase_connections_cache = []
 tacacsplusprofile_cache =[]
+
 
 id_name_cache = {}
 sites_n2id = {}
@@ -335,6 +342,7 @@ def update_global_cache():
     global perfmgmtpolicysetstacks_cache
     global perfmgmtpolicysets_cache
     global deviceidprofiles_cache
+    global prismasase_connections_cache
 
 
     global id_name_cache
@@ -672,6 +680,9 @@ def build_version_strings():
     global DEVICE_ID_CONFIGS_STR
     global SNMPDISCOVERY_STR
     global ELEMENT_DEVICEIDCONFIGS_STR
+    global OSPFCONFIGS_STR
+    global OSPFGLOBALCONFIGS_STR
+    global PRISMASASE_CONNECTIONS_STR
     global PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR
     global PATHPREFIXDISTRIBUTIONFILTERS_STR
     global PREFIXDISTRIBUTIONSPOKELISTS_STR
@@ -720,6 +731,9 @@ def build_version_strings():
         DEVICE_ID_CONFIGS_STR = add_version_to_object(sdk.get.deviceidconfigs, "deviceidconfigs")
         SNMPDISCOVERY_STR = add_version_to_object(sdk.get.deviceidconfigs_snmpdiscoverystartnodes, "snmpdiscoverystartnodes")
         ELEMENT_DEVICEIDCONFIGS_STR = add_version_to_object(sdk.get.element_deviceidconfigs, "element_deviceidconfigs")
+        OSPFCONFIGS_STR = add_version_to_object(sdk.get.ospfconfigs, "ospfconfigs")
+        OSPFGLOBALCONFIGS_STR = add_version_to_object(sdk.get.ospfglobalconfigs, "ospfglobalconfigs")
+        PRISMASASE_CONNECTIONS_STR = add_version_to_object(sdk.get.prismasase_connections, "prismasase_connections")
         PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR = add_version_to_object(sdk.get.pathprefixdistributionfilterassociation, "pathprefixdistributionfilterassociation")
         PATHPREFIXDISTRIBUTIONFILTERS_STR = add_version_to_object(sdk.get.pathprefixdistributionfilters, "pathprefixdistributionfilters")
         PREFIXDISTRIBUTIONSPOKELISTS_STR = add_version_to_object(sdk.get.prefixdistributionspokelists, "prefixdistributionspokelists")
@@ -1072,6 +1086,41 @@ def _pull_config_for_single_site(site_name_id):
 
     delete_if_empty(site, DEVICE_ID_CONFIGS_STR)
 
+    # Get prismasase_connections
+
+    # site[PRISMASASE_CONNECTIONS_STR] = {}
+    # response = sdk.get.prismasase_connections(site['id'])
+    # if not response.cgx_status:
+    #     throw_warning("Prisma SASE Connections get failed: ", response)
+    # prismasase_connections_items = response.cgx_content.get('items', [])
+    #
+    # for prismasase_connections in prismasase_connections_items:
+    #
+    #     location_name = prismasase_connections.get('prismaaccess_edge_location')[0]
+    #     prismasase_connections_template = copy.deepcopy(prismasase_connections)
+    #     if prismasase_connections.get('enabled_wan_interface_ids'):
+    #         wan_interface_ids = []
+    #         for wan_interface_id in prismasase_connections.get('enabled_wan_interface_ids', []):
+    #             wan_interface_ids.append(id_name_cache.get(wan_interface_id, wan_interface_id))
+    #         if wan_interface_ids:
+    #             prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
+    #
+    #     if prismasase_connections_template.get('remote_network_groups'):
+    #         for remote_network_group in prismasase_connections_template.get('remote_network_groups'):
+    #             remote_network_group.pop('ipsec_tunnels', '')
+    #             remote_network_group['name'] = None
+    #
+    #     if prismasase_connections.get('routing_configs'):
+    #         if prismasase_connections.get('routing_configs').get('bgp_secret'):
+    #             prismasase_connections_template['routing_configs']['bgp_secret'] = None
+    #
+    #     prismasase_connections_template.pop('ipsec_tunnel_configs', '')
+    #     prismasase_connections_template.pop('prismaaccess_edge_location', '')
+    #     strip_meta_attributes(prismasase_connections_template)
+    #     site[PRISMASASE_CONNECTIONS_STR][location_name] = prismasase_connections_template
+    #
+    # delete_if_empty(site, PRISMASASE_CONNECTIONS_STR)
+
     # Get PATHPREFIXDISTRIBUTIONFILTERS
     site[PATHPREFIXDISTRIBUTIONFILTERS_STR] = {}
     response = sdk.get.pathprefixdistributionfilters(site['id'])
@@ -1200,7 +1249,16 @@ def _pull_config_for_single_site(site_name_id):
         parent_id_list = []
         bp_parent_id_list = []
         if_name_dict = {}
+        skip_if_set = set()
         for interface in interfaces:
+            Flag = False
+            if interface.get('tags'):
+                tags = interface.get('tags')
+                Flag = True
+            tags = set(tags) if Flag else set()
+            if len(tags.intersection(interface_tags_skiplst)):
+                skip_if_set.add(interface['id'])
+
             if interface.get('name') in if_name_dict:
                 if_name_dict[interface.get('name')] += 1
             else:
@@ -1237,6 +1295,8 @@ def _pull_config_for_single_site(site_name_id):
 
         for interface in interfaces:
             interface_id = interface.get('id')
+            if interface['id'] in skip_if_set:
+                continue
             if_type = interface.get('type')
 
             if not FORCE_PARENTS and interface_id in parent_id_list:
@@ -1469,6 +1529,12 @@ def _pull_config_for_single_site(site_name_id):
         dup_name_dict = {}
         for bgp_peer in bgp_peers_cache:
             bgp_peer_template = copy.deepcopy(bgp_peer)
+            tags = bgp_peer_template.get('tags')
+            # to skip the bgp_peers using tags.
+            if tags:
+                filtered_tags = [1 for tag in tags if tag in skip_bgp_tags]
+                if filtered_tags:
+                    continue
             # replace flat name
             name_lookup_in_template(bgp_peer_template, 'route_map_in_id', id_name_cache)
             name_lookup_in_template(bgp_peer_template, 'route_map_out_id', id_name_cache)
@@ -1936,6 +2002,37 @@ def _pull_config_for_single_site(site_name_id):
             # names used, but config doesn't index by name for this value currently.
             element[ELEMENT_DEVICEIDCONFIGS_STR].append(element_deviceidconfig_template)
         delete_if_empty(element, ELEMENT_DEVICEIDCONFIGS_STR)
+
+        # Get ospfconfigs
+        element[OSPFCONFIGS_STR] = {}
+        response = sdk.get.ospfconfigs(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Ospfconfigs get failed: ", response)
+        element_ospfconfigs = response.cgx_content['items']
+        for element_ospfconfig in element_ospfconfigs:
+            name_lookup_in_template(element_ospfconfig, 'prefix_adv_route_map_id', id_name_cache)
+            name_lookup_in_template(element_ospfconfig, 'redistribute_route_map_id', id_name_cache)
+            name_lookup_in_template(element_ospfconfig, 'vrf_context_id', id_name_cache)
+            if element_ospfconfig.get('interfaces'):
+                for interface in element_ospfconfig.get('interfaces'):
+                    name_lookup_in_template(interface, 'interface_id', id_name_cache)
+            element_ospfconfig_template = copy.deepcopy(element_ospfconfig)
+            name = element_ospfconfig_template.get('name')
+            strip_meta_attributes(element_ospfconfig_template)
+            element[OSPFCONFIGS_STR][name] = element_ospfconfig_template
+        delete_if_empty(element, OSPFCONFIGS_STR)
+
+        # Get ospfglobalconfigs
+        element[OSPFGLOBALCONFIGS_STR] = []
+        response = sdk.get.ospfglobalconfigs(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Ospfglobalconfigs get failed: ", response)
+        element_ospfglobalconfigs = response.cgx_content['items']
+        for element_ospfglobalconfig in element_ospfglobalconfigs:
+            element_ospfglobalconfig_template = copy.deepcopy(element_ospfglobalconfig)
+            strip_meta_attributes(element_ospfglobalconfig_template)
+            element[OSPFGLOBALCONFIGS_STR].append(element_ospfglobalconfig_template)
+        delete_if_empty(element, OSPFGLOBALCONFIGS_STR)
 
         # Get toolkit
         response = sdk.get.elementaccessconfigs(element['id'])
