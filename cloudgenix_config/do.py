@@ -2428,9 +2428,10 @@ def modify_site(config_site, site_id, version=None):
 
             site_id = site_change_check.get('id')
             site_name = site_change_check.get('name')
+
             config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
-            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \    
-            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs,\
+            config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
+            config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, \
             config_prismasase_connections, config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
             config_pathprefixdistributionfilterassociation = parse_site_config(config_site)
 
