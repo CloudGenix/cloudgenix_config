@@ -8948,7 +8948,7 @@ def do_site(loaded_config, destroy, declaim=False, passed_sdk=None, passed_timeo
             config_site = recombine_named_key_value(config_site_name, config_site_value, name_key='name')
 
             # parse site config
-
+            config_waninterfaces, config_lannetworks, config_elements, config_dhcpservers, config_site_extensions, \
             config_site_security_zones, config_spokeclusters, config_site_nat_localprefixes, config_site_ipfix_localprefixes, \
             config_multicastsourcesiteconfigs, config_hubclusters, config_deviceidconfigs, config_prismasase_connections, \
             config_prefixdistributionspokelists, config_pathprefixdistributionfilters, \
