@@ -172,7 +172,8 @@ element_put_items = [
     "device_profile_id",
     "main_power_usage_threshold",
     "led_config",
-    "port_channel_config"
+    "port_channel_config",
+    "hub_cluster_config"
 ]
 
 createable_interface_types = [
