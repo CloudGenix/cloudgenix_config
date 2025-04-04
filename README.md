@@ -30,9 +30,14 @@ configuration is designed to be run on file change, to maintain configuration st
 MIT
 
 #### Installation:
- - **PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
+ - **Option 1 (recommended) PIP:** `pip install cloudgenix_config`. After install, `pull_site`/`do_site` scripts should be placed in the Python
  Scripts directory. 
- - **Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
+ - **Option 2 Github:** Download files to a local directory, manually run `pull_site.py` and `do_site.py` scripts.  
+
+#### Token:
+- When using an authentication token, make sure "IP Session Lock" is disabled for the user creating the token. This setting can be validated on the Prisma SD-WAN portal under the User Administration settings. Leaving this setting at default may cause authentication to fail.  
+- To generate your Token for a given Tenant, you need to go to System Administration > Auth Tokens > Create Auth Token. 
+
 
 #### Examples of usage:
  1. Configure a Site, Element, and related objects using the UI. Record the Site name (example, MySite)
