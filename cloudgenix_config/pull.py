@@ -85,7 +85,8 @@ except ImportError:
     CLOUDGENIX_USER = None
     CLOUDGENIX_PASSWORD = None
 
-
+interface_tags_skiplst = { 'AUTO_PA_SDWAN_MANAGED'}
+skip_bgp_tags = { 'AUTO_PA_SDWAN_MANAGED'}
 # python 2 and 3 handling
 if sys.version_info < (3,):
     text_type = unicode
@@ -166,11 +167,19 @@ CELLULAR_MODULES_SIM_SECURITY_STR = "cellular_modules_sim_security"
 ELEMENT_CELLULAR_MODULES_STR = "element_cellular_modules"
 ELEMENT_CELLULAR_MODULES_FIRMWARE_STR = "element_cellular_modules_firmware"
 RADII_STR = "radii"
+TACACS_STR = "tacacs_plus_servers"
 MULTICASTSOURCESITECONFIGS_STR = "multicastsourcesiteconfigs"
 # MULTICASTPEERGROUPS_STR = "multicastpeergroups"
 DEVICE_ID_CONFIGS_STR = "deviceidconfigs"
 SNMPDISCOVERY_STR = "snmpdiscoverystartnodes"
 ELEMENT_DEVICEIDCONFIGS_STR = "element_deviceidconfigs"
+OSPFCONFIGS_STR = "ospfconfigs"
+OSPFGLOBALCONFIGS_STR = "ospfglobalconfigs"
+PRISMASASE_CONNECTIONS_STR = "prismasase_connections"
+PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR = "pathprefixdistributionfilterassociation"
+PATHPREFIXDISTRIBUTIONFILTERS_STR = "pathprefixdistributionfilters"
+PREFIXDISTRIBUTIONSPOKELISTS_STR = "prefixdistributionspokelists"
+
 
 # Global Config Cache holders
 sites_cache = []
@@ -213,6 +222,9 @@ vrfcontextprofiles_cache = []
 perfmgmtpolicysetstacks_cache = []
 perfmgmtpolicysets_cache = []
 deviceidprofiles_cache = []
+prismasase_connections_cache = []
+tacacsplusprofile_cache =[]
+
 
 id_name_cache = {}
 sites_n2id = {}
@@ -323,12 +335,14 @@ def update_global_cache():
     global apnprofiles_cache
     global multicastpeergroups_cache
     global radii_cache
+    global tacacsplusprofile_cache
     global multicastsourcesiteconfigs_cache
     global vrfcontexts_cache
     global vrfcontextprofiles_cache
     global perfmgmtpolicysetstacks_cache
     global perfmgmtpolicysets_cache
     global deviceidprofiles_cache
+    global prismasase_connections_cache
 
 
     global id_name_cache
@@ -482,6 +496,9 @@ def update_global_cache():
     deviceidprofiles_resp = sdk.get.deviceidprofiles()
     deviceidprofiles_cache, _ = extract_items(deviceidprofiles_resp, 'deviceidprofiles')
 
+    tacacsplusprofile_resp = sdk.get.tacacs_plus_profiles()
+    tacacsplusprofile_cache, _ = extract_items(tacacsplusprofile_resp, 'tacacsplusprofiles')
+
     # sites name
     id_name_cache.update(build_lookup_dict(sites_cache, key_val='id', value_val='name'))
 
@@ -583,6 +600,8 @@ def update_global_cache():
     # radii name
     id_name_cache.update(build_lookup_dict(radii_cache, key_val='id', value_val='name'))
 
+    id_name_cache.update(build_lookup_dict(tacacsplusprofile_cache, key_val='id', value_val='name'))
+
     id_name_cache.update(build_lookup_dict(vrfcontexts_cache, key_val='id', value_val='name'))
 
     id_name_cache.update(build_lookup_dict(vrfcontextprofiles_cache, key_val='id', value_val='name'))
@@ -656,10 +675,17 @@ def build_version_strings():
     global ELEMENT_CELLULAR_MODULES_STR
     global ELEMENT_CELLULAR_MODULES_FIRMWARE_STR
     global RADII_STR
+    global TACACS_STR
     global MULTICASTSOURCESITECONFIGS_STR
     global DEVICE_ID_CONFIGS_STR
     global SNMPDISCOVERY_STR
     global ELEMENT_DEVICEIDCONFIGS_STR
+    global OSPFCONFIGS_STR
+    global OSPFGLOBALCONFIGS_STR
+    global PRISMASASE_CONNECTIONS_STR
+    global PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR
+    global PATHPREFIXDISTRIBUTIONFILTERS_STR
+    global PREFIXDISTRIBUTIONSPOKELISTS_STR
 
     if not STRIP_VERSIONS:
         # Config container strings
@@ -700,11 +726,17 @@ def build_version_strings():
         ELEMENT_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules, "element_cellular_modules")
         ELEMENT_FIRMWARE_CELLULAR_MODULES_STR = add_version_to_object(sdk.get.element_cellular_modules_firmware, "element_cellular_modules_firmware")
         RADII_STR = add_version_to_object(sdk.get.radii, "radii")
+        TACACS_STR = add_version_to_object(sdk.get.tacacs_plus_servers, "tacacs_plus_servers")
         MULTICASTSOURCESITECONFIGS_STR = add_version_to_object(sdk.get.multicastsourcesiteconfigs, "multicastsourcesiteconfigs")
         DEVICE_ID_CONFIGS_STR = add_version_to_object(sdk.get.deviceidconfigs, "deviceidconfigs")
         SNMPDISCOVERY_STR = add_version_to_object(sdk.get.deviceidconfigs_snmpdiscoverystartnodes, "snmpdiscoverystartnodes")
         ELEMENT_DEVICEIDCONFIGS_STR = add_version_to_object(sdk.get.element_deviceidconfigs, "element_deviceidconfigs")
-
+        OSPFCONFIGS_STR = add_version_to_object(sdk.get.ospfconfigs, "ospfconfigs")
+        OSPFGLOBALCONFIGS_STR = add_version_to_object(sdk.get.ospfglobalconfigs, "ospfglobalconfigs")
+        PRISMASASE_CONNECTIONS_STR = add_version_to_object(sdk.get.prismasase_connections, "prismasase_connections")
+        PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR = add_version_to_object(sdk.get.pathprefixdistributionfilterassociation, "pathprefixdistributionfilterassociation")
+        PATHPREFIXDISTRIBUTIONFILTERS_STR = add_version_to_object(sdk.get.pathprefixdistributionfilters, "pathprefixdistributionfilters")
+        PREFIXDISTRIBUTIONSPOKELISTS_STR = add_version_to_object(sdk.get.prefixdistributionspokelists, "prefixdistributionspokelists")
 
 def strip_meta_attributes(obj, leave_name=False, report_id=None):
     """
@@ -1054,6 +1086,108 @@ def _pull_config_for_single_site(site_name_id):
 
     delete_if_empty(site, DEVICE_ID_CONFIGS_STR)
 
+    # Get prismasase_connections
+
+    # site[PRISMASASE_CONNECTIONS_STR] = {}
+    # response = sdk.get.prismasase_connections(site['id'])
+    # if not response.cgx_status:
+    #     throw_warning("Prisma SASE Connections get failed: ", response)
+    # prismasase_connections_items = response.cgx_content.get('items', [])
+    #
+    # for prismasase_connections in prismasase_connections_items:
+    #
+    #     location_name = prismasase_connections.get('prismaaccess_edge_location')[0]
+    #     prismasase_connections_template = copy.deepcopy(prismasase_connections)
+    #     if prismasase_connections.get('enabled_wan_interface_ids'):
+    #         wan_interface_ids = []
+    #         for wan_interface_id in prismasase_connections.get('enabled_wan_interface_ids', []):
+    #             wan_interface_ids.append(id_name_cache.get(wan_interface_id, wan_interface_id))
+    #         if wan_interface_ids:
+    #             prismasase_connections_template['enabled_wan_interface_ids'] = wan_interface_ids
+    #
+    #     if prismasase_connections_template.get('remote_network_groups'):
+    #         for remote_network_group in prismasase_connections_template.get('remote_network_groups'):
+    #             remote_network_group.pop('ipsec_tunnels', '')
+    #             remote_network_group['name'] = None
+    #
+    #     if prismasase_connections.get('routing_configs'):
+    #         if prismasase_connections.get('routing_configs').get('bgp_secret'):
+    #             prismasase_connections_template['routing_configs']['bgp_secret'] = None
+    #
+    #     prismasase_connections_template.pop('ipsec_tunnel_configs', '')
+    #     prismasase_connections_template.pop('prismaaccess_edge_location', '')
+    #     strip_meta_attributes(prismasase_connections_template)
+    #     site[PRISMASASE_CONNECTIONS_STR][location_name] = prismasase_connections_template
+    #
+    # delete_if_empty(site, PRISMASASE_CONNECTIONS_STR)
+
+    # Get PATHPREFIXDISTRIBUTIONFILTERS
+    site[PATHPREFIXDISTRIBUTIONFILTERS_STR] = {}
+    response = sdk.get.pathprefixdistributionfilters(site['id'])
+    if not response.cgx_status:
+        throw_error("PATHPREFIXDISTRIBUTIONFILTERS Config Fetch Failed: ", response)
+
+    pathprefixdistributionfilters_items = response.cgx_content['items']
+    for pathprefixdistributionfilter in pathprefixdistributionfilters_items:
+        pathprefixdistributionfilters_template = copy.deepcopy(pathprefixdistributionfilter)
+        pathprefixdistributionfilter_name = pathprefixdistributionfilters_template.get('name')
+        if pathprefixdistributionfilters_template.get('path_prefix_filter_list'):
+            for path_prefix_filter in pathprefixdistributionfilters_template.get('path_prefix_filter_list'):
+                if path_prefix_filter.get('vrf_context_id'):
+                    path_prefix_filter['vrf_context_id'] = id_name_cache.get(path_prefix_filter['vrf_context_id'])
+        strip_meta_attributes(pathprefixdistributionfilters_template)
+        site[PATHPREFIXDISTRIBUTIONFILTERS_STR][pathprefixdistributionfilter_name] = pathprefixdistributionfilters_template
+
+    delete_if_empty(site, PATHPREFIXDISTRIBUTIONFILTERS_STR)
+
+    # Get PATHPREFIXDISTRIBUTIONFILTERASSOCIATION
+    site[PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR] = []
+    response = sdk.get.pathprefixdistributionfilterassociation(site['id'])
+    if not response.cgx_status:
+        throw_error("PATHPREFIXDISTRIBUTIONFILTERASSOCIATION Config Fetch Failed: ", response)
+
+    pathprefixdistributionfilterassociation_items = response.cgx_content['items']
+    for pathprefixdistributionfilterassociation in pathprefixdistributionfilterassociation_items:
+        pathprefixdistributionfilterassociation_template = copy.deepcopy(pathprefixdistributionfilterassociation)
+
+        if pathprefixdistributionfilterassociation_template.get('peer_site_ids'):
+            peer_sites = []
+            for peer_site in pathprefixdistributionfilterassociation_template.get('peer_site_ids'):
+                peer_sites.append(id_name_cache.get(peer_site))
+            pathprefixdistributionfilterassociation_template['peer_site_ids'] = peer_sites
+
+        if pathprefixdistributionfilterassociation_template.get('path_prefix_distribution_filter_id'):
+            path_prefix_distribution_filter_id = pathprefixdistributionfilterassociation_template.get('path_prefix_distribution_filter_id')
+
+            prefixdistributionfilters_resp = sdk.get.pathprefixdistributionfilters(site['id'], path_prefix_distribution_filter_id)
+            if not prefixdistributionfilters_resp.cgx_status:
+                throw_error("PATHPREFIXDISTRIBUTIONFILTERS Config Fetch Failed: ", prefixdistributionfilters_resp)
+
+            pathprefixdistributionfilter = prefixdistributionfilters_resp.cgx_content
+            pathprefixdistributionfilterassociation_template['path_prefix_distribution_filter_id'] = pathprefixdistributionfilter.get('name')
+        strip_meta_attributes(pathprefixdistributionfilterassociation_template, leave_name=True)
+        site[PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR].append(pathprefixdistributionfilterassociation_template)
+
+    delete_if_empty(site, PATHPREFIXDISTRIBUTIONFILTERASSOCIATION_STR)
+
+    # Get PREFIXDISTRIBUTIONSPOKELISTS
+    site[PREFIXDISTRIBUTIONSPOKELISTS_STR] = []
+    response = sdk.get.prefixdistributionspokelists(site['id'])
+    if not response.cgx_status:
+        throw_error("PREFIXDISTRIBUTIONSPOKELISTS Config Fetch Failed: ", response)
+
+    prefixdistributionspokelists_items = response.cgx_content['items']
+    for prefixdistributionspokelist in prefixdistributionspokelists_items:
+        prefixdistributionspokelists_template = copy.deepcopy(prefixdistributionspokelist)
+        if prefixdistributionspokelists_template.get('spoke_site_ids'):
+            spoke_site_id_name_list = []
+            for spoke_site_id in prefixdistributionspokelists_template.get('spoke_site_ids'):
+                spoke_site_id_name_list.append(id_name_cache.get(spoke_site_id))
+            prefixdistributionspokelists_template['spoke_site_ids'] = spoke_site_id_name_list
+        strip_meta_attributes(prefixdistributionspokelists_template)
+        site[PREFIXDISTRIBUTIONSPOKELISTS_STR].append(prefixdistributionspokelists_template)
+    delete_if_empty(site, PREFIXDISTRIBUTIONSPOKELISTS_STR)
+
     # Get Elements
     site[ELEMENTS_STR] = {}
     dup_name_dict_elements = {}
@@ -1115,7 +1249,16 @@ def _pull_config_for_single_site(site_name_id):
         parent_id_list = []
         bp_parent_id_list = []
         if_name_dict = {}
+        skip_if_set = set()
         for interface in interfaces:
+            Flag = False
+            if interface.get('tags'):
+                tags = interface.get('tags')
+                Flag = True
+            tags = set(tags) if Flag else set()
+            if len(tags.intersection(interface_tags_skiplst)):
+                skip_if_set.add(interface['id'])
+
             if interface.get('name') in if_name_dict:
                 if_name_dict[interface.get('name')] += 1
             else:
@@ -1152,7 +1295,10 @@ def _pull_config_for_single_site(site_name_id):
 
         for interface in interfaces:
             interface_id = interface.get('id')
+            if interface['id'] in skip_if_set:
+                continue
             if_type = interface.get('type')
+
             if not FORCE_PARENTS and interface_id in parent_id_list:
                 # interface is a parent, skip
                 # Pull interface config for bypasspair and virtual interface as it can have subif/pppoe/servicelink configs
@@ -1167,7 +1313,7 @@ def _pull_config_for_single_site(site_name_id):
                         continue
                 elif interface_id in bp_parent_id_list:
                     continue
-                elif if_type not in ('virtual_interface', 'bypasspair', 'port'):
+                elif if_type not in ('virtual_interface', 'bypasspair', 'port', 'port_channel'):
                     continue
             elif FORCE_PARENTS:
                 if element.get('model_name') == 'ion 9000':
@@ -1383,6 +1529,12 @@ def _pull_config_for_single_site(site_name_id):
         dup_name_dict = {}
         for bgp_peer in bgp_peers_cache:
             bgp_peer_template = copy.deepcopy(bgp_peer)
+            tags = bgp_peer_template.get('tags')
+            # to skip the bgp_peers using tags.
+            if tags:
+                filtered_tags = [1 for tag in tags if tag in skip_bgp_tags]
+                if filtered_tags:
+                    continue
             # replace flat name
             name_lookup_in_template(bgp_peer_template, 'route_map_in_id', id_name_cache)
             name_lookup_in_template(bgp_peer_template, 'route_map_out_id', id_name_cache)
@@ -1550,6 +1702,22 @@ def _pull_config_for_single_site(site_name_id):
 
         delete_if_empty(element, RADII_STR)
 
+        # Get TACACS
+        element[TACACS_STR] = {}
+        response = sdk.get.tacacs_plus_servers(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("TACACS AAA get failed: ", response)
+        tacacs_items = response.cgx_content['items']
+        for tacacs in tacacs_items:
+            tacacs_template = copy.deepcopy(tacacs)
+            if tacacs_template.get("tacacs_plus_profile_id"):
+                tacacs_template["tacacs_plus_profile_id"] = id_name_cache.get(tacacs_template.get("tacacs_plus_profile_id"), tacacs_template.get("tacacs_plus_profile_id"))
+            if tacacs_template.get("source_interface_id"):
+                source_interface_id = tacacs_template.get("source_interface_id")
+                tacacs_template["source_interface_id"] = id_name_cache.get(source_interface_id, source_interface_id)
+            strip_meta_attributes(tacacs_template)
+            element[TACACS_STR][tacacs.get("name")] = tacacs_template
+        delete_if_empty(element, TACACS_STR)
 
         # Get syslog
         element[SYSLOG_STR] = []
@@ -1834,6 +2002,37 @@ def _pull_config_for_single_site(site_name_id):
             # names used, but config doesn't index by name for this value currently.
             element[ELEMENT_DEVICEIDCONFIGS_STR].append(element_deviceidconfig_template)
         delete_if_empty(element, ELEMENT_DEVICEIDCONFIGS_STR)
+
+        # Get ospfconfigs
+        element[OSPFCONFIGS_STR] = {}
+        response = sdk.get.ospfconfigs(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Ospfconfigs get failed: ", response)
+        element_ospfconfigs = response.cgx_content['items']
+        for element_ospfconfig in element_ospfconfigs:
+            name_lookup_in_template(element_ospfconfig, 'prefix_adv_route_map_id', id_name_cache)
+            name_lookup_in_template(element_ospfconfig, 'redistribute_route_map_id', id_name_cache)
+            name_lookup_in_template(element_ospfconfig, 'vrf_context_id', id_name_cache)
+            if element_ospfconfig.get('interfaces'):
+                for interface in element_ospfconfig.get('interfaces'):
+                    name_lookup_in_template(interface, 'interface_id', id_name_cache)
+            element_ospfconfig_template = copy.deepcopy(element_ospfconfig)
+            name = element_ospfconfig_template.get('name')
+            strip_meta_attributes(element_ospfconfig_template)
+            element[OSPFCONFIGS_STR][name] = element_ospfconfig_template
+        delete_if_empty(element, OSPFCONFIGS_STR)
+
+        # Get ospfglobalconfigs
+        element[OSPFGLOBALCONFIGS_STR] = []
+        response = sdk.get.ospfglobalconfigs(site['id'], element['id'])
+        if not response.cgx_status:
+            throw_error("Element Ospfglobalconfigs get failed: ", response)
+        element_ospfglobalconfigs = response.cgx_content['items']
+        for element_ospfglobalconfig in element_ospfglobalconfigs:
+            element_ospfglobalconfig_template = copy.deepcopy(element_ospfglobalconfig)
+            strip_meta_attributes(element_ospfglobalconfig_template)
+            element[OSPFGLOBALCONFIGS_STR].append(element_ospfglobalconfig_template)
+        delete_if_empty(element, OSPFGLOBALCONFIGS_STR)
 
         # Get toolkit
         response = sdk.get.elementaccessconfigs(element['id'])
